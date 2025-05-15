@@ -29,6 +29,29 @@ wax.shared.LocalPlayer = wax.shared.Players.LocalPlayer
 wax.shared.PlayerScripts = wax.shared.LocalPlayer:WaitForChild("PlayerScripts")
 wax.shared.ExecutorName = string.split(identifyexecutor(), " ")[1]
 
+local Hooking = {}
+
+Hooking.HookFunction = hookfunction
+
+Hooking.HookMetaMethod = function(object, method, hook)
+	local UseAltHooks = wax.shared.SaveManager:GetState("UseAlternativeHooks")
+	local alternativeEnabled = type(UseAltHooks) ~= "Boolean" and false or UseAltHooks
+    if alternativeEnabled then
+        local Metatable = wax.shared.getrawmetatable(object)
+	    local originalMethod = rawget(Metatable, method)
+
+	    setreadonly(Metatable, false)
+	    rawset(Metatable, method, wax.shared.newcclosure(hook))
+	    setreadonly(Metatable, true)
+
+	    return originalMethod;
+    end
+
+	return hookmetamethod(object, method, hook);
+end
+
+wax.shared.Hooking = Hooking
+
 wax.shared.newcclosure = wax.shared.ExecutorName == "AWP"
 		and function(f)
 			local env = getfenv(f)
