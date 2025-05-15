@@ -1042,6 +1042,12 @@ CreateSettingsButton("Clear All Logs", function()
 	wax.shared.Sonner.success("Successfully Cleared All Logs")
 end, MainSection)
 
+CreateSettingsCheckbox("UseAlternativeHooks", {
+	Text = "Use alternative metamethod hook",
+	Default = false,
+	Section = MainSection,
+})
+
 local FilterSection = CreateSettingsSection("Filter")
 
 CreateSettingsDropdown("IgnoredRemotesDropdown", {

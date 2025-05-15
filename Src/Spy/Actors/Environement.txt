@@ -61,7 +61,7 @@ wax.shared.restorefunction = function(Function: (...any) -> ...any, Silent: bool
 	if restorefunction and isfunctionhooked(Function) then
 		restorefunction(Function)
 	else
-		hookfunction(Function, Original)
+		wax.shared.Hooking.HookFunction(Function, Original)
 	end
 
 	wax.shared.Hooks[Function] = nil

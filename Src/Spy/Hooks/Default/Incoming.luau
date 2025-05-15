@@ -48,7 +48,7 @@ local function ListenToFunction(Instance, Function, Method)
 	end
 	HookedFunctions[Function] = true
 
-	wax.shared.Hooks[Function] = hookfunction(
+	wax.shared.Hooks[Function] = wax.shared.Hooking.HookFunction(
 		Function,
 		wax.shared.newcclosure(function(...)
 			if not wax.shared.ShouldIgnore(Instance, getcallingscript()) then
@@ -152,7 +152,7 @@ for _, Category in pairs({ getnilinstances(), game:GetDescendants() }) do
 	end
 end
 
-wax.shared.NewIndexHook = hookmetamethod(
+wax.shared.NewIndexHook = wax.shared.Hooking.HookMetaMethod(
 	game,
 	"__newindex",
 	wax.shared.newcclosure(function(self, key, value)
@@ -199,7 +199,7 @@ wax.shared.NewIndexHook = hookmetamethod(
 )
 
 local SignalMetatable = wax.shared.getrawmetatable(Instance.new("Part").Touched)
-wax.shared.Hooks[SignalMetatable.__index] = hookfunction(SignalMetatable.__index, function(self, key)
+wax.shared.Hooks[SignalMetatable.__index] = wax.shared.Hooking.HookFunction(SignalMetatable.__index, function(self, key)
 	if key == "Connect" or key == "ConnectParallel" then
 		local Instance = SignalMapping[self]
 		local Connect = wax.shared.Hooks[SignalMetatable.__index](self, key)
@@ -209,7 +209,7 @@ wax.shared.Hooks[SignalMetatable.__index] = hookfunction(SignalMetatable.__index
 		end
 
 		local Method = ClassesToHook[Instance.ClassName]
-		wax.shared.Hooks[Connect] = hookfunction(
+		wax.shared.Hooks[Connect] = wax.shared.Hooking.HookFunction(
 			Connect,
 			wax.shared.newcclosure(function(self, callback)
 				ListenToFunction(Instance, callback, Method)

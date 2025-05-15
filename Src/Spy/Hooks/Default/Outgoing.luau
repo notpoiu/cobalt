@@ -36,7 +36,7 @@ local function getcallingline()
 end
 
 -- metamethod hooks
-wax.shared.NamecallHook = hookmetamethod(
+wax.shared.NamecallHook = wax.shared.Hooking.HookMetaMethod(
 	game,
 	"__namecall",
 	wax.shared.newcclosure(function(self, ...)
@@ -114,7 +114,7 @@ local FunctionsToHook = {
 for _, Function in pairs(FunctionsToHook) do
 	local Method = debug.info(Function, "n")
 
-	wax.shared.Hooks[Function] = hookfunction(
+	wax.shared.Hooks[Function] = wax.shared.Hooking.HookFunction(
 		Function,
 		wax.shared.newcclosure(function(self, ...)
 			if self ~= wax.shared.Communicator and not wax.shared.ShouldIgnore(self, getcallingscript()) then

@@ -34,6 +34,7 @@ wax.shared.Highlighter = require("Utils/Highlighter")
 wax.shared.Pagination = require("Utils/Pagination")
 wax.shared.CodeGen = require("Utils/CodeGen")
 wax.shared.Resize = require("Utils/Resize")
+wax.shared.Hooking = require("Utils/Hooking")
 
 -- Variables
 if not wax.shared.Players.LocalPlayer then
@@ -62,7 +63,7 @@ wax.shared.restorefunction = function(Function: (...any) -> ...any, Silent: bool
 	if restorefunction and isfunctionhooked(Function) then
 		restorefunction(Function)
 	else
-		hookfunction(Function, Original)
+		wax.shared.Hooking.HookFunction(Function, Original)
 	end
 
 	wax.shared.Hooks[Function] = nil
@@ -177,8 +178,8 @@ wax.shared.Unload = function()
 		pcall(restorefunction, gameMetatable.__namecall)
 		pcall(restorefunction, gameMetatable.__newindex)
 	else
-		hookmetamethod(game, "__namecall", wax.shared.NamecallHook)
-		hookmetamethod(game, "__newindex", wax.shared.NewIndexHook)
+		wax.shared.Hooking.HookMetaMethod(game, "__namecall", wax.shared.NamecallHook)
+		wax.shared.Hooking.HookMetaMethod(game, "__newindex", wax.shared.NewIndexHook)
 	end
 
 	for Function, Original in pairs(wax.shared.Hooks) do
