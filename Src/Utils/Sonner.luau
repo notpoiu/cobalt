@@ -199,6 +199,7 @@ function Sonner.toast(text, internalTime)
 end
 
 function Sonner.promise(func, options)
+    setthreadidentity(8)
 	local loadingText = options.loadingText or "Loading..."
 	local successText = options.successText or "Success!"
 	local errorText = options.errorText or "Error!"
