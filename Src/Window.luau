@@ -1832,7 +1832,7 @@ CreateInfoDropdownButton("network", "Event", {
 				return
 			end
 
-			task.spawn(wax.shared.Sonner.promise, function()
+			wax.shared.Sonner.promise(function()
 				wax.shared.ReplayCallInfo(CurrentInfo, CurrentTab.Name)
 			end, {
 				loadingText = "Replaying event...",
@@ -3150,7 +3150,7 @@ function CreateCallFrame(CallInfo)
 						return
 					end
 
-					task.spawn(wax.shared.Sonner.promise, function()
+					wax.shared.Sonner.promise(function()
 						wax.shared.ReplayCallInfo(CallInfo, CurrentTab.Name)
 					end, {
 						loadingText = "Replaying event...",

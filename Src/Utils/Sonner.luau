@@ -199,7 +199,6 @@ function Sonner.toast(text, internalTime)
 end
 
 function Sonner.promise(func, options)
-    setthreadidentity(8)
 	local loadingText = options.loadingText or "Loading..."
 	local successText = options.successText or "Success!"
 	local errorText = options.errorText or "Error!"
@@ -223,8 +222,8 @@ function Sonner.promise(func, options)
 		success, resultOrError = pcall(func) -- yes mstudio45, your famous pcall is better (- deivid)
 
 	   	task.spawn(function()
-			-- print(getthreadidentity()) --> 8
-
+			setthreadidentity(8)
+			
 			-- The thread identity is 8 when setting it on the parent thread (Sonner.promise), but it still lacks capabilities when running another child thread
 			-- Capabilities here should pass from a thread to another... Could be an upstream (executor) issue ?
 			
