@@ -199,6 +199,7 @@ function Sonner.toast(text, internalTime)
 end
 
 function Sonner.promise(func, options)
+	setthreadidentity(8)
 	local loadingText = options.loadingText or "Loading..."
 	local successText = options.successText or "Success!"
 	local errorText = options.errorText or "Error!"
@@ -219,69 +220,73 @@ function Sonner.promise(func, options)
 			until success == false or resultOrError ~= nil
 		end)
 
-		success, resultOrError = pcall(func) -- yes mstudio45, your famous pcall is better (- deivid)
-
-		wax.shared.Animations.FadeOut(notif.ImageLabel, 0.15)
-		wax.shared.TweenService
-			:Create(notif.ImageLabel, TweenInfo.new(0.25, Enum.EasingStyle.Exponential), {
-				Size = UDim2.new(0, 0, 0, 0),
-			})
-			:Play()
-		task.wait(0.15)
-
-		if coroutine.status(spinnerThread) ~= "dead" then
-			coroutine.close(spinnerThread)
-		end
-		notif.ImageLabel.Rotation = 0
-
-		if success then
-			wax.shared.Icons.SetIcon(notif.ImageLabel, "check")
-			local message = (
-				typeof(successText) == "string" and successText
-				or typeof(successText) == "function" and successText(resultOrError)
-				or "Success!"
-			)
-
-			if message:match("%s") then
-				notif.Frame.TextLabel.Text = string.format(message, tostring(resultOrError))
-			else
-				notif.Frame.TextLabel.Text = message
-			end
-		else
-			wax.shared.Icons.SetIcon(notif.ImageLabel, "circle-alert")
-			notif.Frame.TextLabel.Text = (
-				typeof(errorText) == "string" and errorText
-				or typeof(errorText) == "function" and errorText(resultOrError)
-				or "Error!"
-			)
-		end
-
+		success, resultOrError = pcall(func)
+		
+		-- print(getthreadidentity()) --> 8
 		task.spawn(function()
-			setthreadidentity(8)
-			wax.shared.Animations.FadeIn(notif.ImageLabel)
+			-- print(getthreadidentity()) --> 8
+
+			-- The thread identity is 8 when setting it on the parent thread (Sonner.promise), but it still lacks capabilities when running another child thread
+			-- Capabilities here should pass from a thread to another... Could be an upstream (executor) issue ?
+			wax.shared.Animations.FadeOut(notif.ImageLabel, 0.15)
 			wax.shared.TweenService
 				:Create(notif.ImageLabel, TweenInfo.new(0.25, Enum.EasingStyle.Exponential), {
-					Size = UDim2.new(0, 20, 0, 20),
+					Size = UDim2.new(0, 0, 0, 0),
 				})
 				:Play()
+			task.wait(0.15)
 
-			task.delay(time, function()
-				if not table.find(Sonner.Queue, notif) then
-					return
+			if coroutine.status(spinnerThread) ~= "dead" then
+				coroutine.close(spinnerThread)
+			end
+			notif.ImageLabel.Rotation = 0
+
+			if success then
+				wax.shared.Icons.SetIcon(notif.ImageLabel, "check")
+				local message = (
+					typeof(successText) == "string" and successText
+					or typeof(successText) == "function" and successText(resultOrError)
+					or "Success!"
+				)
+
+				if message:match("%s") then
+					notif.Frame.TextLabel.Text = string.format(message, tostring(resultOrError))
+				else
+					notif.Frame.TextLabel.Text = message
 				end
-				table.remove(Sonner.Queue, table.find(Sonner.Queue, notif))
+			else
+				wax.shared.Icons.SetIcon(notif.ImageLabel, "circle-alert")
+				notif.Frame.TextLabel.Text = (
+					typeof(errorText) == "string" and errorText
+					or typeof(errorText) == "function" and errorText(resultOrError)
+					or "Error!"
+				)
+			end
 
-				wax.shared.Animations.FadeOut(notif, 0.35)
+				wax.shared.Animations.FadeIn(notif.ImageLabel)
 				wax.shared.TweenService
-					:Create(notif, Sonner.TweenInfo, {
-						Position = UDim2.new(0.5, 0, 1, 50),
+					:Create(notif.ImageLabel, TweenInfo.new(0.25, Enum.EasingStyle.Exponential), {
+						Size = UDim2.new(0, 20, 0, 20),
 					})
 					:Play()
 
-				task.wait(0.5)
-				notif:Destroy()
+				task.delay(time, function()
+					if not table.find(Sonner.Queue, notif) then
+						return
+					end
+					table.remove(Sonner.Queue, table.find(Sonner.Queue, notif))
+
+					wax.shared.Animations.FadeOut(notif, 0.35)
+					wax.shared.TweenService
+						:Create(notif, Sonner.TweenInfo, {
+							Position = UDim2.new(0.5, 0, 1, 50),
+						})
+						:Play()
+
+					task.wait(0.5)
+					notif:Destroy()
+				end)
 			end)
-		end)
 	end)
 end
 

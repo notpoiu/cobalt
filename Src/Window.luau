@@ -20,7 +20,6 @@ local ClassOrder = {
 	"BindableEvent",
 	"BindableFunction",
 }
-
 local Images = {
 	RemoteEvent = "rbxassetid://110803789420086",
 	UnreliableRemoteEvent = "rbxassetid://126244162339059",
@@ -28,11 +27,6 @@ local Images = {
 	BindableEvent = "rbxassetid://116839398727495",
 	BindableFunction = "rbxassetid://112264959079193",
 }
-
--- ContentProvider PreloadAsync bypass
-Images = wax.shared.ImageFetcher.GetRemoteImages(Images)
-
-local CobaltLogo = wax.shared.ImageFetcher.GetImage("Logo")
 
 local ScreenGui = wax.shared.Interface.New("ScreenGui", {
 	Name = "Cobalt",
@@ -68,7 +62,7 @@ local ShowButton = wax.shared.Interface.New("TextButton", {
 	["ImageLabel"] = {
 		AnchorPoint = Vector2.new(0.5, 0.5),
 		BackgroundTransparency = 1,
-		Image = CobaltLogo,
+		Image = "rbxassetid://91685317120520",
 		Position = UDim2.fromScale(0.5, 0.5),
 		Size = UDim2.new(1, -10, 1, -10),
 	},
@@ -92,7 +86,7 @@ end
 wax.shared.Resize.new({
 	MainFrame = MainFrame,
 
-	MinimumSize = Vector2.new(585, 220),
+	MinimumSize = Vector2.new(640, 420),
 
 	CornerHandleSize = 20,
 	HandleSize = 6,
@@ -492,18 +486,6 @@ local SettingsFrame = wax.shared.Interface.New("TextButton", {
 	},
 })
 
-wax.shared.Resize.new({
-	MainFrame = SettingsFrame,
-
-	MaximumSize = UDim2.new(1, -2, 1, -2),
-	MinimumSize = UDim2.fromScale(0.65, 0.712),
-	Mirrored = true,
-	LockedPosition = true,
-
-	CornerHandleSize = 20,
-	HandleSize = 6,
-})
-
 CreateModalTop("Settings", "settings", SettingsFrame)
 
 local SettingsScrollingFrame = wax.shared.Interface.New("ScrollingFrame", {
@@ -604,7 +586,7 @@ local function CreateSettingsCheckbox(
 )
 	local Checkbox = {
 		Default = Options.Default or false,
-		Value = if typeof(wax.shared.SaveManager:GetState(Idx)) == "boolean" then wax.shared.SaveManager:GetState(Idx) else (Options.Default or false),
+		Value = wax.shared.SaveManager:GetState(Idx) or Options.Default or false,
 	}
 
 	local CheckboxUI = wax.shared.Interface.New("TextButton", {
@@ -1039,31 +1021,6 @@ end
 
 local MainSection = CreateSettingsSection("Main")
 
-CreateSettingsCheckbox("UseAlternativeHooks", {
-	Text = "Use alternative metamethod hook",
-	Default = false,
-	Section = MainSection,
-})
-
-CreateSettingsCheckbox("AnticheatBypass", {
-	Text = "Built-in Anticheat Bypass",
-	Default = true,
-	Section = MainSection,
-})
-
-if wax.shared.AnticheatDisabled then
-	wax.shared.Interface.New("TextLabel", {
-		Text = `Anticheat Detected: <b>{wax.shared.AnticheatName}</b>`,
-		TextSize = 16,
-		Size = UDim2.fromScale(1, 0),
-		AutomaticSize = Enum.AutomaticSize.Y,
-		TextXAlignment = Enum.TextXAlignment.Left,
-		BackgroundTransparency = 1,
-		Parent = MainSection,
-		TextWrapped = true,
-	})
-end
-
 CreateSettingsButton("Clear All Logs", function()
 	for _, Logs in pairs(wax.shared.Logs) do
 		for Index, Log in pairs(Logs) do
@@ -1084,6 +1041,12 @@ CreateSettingsButton("Clear All Logs", function()
 
 	wax.shared.Sonner.success("Successfully Cleared All Logs")
 end, MainSection)
+
+CreateSettingsCheckbox("UseAlternativeHooks", {
+	Text = "Use alternative metamethod hook",
+	Default = false,
+	Section = MainSection,
+})
 
 local FilterSection = CreateSettingsSection("Filter")
 
@@ -1329,18 +1292,6 @@ local InfoFrame = wax.shared.Interface.New("TextButton", {
 		Color = Color3.fromRGB(25, 25, 25),
 		Thickness = 1,
 	},
-})
-
-wax.shared.Resize.new({
-	MainFrame = InfoFrame,
-
-	MaximumSize = UDim2.new(1, -2, 1, -2),
-	MinimumSize = UDim2.fromScale(0.65, 0.712),
-	Mirrored = true,
-	LockedPosition = true,
-
-	CornerHandleSize = 20,
-	HandleSize = 6,
 })
 
 local InfoTitle, InfoIcon = CreateModalTop("...", Images["RemoteEvent"], InfoFrame)
@@ -1832,7 +1783,7 @@ CreateInfoDropdownButton("network", "Event", {
 				return
 			end
 
-			wax.shared.Sonner.promise(function()
+			task.spawn(wax.shared.Sonner.promise, function()
 				wax.shared.ReplayCallInfo(CurrentInfo, CurrentTab.Name)
 			end, {
 				loadingText = "Replaying event...",
@@ -2253,7 +2204,7 @@ local TopBar = wax.shared.Interface.New("Frame", {
 		Position = UDim2.new(0, 6, 0.5, 0),
 		Size = UDim2.new(1, -12, 1, -12),
 		SizeConstraint = Enum.SizeConstraint.RelativeYY,
-		Image = CobaltLogo,
+		Image = "rbxassetid://91685317120520",
 	},
 })
 wax.shared.Interface.HideCorner(TopBar, UDim2.fromScale(1, 0.5), Vector2.yAxis)
@@ -2749,7 +2700,7 @@ for i = 1, MaxButtons do
 end
 
 ShowPagination = function(Log)
-	local Pages = PaginationHelper:GetVisualInfo(nil, LogsList.AbsoluteSize.X)
+	local Pages = PaginationHelper:GetVisualInfo()
 	for Order, Info in pairs(Pages) do
 		if Info == "none" then
 			local Ellipsis = PaginationElements.Ellipsis[Order]
@@ -3150,7 +3101,7 @@ function CreateCallFrame(CallInfo)
 						return
 					end
 
-					wax.shared.Sonner.promise(function()
+					task.spawn(wax.shared.Sonner.promise, function()
 						wax.shared.ReplayCallInfo(CallInfo, CurrentTab.Name)
 					end, {
 						loadingText = "Replaying event...",
