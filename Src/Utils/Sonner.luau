@@ -199,7 +199,6 @@ function Sonner.toast(text, internalTime)
 end
 
 function Sonner.promise(func, options)
-	setthreadidentity(8)
 	local loadingText = options.loadingText or "Loading..."
 	local successText = options.successText or "Success!"
 	local errorText = options.errorText or "Error!"
@@ -220,7 +219,7 @@ function Sonner.promise(func, options)
 			until success == false or resultOrError ~= nil
 		end)
 
-		success, resultOrError = pcall(func)
+		success, resultOrError = pcall(func) -- yes mstudio45, your famous pcall is better (- deivid)
 		
 		-- print(getthreadidentity()) --> 8
 		task.spawn(function()
@@ -289,6 +288,7 @@ function Sonner.promise(func, options)
 			end)
 	end)
 end
+
 
 function Sonner.rawtoast(options)
 	local image = options.image
