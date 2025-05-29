@@ -221,13 +221,13 @@ function Sonner.promise(func, options)
 		end)
 
 		success, resultOrError = pcall(func) -- yes mstudio45, your famous pcall is better (- deivid)
-		
-		-- print(getthreadidentity()) --> 8
-		task.spawn(function()
+
+	   	task.spawn(function()
 			-- print(getthreadidentity()) --> 8
 
 			-- The thread identity is 8 when setting it on the parent thread (Sonner.promise), but it still lacks capabilities when running another child thread
 			-- Capabilities here should pass from a thread to another... Could be an upstream (executor) issue ?
+			
 			wax.shared.Animations.FadeOut(notif.ImageLabel, 0.15)
 			wax.shared.TweenService
 				:Create(notif.ImageLabel, TweenInfo.new(0.25, Enum.EasingStyle.Exponential), {
@@ -263,33 +263,32 @@ function Sonner.promise(func, options)
 				)
 			end
 
-				wax.shared.Animations.FadeIn(notif.ImageLabel)
+			wax.shared.Animations.FadeIn(notif.ImageLabel)
+			wax.shared.TweenService
+				:Create(notif.ImageLabel, TweenInfo.new(0.25, Enum.EasingStyle.Exponential), {
+					Size = UDim2.new(0, 20, 0, 20),
+				})
+				:Play()
+
+			task.delay(time, function()
+				if not table.find(Sonner.Queue, notif) then
+					return
+				end
+				table.remove(Sonner.Queue, table.find(Sonner.Queue, notif))
+
+				wax.shared.Animations.FadeOut(notif, 0.35)
 				wax.shared.TweenService
-					:Create(notif.ImageLabel, TweenInfo.new(0.25, Enum.EasingStyle.Exponential), {
-						Size = UDim2.new(0, 20, 0, 20),
+					:Create(notif, Sonner.TweenInfo, {
+						Position = UDim2.new(0.5, 0, 1, 50),
 					})
 					:Play()
 
-				task.delay(time, function()
-					if not table.find(Sonner.Queue, notif) then
-						return
-					end
-					table.remove(Sonner.Queue, table.find(Sonner.Queue, notif))
-
-					wax.shared.Animations.FadeOut(notif, 0.35)
-					wax.shared.TweenService
-						:Create(notif, Sonner.TweenInfo, {
-							Position = UDim2.new(0.5, 0, 1, 50),
-						})
-						:Play()
-
-					task.wait(0.5)
-					notif:Destroy()
-				end)
+				task.wait(0.5)
+				notif:Destroy()
 			end)
+		end)
 	end)
 end
-
 
 function Sonner.rawtoast(options)
 	local image = options.image
