@@ -74,8 +74,8 @@ Hooking.SetStackHidden = sethiddenstack
 			return dotPos < colonPos
 		end
 
-		local function TracebackLines(str)
-			local pos = 1
+		local function TracebackLines(str, lvl)
+			local pos = lvl
 			return function()
 				if not pos then
 					return nil
@@ -93,15 +93,25 @@ Hooking.SetStackHidden = sethiddenstack
 			end
 		end
 
-		OldDebugTraceback = hookfunction(getrenv().debug.traceback, function()
-			if checkcaller() then
-				return OldDebugTraceback()
+		OldDebugTraceback = hookfunction(getrenv().debug.traceback, function(...)
+			if checkcaller() or not (pcall(OldDebugTraceback, ...)) then
+				return OldDebugTraceback(...)
 			end
 
-			local Traceback = OldDebugTraceback()
+			local StartingString, StackLevel = ...
+			local Traceback = OldDebugTraceback(...)
 			local NewTraceback = {}
 
-			for Line in TracebackLines(Traceback) do
+			if typeof(StartingString) == "string" or typeof(StartingString) == "number" then
+				table.insert(NewTraceback, tostring(StartingString))
+			end
+			if typeof(StackLevel) ~= "number" or not tonumber(Stacklevel) then
+				StackLevel = 1
+			else
+				StackLevel = math.floor(tonumber(StackLevel))
+			end
+
+			for Line in TracebackLines(Traceback, StackLevel) do
 				if not ValidTraceback(Line) then
 					continue
 				end
@@ -126,8 +136,10 @@ Hooking.SetStackHidden = sethiddenstack
 				return OldDebugInfo(...)
 			end
 
+			ToInspect = math.floor(ToInspect)
+
 			local ReconstructedConstructedStack = {}
-			for Level = 2, 19997 do
+			for Level = 2, 20000 do
 				local Function, Source, Line, Name, NumberOfArgs, Varargs = OldDebugInfo(Level, "fslna")
 
 				if not Function or not Source or not Line or not Name then
@@ -147,16 +159,16 @@ Hooking.SetStackHidden = sethiddenstack
 				})
 			end
 
-			local InfoLevel = ReconstructedConstructedStack[ToInspect]
+			local InfoLevel = ReconstructedConstructedStack[ToInspect + 1] -- Because the stack starts at 0 and table index at 1 we have to account for the difference
 
 			if not InfoLevel then
-				-- Max level is 19997 so this guarantees that it will return nothing
+				-- Max level is 20000 so this guarantees that it will return nothing
 				return OldDebugInfo(3e4, LevelOrInfo)
 			end
 
 			local ReturnResult = {}
 			for idx, info in string.split(LevelOrInfo, "") do
-				local Value = InfoLevel[info]
+				local Value = InfoLevel[info + 1] -- Same thing here
 
 				if typeof(Value) == "table" then
 					for _, v in Value do
@@ -193,14 +205,16 @@ Hooking.SetStackHidden = sethiddenstack
 				return OldFenv(ToInspect)
 			end)
 
-			if ToInspect == nil or ToInspect == 0 or not Success or typeof(ToInspect) == "function" then
-				return setmetatable(ResultingEnv, {
+			if ToInspect == nil or (typeof(ToInspect) == "number" and math.floor(ToInspect) == 0) or not Success or typeof(ToInspect) == "function" then
+				return --[=[setmetatable(]=]ResultingEnv--[=[, { -- so as to not interfere with the other multi-line comment above
 					__index = getrenv()
-				})
+				})]=]
 			end
 
+			ToInspect = math.floor(ToInspect)
+
 			local ReconstructedConstructedStack = {}
-			for Level = 2, 19997 do
+			for Level = 2, 20000 do
 				local StackInfoSuccess, Data = pcall(function()
 					return {
 						Environement = OldFenv(Level + 3),
@@ -228,10 +242,10 @@ Hooking.SetStackHidden = sethiddenstack
 				table.insert(ReconstructedConstructedStack, Environement)
 			end
 
-			local InfoLevel = ReconstructedConstructedStack[ToInspect]
+			local InfoLevel = ReconstructedConstructedStack[ToInspect] -- no (+ 1) here because 
 
 			if not InfoLevel then
-				-- Max level is 19997 so this guarantees that it will return error
+				-- Max level is 20000 so this guarantees that it will return error
 				return OldFenv(3e4)
 			end
 
