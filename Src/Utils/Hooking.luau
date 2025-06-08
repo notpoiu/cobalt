@@ -168,7 +168,7 @@ Hooking.SetStackHidden = sethiddenstack
 
 			local ReturnResult = {}
 			for idx, info in string.split(LevelOrInfo, "") do
-				local Value = InfoLevel[info + 1] -- Same thing here
+				local Value = InfoLevel[info]
 
 				if typeof(Value) == "table" then
 					for _, v in Value do
@@ -205,7 +205,7 @@ Hooking.SetStackHidden = sethiddenstack
 				return OldFenv(ToInspect)
 			end)
 
-			if ToInspect == nil or (typeof(ToInspect) == "number" and math.floor(ToInspect) == 0) or not Success or typeof(ToInspect) == "function" then
+			if ToInspect == nil --[=[ or (typeof(ToInspect) == "number" and math.floor(ToInspect) == 0) ]=] or not Success or typeof(ToInspect) == "function" then
 				return --[=[setmetatable(]=]ResultingEnv--[=[, { -- so as to not interfere with the other multi-line comment above
 					__index = getrenv()
 				})]=]
@@ -242,7 +242,7 @@ Hooking.SetStackHidden = sethiddenstack
 				table.insert(ReconstructedConstructedStack, Environement)
 			end
 
-			local InfoLevel = ReconstructedConstructedStack[ToInspect] -- no (+ 1) here because 
+			local InfoLevel = ReconstructedConstructedStack[ToInspect + 1]
 
 			if not InfoLevel then
 				-- Max level is 20000 so this guarantees that it will return error
