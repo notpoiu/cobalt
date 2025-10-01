@@ -1090,6 +1090,14 @@ do
 end
 
 
+local CodeGenSection = CreateSettingsSection("Code Generation")
+
+CreateSettingsCheckbox("PreferBufferFromString", {
+	Text = "Prefer buffer.fromstring",
+	Default = false,
+	Section = CodeGenSection,
+})
+
 local MainSection = CreateSettingsSection("Main")
 
 CreateSettingsCheckbox("ExecuteOnTeleport", {
@@ -1143,14 +1151,6 @@ CreateSettingsButton("Clear All Logs", function()
 
 	wax.shared.Sonner.success("Successfully Cleared All Logs")
 end, MainSection)
-
-local CodeGenSection = CreateSettingsSection("Code Generation")
-
-CreateSettingsCheckbox("PreferBufferFromString", {
-	Text = "Prefer buffer.fromstring",
-	Default = false,
-	Section = CodeGenSection,
-})
 
 local FilterSection = CreateSettingsSection("Filter")
 
