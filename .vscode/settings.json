@@ -34,5 +34,6 @@
     "files.associations": {
         "**/Src/Spy/Hooks/Actors/*": "luau",
         "**/Src/Spy/Actors/*": "luau",
-    }
+    },
+    "stylua.targetReleaseVersion": "latest"
 }

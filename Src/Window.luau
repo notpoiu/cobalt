@@ -1,4 +1,28 @@
-local PaginationHelper = wax.shared.Pagination.new({
+--[[
+	Main Window Logic for cobalt, all UI elements are created and managed here.
+]]
+
+local AnticheatData = require(script.Parent.Anticheats.Main)
+
+local Utils = script.Parent.Utils
+
+local Pagination = require(Utils.Pagination)
+local CodeGen = require(Utils.CodeGen)
+
+local UIUtils = script.Parent.Utils.UI
+
+local SyntaxHighlighter = require(UIUtils.Highlighter)
+
+local ImageFetcher = require(UIUtils.ImageFetch)
+local Icons = require(UIUtils.Icons)
+
+local Interface = require(UIUtils.Interface)
+local Helper = require(UIUtils.Helper)
+
+local Resize = require(UIUtils.Resize)
+local Drag = require(UIUtils.Drag)
+
+local PaginationHelper = Pagination.new({
 	ItemsPerPage = 20,
 	TotalItems = 0,
 })
@@ -37,23 +61,23 @@ local function UpdateLogNameSize(Log)
 end
 
 -- ContentProvider PreloadAsync bypass
-Images = wax.shared.ImageFetcher.GetRemoteImages(Images)
+Images = ImageFetcher.GetRemoteImages(Images)
 
-local CobaltLogo = wax.shared.ImageFetcher.GetImage("Logo")
+local CobaltLogo = ImageFetcher.GetImage("Logo")
 
-local ScreenGui = wax.shared.Interface.New("ScreenGui", {
+local ScreenGui = Interface.New("ScreenGui", {
 	Name = "Cobalt",
 	ResetOnSpawn = false,
-	Parent = wax.shared.Interface.GetScreenParent(),
+	Parent = Interface.GetScreenParent(),
 	ZIndexBehavior = Enum.ZIndexBehavior.Sibling,
 })
 wax.shared.ScreenGui = ScreenGui
 
-local MainUICorner = wax.shared.Interface.New("UICorner", {
+local MainUICorner = Interface.New("UICorner", {
 	CornerRadius = UDim.new(0, 6),
 })
 
-local MainFrame = wax.shared.Interface.New("Frame", {
+local MainFrame = Interface.New("Frame", {
 	AnchorPoint = Vector2.new(0.5, 0.5),
 	BackgroundColor3 = Color3.fromRGB(15, 15, 15),
 	Position = UDim2.fromScale(0.5, 0.5),
@@ -64,7 +88,7 @@ local MainFrame = wax.shared.Interface.New("Frame", {
 	Parent = ScreenGui,
 })
 
-local ShowButton = wax.shared.Interface.New("TextButton", {
+local ShowButton = Interface.New("TextButton", {
 	AnchorPoint = Vector2.new(0.5, 0),
 	BackgroundColor3 = Color3.fromRGB(15, 15, 15),
 	Position = UDim2.new(0.5, 0, 0, 36),
@@ -96,7 +120,7 @@ do
 end
 
 -- Resizing
-wax.shared.Resize.new({
+Resize.new({
 	MainFrame = MainFrame,
 
 	MinimumSize = Vector2.new(585, 220),
@@ -107,7 +131,7 @@ wax.shared.Resize.new({
 
 -- Context Menus
 local CurrentContext
-local ContextMenu = wax.shared.Interface.New("Frame", {
+local ContextMenu = Interface.New("Frame", {
 	AutomaticSize = Enum.AutomaticSize.XY,
 	BackgroundColor3 = Color3.fromRGB(10, 10, 10),
 	Size = UDim2.fromScale(0, 0),
@@ -148,7 +172,7 @@ local function CreateContextMenu(Parent: GuiObject, Options: {}, MouseOnCursorPo
 
 	local function BuildContextMenu(Options: {})
 		for Order, Data in pairs(Options) do
-			local TextButton = wax.shared.Interface.New("TextButton", {
+			local TextButton = Interface.New("TextButton", {
 				BackgroundColor3 = Color3.fromRGB(25, 25, 25),
 				BackgroundTransparency = 1,
 				LayoutOrder = Order,
@@ -174,7 +198,7 @@ local function CreateContextMenu(Parent: GuiObject, Options: {}, MouseOnCursorPo
 
 			local ItemIcon
 			if tostring(IconToSet):match("rbxasset") then
-				ItemIcon = wax.shared.Interface.New("ImageLabel", {
+				ItemIcon = Interface.New("ImageLabel", {
 					Image = IconToSet,
 					Size = UDim2.fromScale(1, 1),
 					SizeConstraint = Enum.SizeConstraint.RelativeYY,
@@ -182,7 +206,7 @@ local function CreateContextMenu(Parent: GuiObject, Options: {}, MouseOnCursorPo
 					Parent = TextButton,
 				})
 			else
-				ItemIcon = wax.shared.Interface.NewIcon(IconToSet, {
+				ItemIcon = Interface.NewIcon(IconToSet, {
 					Size = UDim2.fromScale(1, 1),
 					SizeConstraint = Enum.SizeConstraint.RelativeYY,
 
@@ -195,7 +219,7 @@ local function CreateContextMenu(Parent: GuiObject, Options: {}, MouseOnCursorPo
 				TextToSet = TextToSet()
 			end
 
-			local ItemText = wax.shared.Interface.New("TextLabel", {
+			local ItemText = Interface.New("TextLabel", {
 				AutomaticSize = Enum.AutomaticSize.X,
 				Position = UDim2.fromOffset(26, 0),
 				Size = UDim2.fromScale(0, 1),
@@ -257,7 +281,7 @@ local function CreateContextMenu(Parent: GuiObject, Options: {}, MouseOnCursorPo
 						ItemIcon.ImageRectSize = Vector2.new(0, 0)
 						ItemIcon.Image = IconToSet
 					else
-						wax.shared.Icons.SetIcon(ItemIcon, IconToSet)
+						Icons.SetIcon(ItemIcon, IconToSet)
 					end
 				end
 
@@ -338,7 +362,7 @@ local function CreateContextMenu(Parent: GuiObject, Options: {}, MouseOnCursorPo
 end
 
 -- Sonner toast
-local SonnerUI = wax.shared.Interface.New("ScrollingFrame", {
+local SonnerUI = Interface.New("ScrollingFrame", {
 	Name = "Sonner",
 	BackgroundTransparency = 1,
 	Size = UDim2.fromOffset(285, 115),
@@ -355,7 +379,7 @@ wax.shared.Sonner.init(SonnerUI)
 
 -- Modal
 local OpenedModal
-local ModalBackground = wax.shared.Interface.New("TextButton", {
+local ModalBackground = Interface.New("TextButton", {
 	BackgroundColor3 = Color3.fromRGB(0, 0, 0),
 	BackgroundTransparency = 0.5,
 	Size = UDim2.fromScale(1, 1),
@@ -404,7 +428,7 @@ local function ConnectCloseButton(Button, Image, Parent)
 end
 
 local function CreateModalTop(Title: string, Icon: string, Parent: GuiObject)
-	local ModalTop = wax.shared.Interface.New("Frame", {
+	local ModalTop = Interface.New("Frame", {
 		BackgroundTransparency = 1,
 		Size = UDim2.new(1, 0, 0, 36),
 		Parent = Parent,
@@ -417,7 +441,7 @@ local function CreateModalTop(Title: string, Icon: string, Parent: GuiObject)
 		},
 	})
 
-	local ModalTitle = wax.shared.Interface.New("TextLabel", {
+	local ModalTitle = Interface.New("TextLabel", {
 		Text = Title,
 		TextSize = 17,
 		TextTruncate = Enum.TextTruncate.AtEnd,
@@ -430,7 +454,7 @@ local function CreateModalTop(Title: string, Icon: string, Parent: GuiObject)
 	local ModalIcon
 
 	if Icon:match("rbxasset") then
-		ModalIcon = wax.shared.Interface.New("ImageLabel", {
+		ModalIcon = Interface.New("ImageLabel", {
 			Image = Icon,
 			Size = UDim2.fromScale(1, 1),
 			Position = UDim2.fromOffset(4, 0),
@@ -439,7 +463,7 @@ local function CreateModalTop(Title: string, Icon: string, Parent: GuiObject)
 			Parent = ModalTop,
 		})
 	else
-		ModalIcon = wax.shared.Interface.NewIcon(Icon, {
+		ModalIcon = Interface.NewIcon(Icon, {
 			ImageTransparency = 0.5,
 			Size = UDim2.fromScale(1, 1),
 			Position = UDim2.fromOffset(4, 0),
@@ -449,14 +473,14 @@ local function CreateModalTop(Title: string, Icon: string, Parent: GuiObject)
 		})
 	end
 
-	local CloseButton = wax.shared.Interface.New("ImageButton", {
+	local CloseButton = Interface.New("ImageButton", {
 		Size = UDim2.fromScale(1, 1),
 		SizeConstraint = Enum.SizeConstraint.RelativeYY,
 		AnchorPoint = Vector2.new(1, 0),
 		Position = UDim2.fromScale(1, 0),
 		Parent = ModalTop,
 	})
-	local CloseImage = wax.shared.Interface.NewIcon("x", {
+	local CloseImage = Interface.NewIcon("x", {
 		ImageTransparency = 0.5,
 		Size = UDim2.fromOffset(22, 22),
 		AnchorPoint = Vector2.new(0.5, 0.5),
@@ -468,7 +492,7 @@ local function CreateModalTop(Title: string, Icon: string, Parent: GuiObject)
 
 	ConnectCloseButton(CloseButton, CloseImage, Parent)
 
-	wax.shared.Interface.New("Frame", {
+	Interface.New("Frame", {
 		Parent = Parent,
 		BackgroundColor3 = Color3.fromRGB(25, 25, 25),
 		Size = UDim2.new(1, 0, 0, 1),
@@ -479,7 +503,7 @@ local function CreateModalTop(Title: string, Icon: string, Parent: GuiObject)
 end
 
 -- Settings
-local SettingsFrame = wax.shared.Interface.New("TextButton", {
+local SettingsFrame = Interface.New("TextButton", {
 	AnchorPoint = Vector2.new(0.5, 0.5),
 	BackgroundColor3 = Color3.fromRGB(10, 10, 10),
 	Position = UDim2.fromScale(0.5, 0.5),
@@ -499,7 +523,7 @@ local SettingsFrame = wax.shared.Interface.New("TextButton", {
 	},
 })
 
-wax.shared.Resize.new({
+Resize.new({
 	MainFrame = SettingsFrame,
 
 	MaximumSize = UDim2.new(1, -2, 1, -2),
@@ -513,7 +537,7 @@ wax.shared.Resize.new({
 
 CreateModalTop("Settings", "settings", SettingsFrame)
 
-local SettingsScrollingFrame = wax.shared.Interface.New("ScrollingFrame", {
+local SettingsScrollingFrame = Interface.New("ScrollingFrame", {
 	AnchorPoint = Vector2.new(0, 1),
 	BackgroundTransparency = 1,
 	Position = UDim2.fromScale(0, 1),
@@ -539,7 +563,7 @@ local SettingsScrollingFrame = wax.shared.Interface.New("ScrollingFrame", {
 })
 
 local function CreateSettingsSection(SectionName: string)
-	local Section = wax.shared.Interface.New("Frame", {
+	local Section = Interface.New("Frame", {
 		AutomaticSize = Enum.AutomaticSize.Y,
 		BackgroundTransparency = 1,
 		Size = UDim2.fromScale(1, 0),
@@ -565,7 +589,7 @@ local function CreateSettingsSection(SectionName: string)
 end
 
 local function CreateSettingsButton(Text: string, Callback: () -> (), Section: Frame, TextSize: number?)
-	local Button = wax.shared.Interface.New("TextButton", {
+	local Button = Interface.New("TextButton", {
 		BackgroundColor3 = Color3.fromRGB(15, 15, 15),
 		Size = UDim2.new(1, 0, 0, 24),
 		TextSize = 15,
@@ -616,7 +640,7 @@ local function CreateSettingsCheckbox(
 			else (Options.Default or false),
 	}
 
-	local CheckboxUI = wax.shared.Interface.New("TextButton", {
+	local CheckboxUI = Interface.New("TextButton", {
 		Text = Options.Text,
 		TextSize = 16,
 		BackgroundTransparency = 1,
@@ -625,7 +649,7 @@ local function CreateSettingsCheckbox(
 		Parent = Options.Section,
 	})
 
-	local CheckContainer = wax.shared.Interface.New("Frame", {
+	local CheckContainer = Interface.New("Frame", {
 		AnchorPoint = Vector2.new(1, 0),
 		Position = UDim2.fromScale(1, 0),
 		BackgroundColor3 = Color3.fromRGB(0, 0, 0),
@@ -651,7 +675,7 @@ local function CreateSettingsCheckbox(
 		},
 	})
 
-	local CheckImage = wax.shared.Interface.NewIcon("check", {
+	local CheckImage = Interface.NewIcon("check", {
 		Size = UDim2.fromScale(1, 1),
 		BackgroundTransparency = 1,
 		ImageTransparency = Checkbox.Value and 0 or 1,
@@ -728,7 +752,7 @@ local function CreateSettingsDropdown(
 		Multi = Options.Multi or false,
 	}
 
-	local DropdownUI = wax.shared.Interface.New("TextButton", {
+	local DropdownUI = Interface.New("TextButton", {
 		Text = Options.Text,
 		TextSize = 16,
 		BackgroundTransparency = 1,
@@ -737,7 +761,7 @@ local function CreateSettingsDropdown(
 		Parent = Options.Section,
 	})
 
-	local DropdownIcon = wax.shared.Interface.NewIcon("chevron-down", {
+	local DropdownIcon = Interface.NewIcon("chevron-down", {
 		Size = UDim2.fromScale(1, 1),
 		ImageTransparency = 0.5,
 		Position = UDim2.fromScale(1, 0),
@@ -855,7 +879,7 @@ local function CreateSettingsRemoteList(
 
 	local RemoveIgnored
 
-	local RemoteListContainer = wax.shared.Interface.New("Frame", {
+	local RemoteListContainer = Interface.New("Frame", {
 		AutomaticSize = Enum.AutomaticSize.Y,
 		BackgroundTransparency = 1,
 		Size = UDim2.fromScale(1, 0),
@@ -885,7 +909,7 @@ local function CreateSettingsRemoteList(
 		},
 	})
 
-	local NoRemotesText = wax.shared.Interface.New("TextLabel", {
+	local NoRemotesText = Interface.New("TextLabel", {
 		Size = UDim2.new(1, 0, 0, 100),
 		TextTransparency = 0.5,
 		Text = Options.NullMessage,
@@ -911,7 +935,7 @@ local function CreateSettingsRemoteList(
 				continue
 			end
 
-			local ListElement = wax.shared.Interface.New("Frame", {
+			local ListElement = Interface.New("Frame", {
 				BackgroundColor3 = Color3.fromRGB(0, 0, 0),
 				Size = UDim2.new(1, 0, 0, 32),
 				Parent = RemoteListContainer,
@@ -962,7 +986,7 @@ local function CreateSettingsRemoteList(
 				},
 			})
 
-			local RemoveButton = wax.shared.Interface.New("ImageButton", {
+			local RemoveButton = Interface.New("ImageButton", {
 				BackgroundTransparency = 1,
 				AnchorPoint = Vector2.new(1, 0.5),
 				Position = UDim2.new(1, -8, 0.5, 0),
@@ -972,7 +996,7 @@ local function CreateSettingsRemoteList(
 				Parent = ListElement,
 			})
 
-			wax.shared.Icons.SetIcon(RemoveButton, "trash")
+			Icons.SetIcon(RemoveButton, "trash")
 
 			RemoveButton.MouseEnter:Connect(function()
 				wax.shared.TweenService
@@ -1046,10 +1070,9 @@ local function CreateSettingsRemoteList(
 	return RemoteList
 end
 
-
 local ExecSupportSection = CreateSettingsSection("Support Info")
 do
-	wax.shared.Interface.New("TextLabel", {
+	Interface.New("TextLabel", {
 		Text = table.concat({
 			`Executor: <b>{wax.shared.ExecutorName}</b>`,
 			`Support: {#wax.shared.ExecutorSupport.FailedChecks == 0 and "<b>Full</b>" or "<b>Partial</b> (" .. #wax.shared.ExecutorSupport.FailedChecks .. " check(s) failed)"}`,
@@ -1076,7 +1099,7 @@ do
 	PartialSupportText = PartialSupportText:sub(1, (#SupportSuffix * -1) - 1)
 
 	if #wax.shared.ExecutorSupport.FailedChecks > 0 then
-		wax.shared.Interface.New("TextLabel", {
+		Interface.New("TextLabel", {
 			Text = PartialSupportText,
 			TextSize = 16,
 			Size = UDim2.fromScale(1, 0),
@@ -1088,7 +1111,6 @@ do
 		})
 	end
 end
-
 
 local CodeGenSection = CreateSettingsSection("Code Generation")
 
@@ -1118,9 +1140,9 @@ CreateSettingsCheckbox("AnticheatBypass", {
 	Section = MainSection,
 })
 
-if wax.shared.AnticheatDisabled then
-	wax.shared.Interface.New("TextLabel", {
-		Text = `Anticheat Detected: <b>{wax.shared.AnticheatName}</b>`,
+if AnticheatData.Disabled then
+	Interface.New("TextLabel", {
+		Text = `Anticheat Detected: <b>{AnticheatData.Name}</b>`,
 		TextSize = 16,
 		Size = UDim2.fromScale(1, 0),
 		AutomaticSize = Enum.AutomaticSize.Y,
@@ -1246,7 +1268,7 @@ CreateSettingsCheckbox("EnableLogging", {
 	end,
 })
 
-SessionLog = wax.shared.Interface.New("TextLabel", {
+SessionLog = Interface.New("TextLabel", {
 	Text = `Current Session Log: <b>{wax.shared.Settings.EnableLogging.Value and wax.shared.LogFileName:gsub(
 		"Cobalt/Logs/",
 		""
@@ -1260,7 +1282,7 @@ SessionLog = wax.shared.Interface.New("TextLabel", {
 	TextWrapped = true,
 })
 
-wax.shared.Interface.New("TextLabel", {
+Interface.New("TextLabel", {
 	Text = `Logs Path: <b>Cobalt/Logs</b>`,
 	TextSize = 16,
 	Size = UDim2.fromScale(1, 0),
@@ -1271,7 +1293,7 @@ wax.shared.Interface.New("TextLabel", {
 	TextWrapped = true,
 })
 
-local SessionButtons = wax.shared.Interface.New("Frame", {
+local SessionButtons = Interface.New("Frame", {
 	BackgroundTransparency = 1,
 	Size = UDim2.fromScale(1, 0),
 	AutomaticSize = Enum.AutomaticSize.Y,
@@ -1350,7 +1372,7 @@ local Credits = {
 	},
 }
 
-local CreditsWrapper = wax.shared.Interface.New("Frame", {
+local CreditsWrapper = Interface.New("Frame", {
 	BackgroundTransparency = 1,
 	Size = UDim2.fromScale(1, 0),
 	AutomaticSize = Enum.AutomaticSize.Y,
@@ -1364,7 +1386,7 @@ local CreditsWrapper = wax.shared.Interface.New("Frame", {
 })
 
 for Order, Data in pairs(Credits) do
-	wax.shared.Interface.New("TextLabel", {
+	Interface.New("TextLabel", {
 		Text = `<b>{Data.Credit}</b>\n{Data.Description}`,
 		Size = UDim2.fromScale(1, 0),
 		TextSize = 14,
@@ -1376,7 +1398,7 @@ for Order, Data in pairs(Credits) do
 end
 
 -- Info
-local InfoFrame = wax.shared.Interface.New("TextButton", {
+local InfoFrame = Interface.New("TextButton", {
 	AnchorPoint = Vector2.new(0.5, 0.5),
 	BackgroundColor3 = Color3.fromRGB(10, 10, 10),
 	Position = UDim2.fromScale(0.5, 0.5),
@@ -1396,7 +1418,7 @@ local InfoFrame = wax.shared.Interface.New("TextButton", {
 	},
 })
 
-wax.shared.Resize.new({
+Resize.new({
 	MainFrame = InfoFrame,
 
 	MaximumSize = UDim2.new(1, -2, 1, -2),
@@ -1411,7 +1433,7 @@ wax.shared.Resize.new({
 local InfoTitle, InfoIcon = CreateModalTop("...", Images["RemoteEvent"], InfoFrame)
 local InfoModalTab = {}
 
-local InfoTabs = wax.shared.Interface.New("Frame", {
+local InfoTabs = Interface.New("Frame", {
 	BackgroundTransparency = 1,
 	Position = UDim2.new(0, 6, 0, 44),
 	Size = UDim2.new(1, -12, 0, 36),
@@ -1438,7 +1460,7 @@ local function CreateInfoTab(Icon: string, Title: string, TabContents: Frame?)
 	end
 
 	local ButtonColor = IsTabSelected and Color3.fromRGB(25, 25, 25) or Color3.fromRGB(0, 0, 0)
-	local TabButton = wax.shared.Interface.New("TextButton", {
+	local TabButton = Interface.New("TextButton", {
 		BackgroundColor3 = ButtonColor,
 		Size = UDim2.fromScale(0, 1),
 		AutomaticSize = Enum.AutomaticSize.X,
@@ -1468,7 +1490,7 @@ local function CreateInfoTab(Icon: string, Title: string, TabContents: Frame?)
 		TabContents = TabContents,
 	}
 
-	local TextWrapper = wax.shared.Interface.New("Frame", {
+	local TextWrapper = Interface.New("Frame", {
 		BackgroundTransparency = 1,
 		AutomaticSize = Enum.AutomaticSize.X,
 		Size = UDim2.fromOffset(0, 24),
@@ -1496,7 +1518,7 @@ local function CreateInfoTab(Icon: string, Title: string, TabContents: Frame?)
 		},
 	})
 
-	wax.shared.Interface.NewIcon(Icon, {
+	Interface.NewIcon(Icon, {
 		Position = UDim2.fromOffset(8, 5),
 		Size = UDim2.fromOffset(16, 16),
 		LayoutOrder = 1,
@@ -1526,7 +1548,7 @@ local function CreateInfoTab(Icon: string, Title: string, TabContents: Frame?)
 end
 
 local function CreateTabContent()
-	local Container = wax.shared.Interface.New("Frame", {
+	local Container = Interface.New("Frame", {
 		Position = UDim2.fromOffset(6, 71),
 		Size = UDim2.new(1, -12, 1, -118),
 		BackgroundColor3 = Color3.fromRGB(0, 0, 0),
@@ -1550,7 +1572,7 @@ local function CreateTabContent()
 	})
 
 	return Container,
-		wax.shared.Interface.New("ScrollingFrame", {
+		Interface.New("ScrollingFrame", {
 			Size = UDim2.fromScale(1, 1),
 			BackgroundTransparency = 1,
 			AutomaticCanvasSize = Enum.AutomaticSize.XY,
@@ -1566,7 +1588,7 @@ local ArgumentInfoUI, ArgumentScrollingFrame = CreateTabContent()
 CreateInfoTab("ellipsis", "Arguments", ArgumentInfoUI)
 ArgumentScrollingFrame.AutomaticCanvasSize = Enum.AutomaticSize.Y
 
-local ArgumentsInfoFrame = wax.shared.Interface.New("Frame", {
+local ArgumentsInfoFrame = Interface.New("Frame", {
 	AutomaticSize = Enum.AutomaticSize.Y,
 	BackgroundTransparency = 1,
 	Size = UDim2.fromScale(1, 0),
@@ -1587,7 +1609,7 @@ CodeScrollingFrame.VerticalScrollBarInset = Enum.ScrollBarInset.None
 
 local CodeTextLabels = {}
 for i = 1, 5 do
-	CodeTextLabels[i] = wax.shared.Interface.New("TextLabel", {
+	CodeTextLabels[i] = Interface.New("TextLabel", {
 		AutomaticSize = Enum.AutomaticSize.XY,
 		TextSize = 16,
 		TextColor3 = Color3.fromRGB(255, 255, 255),
@@ -1604,7 +1626,7 @@ function SetCodeText(Code: string)
 		Label.Text = ""
 	end
 
-	local HighlightedCode = wax.shared.Highlighter.Run(Code)
+	local HighlightedCode = SyntaxHighlighter.Run(Code)
 	local Lines = HighlightedCode:split("\n")
 	local CurrentCharacterCount = 0
 	local TextContents = {}
@@ -1627,14 +1649,14 @@ function SetCodeText(Code: string)
 
 	for Idx, Content in TextContents do
 		if not CodeTextLabels[Idx] then
-			CodeTextLabels[Idx] = wax.shared.Interface.New("TextLabel", {
+			CodeTextLabels[Idx] = Interface.New("TextLabel", {
 				AutomaticSize = Enum.AutomaticSize.XY,
 				TextSize = 16,
 				TextColor3 = Color3.fromRGB(255, 255, 255),
 				FontFace = Font.fromId(16658246179),
 				TextXAlignment = Enum.TextXAlignment.Left,
 				BackgroundTransparency = 1,
-				Text = wax.shared.Highlighter.Run("-- Loading..."),
+				Text = SyntaxHighlighter.Run("-- Loading..."),
 				Parent = CodeScrollingFrame,
 			})
 		end
@@ -1646,7 +1668,7 @@ end
 local FunctionInfoUI, FunctionScrollingFrame = CreateTabContent()
 CreateInfoTab("parentheses", "Function Info", FunctionInfoUI)
 
-local FunctionInfoText = wax.shared.Interface.New("TextLabel", {
+local FunctionInfoText = Interface.New("TextLabel", {
 	AutomaticSize = Enum.AutomaticSize.XY,
 	TextSize = 16,
 	TextColor3 = Color3.fromRGB(255, 255, 255),
@@ -1657,7 +1679,7 @@ local FunctionInfoText = wax.shared.Interface.New("TextLabel", {
 	Parent = FunctionScrollingFrame,
 })
 
-local InfoButtons = wax.shared.Interface.New("Frame", {
+local InfoButtons = Interface.New("Frame", {
 	AnchorPoint = Vector2.new(0, 1),
 	BackgroundTransparency = 1,
 	Position = UDim2.new(0, 6, 1, -7),
@@ -1672,7 +1694,7 @@ local InfoButtons = wax.shared.Interface.New("Frame", {
 })
 
 local function CreateInfoDropdownButton(Icon: string, Title: string, Options: {})
-	local Button = wax.shared.Interface.New("TextButton", {
+	local Button = Interface.New("TextButton", {
 		AutomaticSize = Enum.AutomaticSize.X,
 		BackgroundColor3 = Color3.fromRGB(20, 20, 20),
 		BackgroundTransparency = 1,
@@ -1707,7 +1729,7 @@ local function CreateInfoDropdownButton(Icon: string, Title: string, Options: {}
 		Parent = InfoButtons,
 	})
 
-	wax.shared.Interface.NewIcon(Icon, {
+	Interface.NewIcon(Icon, {
 		Size = UDim2.fromScale(1, 1),
 		SizeConstraint = Enum.SizeConstraint.RelativeYY,
 
@@ -1743,7 +1765,7 @@ CreateInfoDropdownButton("code", "Code", {
 				return
 			end
 
-			local Code = wax.shared.CodeGen:BuildCallCode(CurrentInfo)
+			local Code = CodeGen:BuildCallCode(CurrentInfo)
 			local Success, Error = pcall(setclipboard, Code)
 
 			if Success then
@@ -1762,7 +1784,7 @@ CreateInfoDropdownButton("code", "Code", {
 				return
 			end
 
-			local Code = wax.shared.CodeGen:BuildHookCode(CurrentInfo)
+			local Code = CodeGen:BuildHookCode(CurrentInfo)
 			local Success, Error = pcall(setclipboard, Code)
 
 			if Success then
@@ -1788,7 +1810,11 @@ CreateInfoDropdownButton("code", "Code", {
 							and (iscclosure(CurrentInfo.Function) and "C Closure" or "Luau function")
 						or "N/A",
 					Address = tostring(CurrentInfo.Function),
-					Arguments = table.unpack(CurrentInfo.Arguments, 1, wax.shared.GetTableLength(CurrentInfo.Arguments)),
+					Arguments = table.unpack(
+						CurrentInfo.Arguments,
+						1,
+						wax.shared.GetTableLength(CurrentInfo.Arguments)
+					),
 				} or CurrentInfo.Function,
 				Script = CurrentInfo.Origin,
 				Line = CurrentInfo.Line,
@@ -1830,8 +1856,7 @@ CreateInfoDropdownButton("scroll-text", "Origin", {
 				return
 			end
 
-			local Success, Error =
-				pcall(setclipboard, wax.shared.CodeGen.GetFullPath(CurrentInfo.Instance, false, "Event"))
+			local Success, Error = pcall(setclipboard, CodeGen.GetFullPath(CurrentInfo.Instance, false, "Event"))
 			if Success then
 				wax.shared.Sonner.success("Copied remote path to clipboard")
 			else
@@ -1851,7 +1876,7 @@ CreateInfoDropdownButton("scroll-text", "Origin", {
 				return
 			end
 
-			local Success, Error = pcall(setclipboard, wax.shared.CodeGen.GetFullPath(CurrentInfo.Origin))
+			local Success, Error = pcall(setclipboard, CodeGen.GetFullPath(CurrentInfo.Origin))
 			if Success then
 				wax.shared.Sonner.success("Copied script path to clipboard")
 			else
@@ -2008,7 +2033,7 @@ local ResultInfo = {}
 local CurrentResults = {}
 local SelectedResult = -1
 
-local SearchFrame = wax.shared.Interface.New("TextButton", {
+local SearchFrame = Interface.New("TextButton", {
 	AnchorPoint = Vector2.new(0.5, 0.5),
 	BackgroundColor3 = Color3.fromRGB(10, 10, 10),
 	Position = UDim2.fromScale(0.5, 0.5),
@@ -2028,7 +2053,7 @@ local SearchFrame = wax.shared.Interface.New("TextButton", {
 	},
 })
 
-local SearchTop = wax.shared.Interface.New("Frame", {
+local SearchTop = Interface.New("Frame", {
 	BackgroundTransparency = 1,
 	Size = UDim2.new(1, 0, 0, 36),
 	Parent = SearchFrame,
@@ -2041,7 +2066,7 @@ local SearchTop = wax.shared.Interface.New("Frame", {
 	},
 })
 
-local SearchBox = wax.shared.Interface.New("TextBox", {
+local SearchBox = Interface.New("TextBox", {
 	BackgroundTransparency = 1,
 	Size = UDim2.new(1, -30, 1, 0),
 	PlaceholderText = "Search for logs...",
@@ -2052,14 +2077,14 @@ local SearchBox = wax.shared.Interface.New("TextBox", {
 	Parent = SearchTop,
 })
 
-local SearchCloseButton = wax.shared.Interface.New("ImageButton", {
+local SearchCloseButton = Interface.New("ImageButton", {
 	Size = UDim2.fromScale(1, 1),
 	Position = UDim2.fromScale(1, 0),
 	AnchorPoint = Vector2.new(1, 0),
 	SizeConstraint = Enum.SizeConstraint.RelativeYY,
 	Parent = SearchTop,
 })
-local SearchCloseImage = wax.shared.Interface.NewIcon("x", {
+local SearchCloseImage = Interface.NewIcon("x", {
 	ImageTransparency = 0.5,
 	Size = UDim2.fromOffset(22, 22),
 	AnchorPoint = Vector2.new(0.5, 0.5),
@@ -2071,14 +2096,14 @@ local SearchCloseImage = wax.shared.Interface.NewIcon("x", {
 
 ConnectCloseButton(SearchCloseButton, SearchCloseImage, SearchFrame)
 
-wax.shared.Interface.New("Frame", {
+Interface.New("Frame", {
 	BackgroundColor3 = Color3.fromRGB(25, 25, 25),
 	Size = UDim2.new(1, 0, 0, 1),
 	Position = UDim2.fromOffset(0, 36),
 	Parent = SearchFrame,
 })
 
-local SearchFilterList = wax.shared.Interface.New("ScrollingFrame", {
+local SearchFilterList = Interface.New("ScrollingFrame", {
 	AutomaticCanvasSize = Enum.AutomaticSize.X,
 	CanvasSize = UDim2.fromOffset(0, 0),
 	ScrollBarThickness = 2,
@@ -2105,7 +2130,7 @@ local SearchFilterList = wax.shared.Interface.New("ScrollingFrame", {
 local ExcludeSearchClass = {}
 local SearchFilterButtons = {}
 
-local FilterAllButton = wax.shared.Interface.New("TextButton", {
+local FilterAllButton = Interface.New("TextButton", {
 	BackgroundColor3 = Color3.fromRGB(25, 25, 25),
 	Size = UDim2.fromScale(0, 1),
 	AutomaticSize = Enum.AutomaticSize.X,
@@ -2135,7 +2160,7 @@ FilterAllButton.MouseButton1Click:Connect(function()
 end)
 
 for Order, ClassName in pairs(ClassOrder) do
-	local ClassNameFilterButton = wax.shared.Interface.New("TextButton", {
+	local ClassNameFilterButton = Interface.New("TextButton", {
 		BackgroundColor3 = Color3.fromRGB(25, 25, 25),
 		Size = UDim2.fromScale(0, 1),
 		AutomaticSize = Enum.AutomaticSize.X,
@@ -2171,7 +2196,7 @@ for Order, ClassName in pairs(ClassOrder) do
 		},
 	})
 
-	local ImageLabel = wax.shared.Interface.New("ImageLabel", {
+	local ImageLabel = Interface.New("ImageLabel", {
 		Image = Images[ClassName],
 		Size = UDim2.new(1, -8, 1, -8),
 		SizeConstraint = Enum.SizeConstraint.RelativeYY,
@@ -2204,14 +2229,14 @@ for Order, ClassName in pairs(ClassOrder) do
 	table.insert(SearchFilterButtons, ClassNameFilterButton)
 end
 
-wax.shared.Interface.New("Frame", {
+Interface.New("Frame", {
 	BackgroundColor3 = Color3.fromRGB(25, 25, 25),
 	Size = UDim2.new(1, 0, 0, 1),
 	Position = UDim2.fromOffset(0, 72),
 	Parent = SearchFrame,
 })
 
-local SearchResults = wax.shared.Interface.New("ScrollingFrame", {
+local SearchResults = Interface.New("ScrollingFrame", {
 	AutomaticCanvasSize = Enum.AutomaticSize.Y,
 	BackgroundTransparency = 1,
 	CanvasSize = UDim2.new(0, 0, 0, 0),
@@ -2237,7 +2262,7 @@ local SearchResults = wax.shared.Interface.New("ScrollingFrame", {
 })
 
 local function CreateSearchResult(Instance: Instance, Type: string)
-	local SearchResult = wax.shared.Interface.New("TextButton", {
+	local SearchResult = Interface.New("TextButton", {
 		BackgroundColor3 = Color3.fromRGB(25, 25, 25),
 		BackgroundTransparency = 1,
 		Name = Instance.Name,
@@ -2278,7 +2303,7 @@ local function CreateSearchResult(Instance: Instance, Type: string)
 		end)
 	end
 
-	local Image = wax.shared.Interface.New("ImageLabel", {
+	local Image = Interface.New("ImageLabel", {
 		BackgroundTransparency = 1,
 		Image = Images[Instance.ClassName],
 		Size = UDim2.fromScale(1, 1),
@@ -2286,7 +2311,7 @@ local function CreateSearchResult(Instance: Instance, Type: string)
 		Parent = SearchResult,
 	})
 
-	local TypeLabel = wax.shared.Interface.New("TextLabel", {
+	local TypeLabel = Interface.New("TextLabel", {
 		Size = UDim2.fromScale(1, 1),
 		Text = Type,
 		TextSize = 15,
@@ -2300,7 +2325,7 @@ local function CreateSearchResult(Instance: Instance, Type: string)
 end
 
 -- Topbar
-local TopBar = wax.shared.Interface.New("Frame", {
+local TopBar = Interface.New("Frame", {
 	BackgroundColor3 = Color3.fromRGB(25, 25, 25),
 	Size = UDim2.new(1, 0, 0, 36),
 	ZIndex = 0,
@@ -2322,10 +2347,10 @@ local TopBar = wax.shared.Interface.New("Frame", {
 		Image = CobaltLogo,
 	},
 })
-wax.shared.Interface.HideCorner(TopBar, UDim2.fromScale(1, 0.5), Vector2.yAxis)
+Interface.HideCorner(TopBar, UDim2.fromScale(1, 0.5), Vector2.yAxis)
 
 -- Topbar Buttons
-local TopButtons = wax.shared.Interface.New("Frame", {
+local TopButtons = Interface.New("Frame", {
 	BackgroundTransparency = 1,
 	Size = UDim2.fromScale(1, 1),
 	ZIndex = 2,
@@ -2345,7 +2370,7 @@ local TopButtons = wax.shared.Interface.New("Frame", {
 })
 
 local function CreateTopButton(IconName, Order: number, Callback: () -> ()?)
-	local Button = wax.shared.Interface.New("ImageButton", {
+	local Button = Interface.New("ImageButton", {
 		LayoutOrder = Order,
 		Size = UDim2.fromScale(1, 1),
 		SizeConstraint = Enum.SizeConstraint.RelativeYY,
@@ -2360,7 +2385,7 @@ local function CreateTopButton(IconName, Order: number, Callback: () -> ()?)
 		Parent = TopButtons,
 	})
 
-	local Image = wax.shared.Interface.NewIcon(IconName, {
+	local Image = Interface.NewIcon(IconName, {
 		ImageTransparency = 0.5,
 		Size = UDim2.fromScale(1, 1),
 		SizeConstraint = Enum.SizeConstraint.RelativeYY,
@@ -2390,7 +2415,7 @@ local function CreateTopButton(IconName, Order: number, Callback: () -> ()?)
 end
 
 local function CreateTopSeperator(Order: number)
-	wax.shared.Interface.New("ImageLabel", {
+	Interface.New("ImageLabel", {
 		LayoutOrder = Order,
 		Size = UDim2.fromScale(1, 1),
 		SizeConstraint = Enum.SizeConstraint.RelativeYY,
@@ -2423,11 +2448,11 @@ CreateTopButton("search", 0, function()
 	OpenSearch()
 end)
 
-wax.shared.Drag.Setup(MainFrame, TopBar)
-wax.shared.Drag.Setup(ShowButton, ShowButton)
+Drag.Setup(MainFrame, TopBar)
+Drag.Setup(ShowButton, ShowButton)
 
 -- Remote List
-local LeftList = wax.shared.Interface.New("Frame", {
+local LeftList = Interface.New("Frame", {
 	BackgroundTransparency = 1,
 	AnchorPoint = Vector2.yAxis,
 	Size = UDim2.new(0, 240, 1, -36),
@@ -2443,7 +2468,7 @@ local LeftList = wax.shared.Interface.New("Frame", {
 })
 
 -- Tabs
-local RemoteTabContainer = wax.shared.Interface.New("Frame", {
+local RemoteTabContainer = Interface.New("Frame", {
 	BackgroundColor3 = Color3.fromRGB(25, 25, 25),
 	Size = UDim2.new(1, 0, 0, 30),
 	Parent = LeftList,
@@ -2460,7 +2485,7 @@ local RemoteTabContainer = wax.shared.Interface.New("Frame", {
 })
 
 -- Remote List
-local RemoteListWrapper = wax.shared.Interface.New("Frame", {
+local RemoteListWrapper = Interface.New("Frame", {
 	AnchorPoint = Vector2.yAxis,
 	BackgroundColor3 = Color3.fromRGB(25, 25, 25),
 	Position = UDim2.fromScale(0, 1),
@@ -2478,7 +2503,7 @@ local RemoteListWrapper = wax.shared.Interface.New("Frame", {
 	},
 })
 
-local RemoteList = wax.shared.Interface.New("ScrollingFrame", {
+local RemoteList = Interface.New("ScrollingFrame", {
 	BackgroundTransparency = 1,
 	Size = UDim2.fromScale(1, 1),
 	AutomaticCanvasSize = Enum.AutomaticSize.Y,
@@ -2500,7 +2525,7 @@ local RemoteList = wax.shared.Interface.New("ScrollingFrame", {
 	},
 })
 
-local RemoteListLine = wax.shared.Interface.New("Frame", {
+local RemoteListLine = Interface.New("Frame", {
 	AnchorPoint = Vector2.yAxis,
 	BackgroundColor3 = Color3.fromRGB(25, 25, 25),
 	Position = UDim2.new(0, 240, 1, 0),
@@ -2508,7 +2533,7 @@ local RemoteListLine = wax.shared.Interface.New("Frame", {
 	Parent = MainFrame,
 })
 
-local RemoteListResize = wax.shared.Interface.New("TextButton", {
+local RemoteListResize = Interface.New("TextButton", {
 	AnchorPoint = Vector2.new(0.5, 0),
 	BackgroundTransparency = 1,
 	Position = UDim2.fromScale(0.5, 0),
@@ -2535,7 +2560,7 @@ do
 end
 
 -- Main Remote thing
-local LogsWrapper = wax.shared.Interface.New("Frame", {
+local LogsWrapper = Interface.New("Frame", {
 	AnchorPoint = Vector2.one,
 	BackgroundTransparency = 1,
 	Position = UDim2.fromScale(1, 1),
@@ -2550,7 +2575,7 @@ local LogsWrapper = wax.shared.Interface.New("Frame", {
 	},
 })
 
-LogsList = wax.shared.Interface.New("ScrollingFrame", {
+LogsList = Interface.New("ScrollingFrame", {
 	BackgroundTransparency = 1,
 	Size = UDim2.new(1, 0, 1, -38),
 	AutomaticCanvasSize = Enum.AutomaticSize.Y,
@@ -2572,7 +2597,7 @@ LogsList = wax.shared.Interface.New("ScrollingFrame", {
 	},
 })
 
-local LogsPagination = wax.shared.Interface.New("Frame", {
+local LogsPagination = Interface.New("Frame", {
 	AnchorPoint = Vector2.yAxis,
 	BackgroundColor3 = Color3.fromRGB(25, 25, 25),
 	BackgroundTransparency = 1,
@@ -2698,7 +2723,7 @@ end
 
 function CreatePaginationEllipsis(Order: number, Visible: boolean)
 	local Ellipsis = {
-		Ellipsis = wax.shared.Interface.New("TextBox", {
+		Ellipsis = Interface.New("TextBox", {
 			BackgroundColor3 = Color3.fromRGB(25, 25, 25),
 			Size = UDim2.fromScale(1, 1),
 			SizeConstraint = Enum.SizeConstraint.RelativeYY,
@@ -2764,7 +2789,7 @@ end
 
 function CreatePaginationButton(Order: number, Active: boolean, Visible: boolean)
 	local ButtonData = {
-		Button = wax.shared.Interface.New("TextButton", {
+		Button = Interface.New("TextButton", {
 			BackgroundColor3 = Active and Color3.fromRGB(50, 50, 50) or Color3.fromRGB(25, 25, 25),
 			Size = UDim2.fromScale(1, 1),
 			SizeConstraint = Enum.SizeConstraint.RelativeYY,
@@ -2859,7 +2884,7 @@ ShowPagination = function(Log)
 end
 
 function CreateRemoteTab(TabName: string, Active: boolean, Logs)
-	local Button = wax.shared.Interface.New("TextButton", {
+	local Button = Interface.New("TextButton", {
 		BackgroundColor3 = Color3.fromRGB(50, 50, 50),
 		BackgroundTransparency = Active and 0 or 1,
 		Size = UDim2.fromScale(0, 1),
@@ -2895,7 +2920,7 @@ function CreateRemoteTab(TabName: string, Active: boolean, Logs)
 end
 
 function CreateLogButton(Log): (TextButton, TextLabel, TextLabel)
-	local Button = wax.shared.Interface.New("TextButton", {
+	local Button = Interface.New("TextButton", {
 		BackgroundColor3 = Color3.fromRGB(50, 50, 50),
 		BackgroundTransparency = 1,
 		LayoutOrder = Log.Index or 1,
@@ -2920,7 +2945,7 @@ function CreateLogButton(Log): (TextButton, TextLabel, TextLabel)
 		},
 	})
 
-	local Text = wax.shared.Interface.New("TextLabel", {
+	local Text = Interface.New("TextLabel", {
 		Position = UDim2.fromOffset(24, 0),
 		Size = UDim2.new(1, -24, 1, 0),
 		Text = "",
@@ -2931,7 +2956,7 @@ function CreateLogButton(Log): (TextButton, TextLabel, TextLabel)
 		Parent = Button,
 	})
 
-	local Amount = wax.shared.Interface.New("TextLabel", {
+	local Amount = Interface.New("TextLabel", {
 		Size = UDim2.fromScale(1, 1),
 		Text = "",
 		TextSize = 15,
@@ -3043,7 +3068,7 @@ function CreateLogButton(Log): (TextButton, TextLabel, TextLabel)
 end
 
 function CreateArgHolder(Index: number, Value: any, Parent: GuiObject)
-	local Holder = wax.shared.Interface.New("Frame", {
+	local Holder = Interface.New("Frame", {
 		BackgroundColor3 = Color3.fromRGB(25, 25, 25),
 		LayoutOrder = Index,
 		Size = UDim2.new(1, 0, 0, 27),
@@ -3062,7 +3087,7 @@ function CreateArgHolder(Index: number, Value: any, Parent: GuiObject)
 		Parent = Parent,
 	})
 
-	wax.shared.Interface.New("TextLabel", {
+	Interface.New("TextLabel", {
 		Size = UDim2.fromScale(1, 1),
 		Text = Index,
 		TextSize = 15,
@@ -3073,7 +3098,7 @@ function CreateArgHolder(Index: number, Value: any, Parent: GuiObject)
 		Parent = Holder,
 	})
 
-	local TypeLabel = wax.shared.Interface.New("TextLabel", {
+	local TypeLabel = Interface.New("TextLabel", {
 		Size = UDim2.fromScale(1, 1),
 		Text = typeof(Value),
 		TextSize = 15,
@@ -3085,11 +3110,11 @@ function CreateArgHolder(Index: number, Value: any, Parent: GuiObject)
 	})
 	local TypeX = wax.shared.GetTextBounds(TypeLabel.Text, TypeLabel.FontFace, TypeLabel.TextSize)
 
-	local TextLabel = wax.shared.Interface.New("TextLabel", {
+	local TextLabel = Interface.New("TextLabel", {
 		Position = UDim2.fromOffset(18, 0),
 		Size = UDim2.new(1, -(TypeX + 22), 1, 0),
-		TextColor3 = Color3.fromHex(wax.shared.Highlighter.GetArgumentColor(Value)),
-		Text = tostring(wax.shared.DisplayArgument(Value)):gsub("<", "&lt;"):gsub(">", "&gt;"),
+		TextColor3 = Color3.fromHex(SyntaxHighlighter.GetArgumentColor(Value)),
+		Text = tostring(Helper.QuickSerializeArgument(Value)):gsub("<", "&lt;"):gsub(">", "&gt;"),
 		RichText = true,
 		TextSize = 15,
 		TextWrapped = true,
@@ -3109,7 +3134,7 @@ function CreateCallFrame(CallInfo)
 		return
 	end
 
-	local CallFrame = wax.shared.Interface.New("TextButton", {
+	local CallFrame = Interface.New("TextButton", {
 		AutomaticSize = Enum.AutomaticSize.Y,
 		BackgroundColor3 = Color3.fromRGB(25, 25, 25),
 		LayoutOrder = CallInfo.Order,
@@ -3132,7 +3157,7 @@ function CreateCallFrame(CallInfo)
 		Parent = LogsList,
 	})
 
-	local HighlightStroke = wax.shared.Interface.New("UIStroke", {
+	local HighlightStroke = Interface.New("UIStroke", {
 		ApplyStrokeMode = Enum.ApplyStrokeMode.Border,
 		Color = Color3.fromRGB(75, 75, 75),
 		Thickness = 2,
@@ -3146,7 +3171,7 @@ function CreateCallFrame(CallInfo)
 				Text = "Copy Calling Code",
 				Icon = "forward",
 				Callback = function()
-					local Code = wax.shared.CodeGen:BuildCallCode(CallInfo)
+					local Code = CodeGen:BuildCallCode(CallInfo)
 					local Success, Error = pcall(setclipboard, Code)
 
 					if Success then
@@ -3161,7 +3186,7 @@ function CreateCallFrame(CallInfo)
 				Text = "Copy Intercept Code",
 				Icon = "shield-alert",
 				Callback = function()
-					local Code = wax.shared.CodeGen:BuildHookCode(CallInfo, CurrentTab.Name)
+					local Code = CodeGen:BuildHookCode(CallInfo, CurrentTab.Name)
 					local Success, Error = pcall(setclipboard, Code)
 
 					if Success then
@@ -3180,8 +3205,7 @@ function CreateCallFrame(CallInfo)
 						return
 					end
 
-					local Success, Error =
-						pcall(setclipboard, wax.shared.CodeGen.GetFullPath(CallInfo.Instance, false, "Event"))
+					local Success, Error = pcall(setclipboard, CodeGen.GetFullPath(CallInfo.Instance, false, "Event"))
 
 					if Success then
 						wax.shared.Sonner.success("Copied remote path to clipboard")
@@ -3202,7 +3226,7 @@ function CreateCallFrame(CallInfo)
 						return
 					end
 
-					local Success, Error = pcall(setclipboard, wax.shared.CodeGen.GetFullPath(CallInfo.Origin))
+					local Success, Error = pcall(setclipboard, CodeGen.GetFullPath(CallInfo.Origin))
 					if Success then
 						wax.shared.Sonner.success("Copied script path to clipboard")
 					else
@@ -3251,7 +3275,7 @@ function CreateCallFrame(CallInfo)
 		CallFrame.MouseButton2Click:Connect(CallFrameContextMenu.Open)
 	end
 
-	local ArgumentsFrame = wax.shared.Interface.New("Frame", {
+	local ArgumentsFrame = Interface.New("Frame", {
 		AutomaticSize = Enum.AutomaticSize.Y,
 		BackgroundColor3 = Color3.fromRGB(15, 15, 15),
 		Size = UDim2.fromScale(1, 0),
@@ -3283,11 +3307,11 @@ function CreateCallFrame(CallInfo)
 		end
 	end
 
-	wax.shared.Interface.New("Frame", {
+	Interface.New("Frame", {
 		BackgroundTransparency = 1,
 		Size = UDim2.new(1, 0, 0, 22),
 
-		wax.shared.Interface.NewIcon(CallInfo.IsExecutor and "terminal" or "gamepad-2", {
+		Interface.NewIcon(CallInfo.IsExecutor and "terminal" or "gamepad-2", {
 			AnchorPoint = Vector2.yAxis,
 			ImageTransparency = 0.5,
 			Position = UDim2.new(0, 2, 1, 0),
@@ -3295,7 +3319,7 @@ function CreateCallFrame(CallInfo)
 			SizeConstraint = Enum.SizeConstraint.RelativeYY,
 		}),
 
-		wax.shared.Interface.New("TextLabel", {
+		Interface.New("TextLabel", {
 			AnchorPoint = Vector2.yAxis,
 			Position = UDim2.new(0, 30, 1, 0),
 			Size = UDim2.new(0.5, -24, 0, 22),
@@ -3308,7 +3332,7 @@ function CreateCallFrame(CallInfo)
 			TextTransparency = 0.5,
 		}),
 
-		wax.shared.Interface.New("TextLabel", {
+		Interface.New("TextLabel", {
 			AnchorPoint = Vector2.one,
 			Position = UDim2.new(1, -2, 1, 0),
 			Size = UDim2.new(0.5, -2, 0, 22),
@@ -3428,10 +3452,10 @@ function OpenInfo(CallInfo)
 
 	CurrentInfo = CallInfo
 
-	SetCodeText(wax.shared.CodeGen:BuildCallCode(CallInfo))
+	SetCodeText(CodeGen:BuildCallCode(CallInfo))
 
 	xpcall(function()
-		FunctionInfoText.Text = wax.shared.CodeGen:BuildFunctionInfo(CallInfo)
+		FunctionInfoText.Text = CodeGen:BuildFunctionInfo(CallInfo)
 	end, function(Error)
 		FunctionInfoText.Text =
 			`Error while fetching function data.\nCalling Function: {CallInfo.Function} (type: {typeof(
@@ -3488,7 +3512,7 @@ function OpenInfo(CallInfo)
 	OpenModal(InfoFrame)
 end
 
-wax.shared.Drag.Setup(RemoteListLine, RemoteListResize, function(Info, Input: InputObject)
+Drag.Setup(RemoteListLine, RemoteListResize, function(Info, Input: InputObject)
 	local Delta = Input.Position - Info.StartPosition
 	local FramePosition: UDim2 = Info.FramePosition
 	local Offset = math.clamp(FramePosition.X.Offset + Delta.X, 120, (MainFrame.AbsoluteSize.X - 2) / 2)
@@ -3556,12 +3580,12 @@ wax.shared.Connect(wax.shared.Communicator.Event:Connect(function(Instance, Type
 end))
 
 wax.shared.Connect(wax.shared.UserInputService.InputBegan:Connect(function(Input: InputObject)
-	if wax.shared.IsClickInput(Input) then
+	if Helper.IsClickInput(Input) then
 		if
 			CurrentContext
 			and not (
-				wax.shared.IsMouseOverFrame(ContextMenu, Input.Position)
-				or wax.shared.IsMouseOverFrame(CurrentContext.Parent, Input.Position)
+				Helper.IsMouseOverFrame(ContextMenu, Input.Position)
+				or Helper.IsMouseOverFrame(CurrentContext.Parent, Input.Position)
 			)
 		then
 			CurrentContext:Close()

@@ -15,3 +15,5 @@ wax.shared.Disconnect = function(Connection)
 
 	return true
 end
+
+return {}

@@ -16,30 +16,24 @@ for _, Service in pairs({
 end
 
 wax.shared.CobaltVerificationToken = wax.shared.HttpService:GenerateGUID()
-wax.shared.SaveManager = require("Utils/SaveManager")
+wax.shared.SaveManager = require(script.Utils.SaveManager)
 wax.shared.Settings = {}
 
 wax.shared.Hooks = {}
 
 -- Executor Support
-wax.shared.ExecutorSupport = require("ExecutorSupport")
+wax.shared.ExecutorSupport = require(script.ExecutorSupport)
+
+-- Utils
+require(script.Utils.Connect)
+wax.shared.Hooking = require(script.Utils.Hooking)
 
 -- UI
-require("Utils/Connect")
+wax.shared.Sonner = require(script.Utils.UI.Sonner)
 
-wax.shared.ImageFetcher = require("Utils/ImageFetch")
-
-wax.shared.LuaEncode = require("Utils/Serializer/LuaEncode")
-wax.shared.Drag = require("Utils/Drag")
-wax.shared.Interface = require("Utils/Interface")
-wax.shared.Icons = require("Utils/Icons")
-wax.shared.Animations = require("Utils/Animations")
-wax.shared.Sonner = require("Utils/Sonner")
-wax.shared.Highlighter = require("Utils/Highlighter")
-wax.shared.Pagination = require("Utils/Pagination")
-wax.shared.CodeGen = require("Utils/CodeGen")
-wax.shared.Resize = require("Utils/Resize")
-wax.shared.Hooking = require("Utils/Hooking")
+-- Code Generation
+local CodeGen = require(script.Utils.CodeGen)
+local LuaEncode = require(script.Utils.Serializer.LuaEncode)
 
 -- Variables
 if not wax.shared.Players.LocalPlayer then
@@ -73,11 +67,15 @@ wax.shared.restorefunction = function(Function: (...any) -> ...any, Silent: bool
 
 	wax.shared.Hooks[Function] = nil
 end
-wax.shared.getrawmetatable = wax.shared.ExecutorSupport["getrawmetatable"].IsWorking and (getrawmetatable or debug.getmetatable) or function()
-	return setmetatable({}, {
-		__index = function() return function() end end
-	})
-end
+wax.shared.getrawmetatable = wax.shared.ExecutorSupport["getrawmetatable"].IsWorking
+		and (getrawmetatable or debug.getmetatable)
+	or function()
+		return setmetatable({}, {
+			__index = function()
+				return function() end
+			end,
+		})
+	end
 
 wax.shared.newcclosure = wax.shared.ExecutorName == "AWP"
 		and function(f)
@@ -98,22 +96,6 @@ wax.shared.newcclosure = wax.shared.ExecutorName == "AWP"
 		end
 	or newcclosure
 wax.shared.queue_on_teleport = queue_on_teleport or queueonteleport or function(...) end
-
-wax.shared.IsClickInput = function(Input: InputObject): boolean
-	return Input.UserInputState == Enum.UserInputState.Begin
-		and (Input.UserInputType == Enum.UserInputType.MouseButton1 or Input.UserInputType == Enum.UserInputType.Touch)
-end
-wax.shared.IsMoveInput = function(Input: InputObject): boolean
-	return Input.UserInputState == Enum.UserInputState.Change
-		and (Input.UserInputType == Enum.UserInputType.MouseMovement or Input.UserInputType == Enum.UserInputType.Touch)
-end
-wax.shared.IsMouseOverFrame = function(Frame: GuiObject, Position: Vector2): boolean
-	local AbsPos, AbsSize = Frame.AbsolutePosition, Frame.AbsoluteSize
-	return Position.X >= AbsPos.X
-		and Position.X <= AbsPos.X + AbsSize.X
-		and Position.Y >= AbsPos.Y
-		and Position.Y <= AbsPos.Y + AbsSize.Y
-end
 
 wax.shared.IsPlayerModule = function(Origin: LocalScript | ModuleScript, Instance: Instance): boolean
 	if Instance and Instance.ClassName ~= "BindableEvent" then
@@ -140,53 +122,11 @@ wax.shared.ShouldIgnore = function(Instance, Origin)
 		or (wax.shared.Settings.IgnorePlayerModule.Value and wax.shared.IsPlayerModule(Origin, Instance))
 end
 
-wax.shared.DisplayNumber = function(Number: number)
-	if Number % 1 ~= 0 then
-		return string.format("%.3f", Number)
-	elseif Number == 1 / 0 then
-		return "math.huge"
-	elseif Number == -1 / 0 then
-		return "-math.huge"
-	end
-
-	return Number
-end
-wax.shared.DisplayArgument = function(Argument)
-	if typeof(Argument) == "string" then
-		return string.format('"%s"', Argument)
-	elseif typeof(Argument) == "number" then
-		return wax.shared.DisplayNumber(Argument)
-	elseif typeof(Argument) == "Vector2" then
-		return string.format("%s, %s", wax.shared.DisplayNumber(Argument.X), wax.shared.DisplayNumber(Argument.Y))
-	elseif typeof(Argument) == "Vector3" then
-		return string.format(
-			"%s, %s, %s",
-			wax.shared.DisplayNumber(Argument.X),
-			wax.shared.DisplayNumber(Argument.Y),
-			wax.shared.DisplayNumber(Argument.Z)
-		)
-	elseif typeof(Argument) == "CFrame" then
-		local Components = { Argument:GetComponents() }
-		for Index, Value in pairs(Components) do
-			Components[Index] = wax.shared.DisplayNumber(Value)
-		end
-		return table.concat(Components, ", ")
-	elseif typeof(Argument) == "table" then
-		return "{...}"
-	elseif typeof(Argument) == "Instance" then
-		return wax.shared.CodeGen.GetFullPath(Argument, true)
-	elseif typeof(Argument) == "userdata" then
-		return "newproxy(" .. getmetatable(Argument) and "true" or "false" .. ")"
-	end
-
-	return tostring(Argument)
-end
-
 wax.shared.GetTableLength = function(Table)
 	if Table["n"] then
 		return Table.n
 	end
-	
+
 	local Length = 0
 	for _, _ in pairs(Table) do
 		Length += 1
@@ -235,7 +175,7 @@ wax.shared.Unload = function()
 	wax.shared.Unloaded = true
 end
 
-require("Bypass")
+local AnticheatData = require(script.Anticheats.Main)
 
 -- Load Script
 wax.shared.Communicator = Instance.new("BindableEvent")
@@ -257,7 +197,7 @@ wax.shared.SetupLoggingConnection = function()
 		local CallDataFromHook = LogEntry.Calls[CallOrderInLog]
 
 		local success, err = pcall(function()
-			local generatedCode = wax.shared.CodeGen:BuildCallCode(setmetatable({
+			local generatedCode = CodeGen:BuildCallCode(setmetatable({
 				Instance = RemoteInstance,
 				Type = Type,
 			}, {
@@ -268,22 +208,21 @@ wax.shared.SetupLoggingConnection = function()
 				RemoteInstanceInfo = {
 					Name = RemoteInstance and RemoteInstance.Name,
 					ClassName = RemoteInstance and RemoteInstance.ClassName,
-					Path = RemoteInstance and wax.shared.CodeGen.GetFullPath(RemoteInstance, true),
+					Path = RemoteInstance and CodeGen.GetFullPath(RemoteInstance, true),
 				},
 				EventType = Type,
 				CallOrderInLog = CallOrderInLog,
 				DataFromHook = CallDataFromHook,
 			}
 
-			local serializedEventData = wax.shared.LuaEncode(
+			local serializedEventData = LuaEncode(
 				comprehensiveDataToSerialize,
 				{ Prettify = true, InsertCycles = true, UseInstancePaths = true }
 			)
 
 			local instanceName = RemoteInstance and RemoteInstance.Name or "UnknownInstance"
 			local instanceClassName = RemoteInstance and RemoteInstance.ClassName or "UnknownClass"
-			local instancePath = RemoteInstance and wax.shared.CodeGen.GetFullPath(RemoteInstance, true)
-				or "UnknownPath"
+			local instancePath = RemoteInstance and CodeGen.GetFullPath(RemoteInstance, true) or "UnknownPath"
 
 			local logParts = {
 				("Instance: %s (%s)"):format(instanceName, instanceClassName),
@@ -327,7 +266,7 @@ if wax.shared.SaveManager:GetState("EnableLogging") then
 	wax.shared.LogConnection = wax.shared.Connect(wax.shared.Communicator.Event:Connect(LogConnection))
 end
 
-wax.shared.Log = require("Utils/Log")
+wax.shared.Log = require(script.Utils.Log)
 wax.shared.Logs = {
 	Outgoing = {},
 	Incoming = {},
@@ -349,18 +288,22 @@ wax.shared.Connect(wax.shared.LocalPlayer.OnTeleport:Connect(function()
 	end
 
 	-- getgenv().COBALT_LATEST_URL for dev environments
-	local CobaltURL = getgenv().COBALT_LATEST_URL or "https://github.com/notpoiu/cobalt/releases/latest/download/Cobalt.luau"
-	wax.shared.queue_on_teleport(string.format([[
+	local CobaltURL = getgenv().COBALT_LATEST_URL
+		or "https://github.com/notpoiu/cobalt/releases/latest/download/Cobalt.luau"
+	wax.shared.queue_on_teleport(string.format(
+		[[
 		if getgenv().CobaltAutoExecuted then
 			return
 		end
 
 		getgenv().CobaltAutoExecuted = true
 		loadstring(game:HttpGet("%s"))()
-	]], CobaltURL))
+	]],
+		CobaltURL
+	))
 end))
 
 task.wait(1)
-if wax.shared.AnticheatDisabled then
-	wax.shared.Sonner.success(`Cobalt has bypassed {wax.shared.AnticheatName} (anticheat detected)`)
+if AnticheatData.Disabled then
+	wax.shared.Sonner.success(`Cobalt has bypassed {AnticheatData.Name} (anticheat detected)`)
 end

@@ -1,4 +1,5 @@
 local Interface = {}
+local Icons = require(script.Parent.Icons)
 
 local DefaultFont = Font.fromId(12187365364)
 local _DefaultFontBold = Font.fromId(12187365364, Enum.FontWeight.Bold)
@@ -78,7 +79,7 @@ end
 
 function Interface.NewIcon(IconName: string, Properties: { [string]: any })
 	local Image: ImageLabel = Interface.New("ImageLabel", Properties)
-	wax.shared.Icons.SetIcon(Image, IconName)
+	Icons.SetIcon(Image, IconName)
 
 	return Image
 end
@@ -98,7 +99,7 @@ function Interface.HideCorner(Frame: GuiObject, Size: UDim2, Offset: Vector2): F
 end
 
 function Interface.GetScreenParent(): Instance
-	local ScreenGui = wax.shared.Interface.New("ScreenGui")
+	local ScreenGui = Interface.New("ScreenGui", {})
 	local HiddenUI = wax.shared.gethui()
 
 	if pcall(function()

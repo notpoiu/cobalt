@@ -15,8 +15,12 @@ local Sonner = {
 	Wrapper = nil,
 }
 
+local Icons = require(script.Parent.Icons)
+local Interface = require(script.Parent.Interface)
+local Animations = require(script.Parent.Animations)
+
 local function InternalCreateNotificationObject(zindex, image, text)
-	local NotificationTemplate = wax.shared.Interface.New("Frame", {
+	local NotificationTemplate = Interface.New("Frame", {
 		BorderSizePixel = 0,
 		BackgroundColor3 = Color3.fromRGB(0, 0, 0),
 		AnchorPoint = Vector2.new(0.5, 1),
@@ -36,7 +40,7 @@ local function InternalCreateNotificationObject(zindex, image, text)
 		["UIScale"] = {},
 	})
 
-	local ImageLabel = wax.shared.Interface.New("ImageLabel", {
+	local ImageLabel = Interface.New("ImageLabel", {
 		SizeConstraint = Enum.SizeConstraint.RelativeYY,
 		ScaleType = Enum.ScaleType.Fit,
 		Size = UDim2.new(0, 20, 0, 20),
@@ -52,21 +56,21 @@ local function InternalCreateNotificationObject(zindex, image, text)
 		if image:find("rbxasset") then
 			ImageLabel.Image = image
 		else
-			wax.shared.Icons.SetIcon(ImageLabel, image)
+			Icons.SetIcon(ImageLabel, image)
 		end
 	else
 		ImageLabel.Visible = false
 	end
 
-	wax.shared.Animations.SetFadeExpectation("In", ImageLabel, {
+	Animations.SetFadeExpectation("In", ImageLabel, {
 		ImageTransparency = 0,
 	})
 
-	wax.shared.Animations.SetFadeExpectation("Out", ImageLabel, {
+	Animations.SetFadeExpectation("Out", ImageLabel, {
 		ImageTransparency = 1,
 	})
 
-	local Frame = wax.shared.Interface.New("Frame", {
+	local Frame = Interface.New("Frame", {
 		BorderSizePixel = 0,
 		BackgroundColor3 = Color3.fromRGB(255, 255, 255),
 		Size = UDim2.new(1, -50, 1, 0),
@@ -78,9 +82,9 @@ local function InternalCreateNotificationObject(zindex, image, text)
 		Parent = NotificationTemplate,
 	})
 
-	wax.shared.Animations.AddFadeExclusion(Frame)
+	Animations.AddFadeExclusion(Frame)
 
-	wax.shared.Interface.New("TextLabel", {
+	Interface.New("TextLabel", {
 		BorderSizePixel = 0,
 		TextSize = 14,
 		TextXAlignment = Enum.TextXAlignment.Left,
@@ -138,7 +142,7 @@ local function toast(image, text, internalTime, removeCallback)
 			:Play()
 
 		if ((#Sonner.Queue - index) + 1) >= 4 then
-			wax.shared.Animations.FadeOut(object)
+			Animations.FadeOut(object)
 			task.delay(0.5, function()
 				object:Destroy()
 			end)
@@ -155,7 +159,7 @@ local function toast(image, text, internalTime, removeCallback)
 			Position = UDim2.new(0.5, 0, 1, -20),
 		})
 		:Play()
-	wax.shared.Animations.FadeIn(Notif)
+	Animations.FadeIn(Notif)
 
 	if removeCallback then
 		task.spawn(removeCallback, Notif, time)
@@ -166,7 +170,7 @@ local function toast(image, text, internalTime, removeCallback)
 			end
 			table.remove(Sonner.Queue, table.find(Sonner.Queue, Notif))
 
-			wax.shared.Animations.FadeOut(Notif, 0.35)
+			Animations.FadeOut(Notif, 0.35)
 			wax.shared.TweenService
 				:Create(Notif, Sonner.TweenInfo, {
 					Position = UDim2.new(0.5, 0, 1, 50),
@@ -221,13 +225,13 @@ function Sonner.promise(func, options)
 
 		success, resultOrError = pcall(func) -- yes mstudio45, your famous pcall is better (- deivid)
 
-	   	task.spawn(function()
+		task.spawn(function()
 			setthreadidentity(8)
-			
+
 			-- The thread identity is 8 when setting it on the parent thread (Sonner.promise), but it still lacks capabilities when running another child thread
 			-- Capabilities here should pass from a thread to another... Could be an upstream (executor) issue ?
-			
-			wax.shared.Animations.FadeOut(notif.ImageLabel, 0.15)
+
+			Animations.FadeOut(notif.ImageLabel, 0.15)
 			wax.shared.TweenService
 				:Create(notif.ImageLabel, TweenInfo.new(0.25, Enum.EasingStyle.Exponential), {
 					Size = UDim2.new(0, 0, 0, 0),
@@ -241,7 +245,7 @@ function Sonner.promise(func, options)
 			notif.ImageLabel.Rotation = 0
 
 			if success then
-				wax.shared.Icons.SetIcon(notif.ImageLabel, "check")
+				Icons.SetIcon(notif.ImageLabel, "check")
 				local message = (
 					typeof(successText) == "string" and successText
 					or typeof(successText) == "function" and successText(resultOrError)
@@ -254,7 +258,7 @@ function Sonner.promise(func, options)
 					notif.Frame.TextLabel.Text = message
 				end
 			else
-				wax.shared.Icons.SetIcon(notif.ImageLabel, "circle-alert")
+				Icons.SetIcon(notif.ImageLabel, "circle-alert")
 				notif.Frame.TextLabel.Text = (
 					typeof(errorText) == "string" and errorText
 					or typeof(errorText) == "function" and errorText(resultOrError)
@@ -262,7 +266,7 @@ function Sonner.promise(func, options)
 				)
 			end
 
-			wax.shared.Animations.FadeIn(notif.ImageLabel)
+			Animations.FadeIn(notif.ImageLabel)
 			wax.shared.TweenService
 				:Create(notif.ImageLabel, TweenInfo.new(0.25, Enum.EasingStyle.Exponential), {
 					Size = UDim2.new(0, 20, 0, 20),
@@ -275,7 +279,7 @@ function Sonner.promise(func, options)
 				end
 				table.remove(Sonner.Queue, table.find(Sonner.Queue, notif))
 
-				wax.shared.Animations.FadeOut(notif, 0.35)
+				Animations.FadeOut(notif, 0.35)
 				wax.shared.TweenService
 					:Create(notif, Sonner.TweenInfo, {
 						Position = UDim2.new(0.5, 0, 1, 50),

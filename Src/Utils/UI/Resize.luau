@@ -1,6 +1,9 @@
 local Resize = {}
 Resize.__index = Resize
 
+local Interface = require(script.Parent.Interface)
+local Drag = require(script.Parent.Drag)
+
 local HANDLE_SIZE = 6
 local CORNER_HANDLE_SIZE = 20
 
@@ -203,7 +206,7 @@ function Resize.new(Options: {
 		end
 	end
 
-	local LeftSide = wax.shared.Interface.New("Frame", {
+	local LeftSide = Interface.New("Frame", {
 		Size = UDim2.new(0, HandleSize, 1, -CornerHandleSize * 2),
 		AnchorPoint = Vector2.new(0, 0.5),
 		Position = UDim2.fromScale(0, 0.5),
@@ -211,9 +214,9 @@ function Resize.new(Options: {
 		Parent = MainFrame,
 		ZIndex = 9e6,
 	})
-	wax.shared.Drag.Setup(MainFrame, LeftSide, createDragHandler("Left", nil))
+	Drag.Setup(MainFrame, LeftSide, createDragHandler("Left", nil))
 
-	local RightSide = wax.shared.Interface.New("Frame", {
+	local RightSide = Interface.New("Frame", {
 		Size = UDim2.new(0, HandleSize, 1, -CornerHandleSize * 2),
 		AnchorPoint = Vector2.new(1, 0.5),
 		Position = UDim2.fromScale(1, 0.5),
@@ -221,9 +224,9 @@ function Resize.new(Options: {
 		Parent = MainFrame,
 		ZIndex = 9e6,
 	})
-	wax.shared.Drag.Setup(MainFrame, RightSide, createDragHandler("Right", nil))
+	Drag.Setup(MainFrame, RightSide, createDragHandler("Right", nil))
 
-	local TopSide = wax.shared.Interface.New("Frame", {
+	local TopSide = Interface.New("Frame", {
 		Size = UDim2.new(1, -CornerHandleSize * 2, 0, HandleSize),
 		AnchorPoint = Vector2.new(0.5, 0),
 		Position = UDim2.fromScale(0.5, 0),
@@ -231,9 +234,9 @@ function Resize.new(Options: {
 		Parent = MainFrame,
 		ZIndex = 9e6,
 	})
-	wax.shared.Drag.Setup(MainFrame, TopSide, createDragHandler(nil, "Top"))
+	Drag.Setup(MainFrame, TopSide, createDragHandler(nil, "Top"))
 
-	local BottomSide = wax.shared.Interface.New("Frame", {
+	local BottomSide = Interface.New("Frame", {
 		Size = UDim2.new(1, -CornerHandleSize * 2, 0, HandleSize),
 		AnchorPoint = Vector2.new(0.5, 1),
 		Position = UDim2.fromScale(0.5, 1),
@@ -241,9 +244,9 @@ function Resize.new(Options: {
 		Parent = MainFrame,
 		ZIndex = 9e6,
 	})
-	wax.shared.Drag.Setup(MainFrame, BottomSide, createDragHandler(nil, "Bottom"))
+	Drag.Setup(MainFrame, BottomSide, createDragHandler(nil, "Bottom"))
 
-	local TopLeftCorner = wax.shared.Interface.New("Frame", {
+	local TopLeftCorner = Interface.New("Frame", {
 		Size = UDim2.fromOffset(CornerHandleSize, CornerHandleSize),
 		AnchorPoint = Vector2.new(0, 0),
 		Position = UDim2.fromScale(0, 0),
@@ -251,9 +254,9 @@ function Resize.new(Options: {
 		Parent = MainFrame,
 		ZIndex = 9e6 + 1,
 	})
-	wax.shared.Drag.Setup(MainFrame, TopLeftCorner, createDragHandler("Left", "Top"))
+	Drag.Setup(MainFrame, TopLeftCorner, createDragHandler("Left", "Top"))
 
-	local TopRightCorner = wax.shared.Interface.New("Frame", {
+	local TopRightCorner = Interface.New("Frame", {
 		Size = UDim2.fromOffset(CornerHandleSize, CornerHandleSize),
 		AnchorPoint = Vector2.new(1, 0),
 		Position = UDim2.fromScale(1, 0),
@@ -261,9 +264,9 @@ function Resize.new(Options: {
 		Parent = MainFrame,
 		ZIndex = 9e6 + 1,
 	})
-	wax.shared.Drag.Setup(MainFrame, TopRightCorner, createDragHandler("Right", "Top"))
+	Drag.Setup(MainFrame, TopRightCorner, createDragHandler("Right", "Top"))
 
-	local BottomLeftCorner = wax.shared.Interface.New("Frame", {
+	local BottomLeftCorner = Interface.New("Frame", {
 		Size = UDim2.fromOffset(CornerHandleSize, CornerHandleSize),
 		AnchorPoint = Vector2.new(0, 1),
 		Position = UDim2.fromScale(0, 1),
@@ -271,9 +274,9 @@ function Resize.new(Options: {
 		Parent = MainFrame,
 		ZIndex = 9e6 + 1,
 	})
-	wax.shared.Drag.Setup(MainFrame, BottomLeftCorner, createDragHandler("Left", "Bottom"))
+	Drag.Setup(MainFrame, BottomLeftCorner, createDragHandler("Left", "Bottom"))
 
-	local BottomRightCorner = wax.shared.Interface.New("Frame", {
+	local BottomRightCorner = Interface.New("Frame", {
 		Size = UDim2.fromOffset(CornerHandleSize, CornerHandleSize),
 		AnchorPoint = Vector2.new(1, 1),
 		Position = UDim2.fromScale(1, 1),
@@ -281,7 +284,7 @@ function Resize.new(Options: {
 		Parent = MainFrame,
 		ZIndex = 9e6 + 1,
 	})
-	wax.shared.Drag.Setup(MainFrame, BottomRightCorner, createDragHandler("Right", "Bottom"))
+	Drag.Setup(MainFrame, BottomRightCorner, createDragHandler("Right", "Bottom"))
 
 	return self
 end

@@ -8,6 +8,8 @@
 local table, string, next, pcall, game, workspace, tostring, tonumber, getmetatable =
 	table, string, next, pcall, game, workspace, tostring, tonumber, getmetatable
 
+local CodeGen = require(script.Parent.Parent.CodeGen)
+
 local string_format = string.format
 local string_char = string.char
 local string_gsub = string.gsub
@@ -533,8 +535,7 @@ local function LuaEncode(inputTable, options)
 		-- nil or some DataModel not under `game`, it'll just return nil
 		TypeCases["Instance"] = function(value)
 			if UseInstancePaths then
-				local InstancePath, NilFunctionInserted =
-					wax.shared.CodeGen.GetFullPath(value, false, nil, GetNilFunctionInsert)
+				local InstancePath, NilFunctionInserted = CodeGen.GetFullPath(value, false, nil, GetNilFunctionInsert)
 
 				if NilFunctionInserted then
 					DidInsertNilFunction = true

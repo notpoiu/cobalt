@@ -54,11 +54,13 @@ test("getnilinstances", getnilinstances, true)
 -- Closure Library
 test("newcclosure", function()
 	assert(typeof(newcclosure) == "function", "newcclosure is not a function")
-	local CClosure = newcclosure(function() return true end)
+	local CClosure = newcclosure(function()
+		return true
+	end)
 
 	assert(typeof(CClosure) == "function", "newcclosure did not return a function")
 	assert(CClosure() == true, "Failed to create a new closure")
-	
+
 	assert(debug.info(CClosure, "s") == "[C]", "newcclosure did not create a C closure")
 end, true)
 
@@ -67,7 +69,7 @@ test("getcallingscript", getcallingscript, true)
 
 test("hookfunction", function()
 	assert(typeof(hookfunction) == "function", "hookfunction is not a function")
-	
+
 	local function Original(a, b)
 		return a + b
 	end
@@ -82,7 +84,7 @@ end)
 test("isfunctionhooked", function()
 	assert(typeof(isfunctionhooked) == "function", "isfunctionhooked is not a function")
 	assert(typeof(hookfunction) == "function", "hookfunction is required for this test")
-	
+
 	local function Original(a, b)
 		return a + b
 	end
@@ -98,7 +100,7 @@ end)
 test("restorefunction", function()
 	assert(typeof(restorefunction) == "function", "restorefunction is not a function")
 	assert(typeof(hookfunction) == "function", "hookfunction is required for this test")
-	
+
 	local function Original(a, b)
 		return a + b
 	end
@@ -117,10 +119,12 @@ end)
 -- Metamethod
 test("hookmetamethod", function()
 	assert(typeof(hookmetamethod) == "function", "hookmetamethod is not a function")
-	
+
 	local object = setmetatable({}, {
-		__index = newcclosure(function() return false end),
-		__metatable = "Locked!"
+		__index = newcclosure(function()
+			return false
+		end),
+		__metatable = "Locked!",
 	})
 
 	local ref = hookmetamethod(object, "__index", function()
@@ -137,28 +141,33 @@ test("getnamecallmethod", function()
 		game:TEST_NAMECALL_METHOD()
 	end)
 
-	assert(
-		getnamecallmethod() == "TEST_NAMECALL_METHOD",
-		"getnamecallmethod did not return the real namecall method"
-	)
+	assert(getnamecallmethod() == "TEST_NAMECALL_METHOD", "getnamecallmethod did not return the real namecall method")
 end)
 test("getrawmetatable", function()
 	assert(typeof(getrawmetatable) == "function", "getrawmetatable is not a function")
 
 	local BaseLockedMetatable = {
-		__index = function() return false end,
-		__metatable = "Locked!"
+		__index = function()
+			return false
+		end,
+		__metatable = "Locked!",
 	}
 
 	local TestMetatable = setmetatable({}, BaseLockedMetatable)
 
 	local FetchedMetatable = getrawmetatable(TestMetatable)
 	assert(typeof(FetchedMetatable) == "table", "getrawmetatable did not return a table")
-	
-	assert(FetchedMetatable.__index() == false, "getrawmetatable did not return the correct metatable [__index()]")
-	assert(FetchedMetatable.__metatable == "Locked!", "getrawmetatable did not return the correct metatable [locked mt check]")
 
-	assert(FetchedMetatable == BaseLockedMetatable, "getrawmetatable did not return the correct metatable [mt eq check]")
+	assert(FetchedMetatable.__index() == false, "getrawmetatable did not return the correct metatable [__index()]")
+	assert(
+		FetchedMetatable.__metatable == "Locked!",
+		"getrawmetatable did not return the correct metatable [locked mt check]"
+	)
+
+	assert(
+		FetchedMetatable == BaseLockedMetatable,
+		"getrawmetatable did not return the correct metatable [mt eq check]"
+	)
 end)
 
 -- Instance Library
@@ -166,14 +175,16 @@ test("getcallbackvalue", function()
 	assert(typeof(getcallbackvalue) == "function", "getcallbackvalue is not a function")
 
 	local bindable = Instance.new("BindableFunction")
-	local InvokeFunction = function(value) return value * 2 end
+	local InvokeFunction = function(value)
+		return value * 2
+	end
 	bindable.OnInvoke = InvokeFunction
 
 	local FetchedInvoke = getcallbackvalue(bindable, "OnInvoke")
 	bindable:Destroy()
 
 	assert(typeof(FetchedInvoke) == "function", "getcallbackvalue did not return a function")
-	
+
 	assert(FetchedInvoke(5) == 10, "getcallbackvalue did not return the correct function")
 	assert(FetchedInvoke == InvokeFunction, "getcallbackvalue did not return the original function")
 end)
@@ -189,10 +200,12 @@ test("getconnections", function()
 	local Event = Instance.new("BindableEvent")
 	local ConnectionFunction = function() end
 	local OnceFunction = function() end
-	
+
 	Event.Event:Connect(ConnectionFunction)
 	Event.Event:Once(OnceFunction)
-	task.spawn(function() Event.Event:Wait() end)
+	task.spawn(function()
+		Event.Event:Wait()
+	end)
 
 	local Connections = getconnections(Event.Event)
 
@@ -210,14 +223,20 @@ test("getconnections", function()
 		end
 	end
 
-	assert(table.find(FoundFunctions, ConnectionFunction) ~= nil, "getconnections did not return the correct connection [:Connect()]")
-	assert(table.find(FoundFunctions, OnceFunction) ~= nil, "getconnections did not return the correct connection [:Once()]")
+	assert(
+		table.find(FoundFunctions, ConnectionFunction) ~= nil,
+		"getconnections did not return the correct connection [:Connect()]"
+	)
+	assert(
+		table.find(FoundFunctions, OnceFunction) ~= nil,
+		"getconnections did not return the correct connection [:Once()]"
+	)
 
 	Event:Destroy()
 end)
 test("firesignal", function()
 	assert(typeof(firesignal) == "function", "firesignal is not a function")
-	
+
 	local event = Instance.new("BindableEvent")
 	local fired = false
 
@@ -251,9 +270,9 @@ if CheckFFlagValue("DebugRunParallelLuaOnMainThread", false) and not ExecutorSup
 		if not game:IsLoaded() then
 			game.Loaded:Wait()
 		end
-		
+
 		local GameUsesActors = false
-		
+
 		local CategoryToSearch = { game:GetDescendants() }
 		if ExecutorSupport["getnilinstances"].IsWorking then
 			table.insert(CategoryToSearch, getnilinstances())
@@ -263,23 +282,23 @@ if CheckFFlagValue("DebugRunParallelLuaOnMainThread", false) and not ExecutorSup
 			if GameUsesActors then
 				break
 			end
-		
+
 			for _, Instance in Category do
 				if not Instance:IsA("Actor") then
 					continue
 				end
-		
+
 				GameUsesActors = true
 				break
 			end
 		end
-		
+
 		if not GameUsesActors then
 			return
 		end
-		
+
 		local bindable = Instance.new("BindableFunction")
-	
+
 		function bindable.OnInvoke(response)
 			if response == "Set FFlag" then
 				setfflag("DebugRunParallelLuaOnMainThread", "true")
@@ -289,10 +308,10 @@ if CheckFFlagValue("DebugRunParallelLuaOnMainThread", false) and not ExecutorSup
 					Duration = math.huge,
 				})
 			end
-	
+
 			bindable:Destroy()
 		end
-	
+
 		wax.shared.StarterGui:SetCore("SendNotification", {
 			Title = "Cobalt",
 			Text = "Detected the possible use of Actors but your exec does not support this. We can set a FFlag for you so after rejoining it detects actor remotes.",
