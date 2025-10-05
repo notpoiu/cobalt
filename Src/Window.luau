@@ -3,6 +3,7 @@
 ]]
 
 local AnticheatData = require(script.Parent.Anticheats.Main)
+local LuaEncode = require(script.Parent.Utils.Serializer.LuaEncode)
 
 local Utils = script.Parent.Utils
 
@@ -1836,7 +1837,7 @@ CreateInfoDropdownButton("code", "Code", {
 				end
 			end
 
-			local Success, Error = pcall(setclipboard, `local Info = {wax.shared.LuaEncode(Info, { Prettify = true })}`)
+			local Success, Error = pcall(setclipboard, `local Info = {LuaEncode(Info, { Prettify = true })}`)
 			if Success then
 				wax.shared.Sonner.success("Copied function info to clipboard")
 			else

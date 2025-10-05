@@ -32,8 +32,10 @@ wax.shared.Hooking = require(script.Utils.Hooking)
 wax.shared.Sonner = require(script.Utils.UI.Sonner)
 
 -- Code Generation
-local CodeGen = require(script.Utils.CodeGen)
 local LuaEncode = require(script.Utils.Serializer.LuaEncode)
+wax.shared.LuaEncode = LuaEncode
+
+local CodeGen = require(script.Utils.CodeGen)
 
 -- Variables
 if not wax.shared.Players.LocalPlayer then

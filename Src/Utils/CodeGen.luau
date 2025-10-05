@@ -65,10 +65,13 @@ function CodeGen.FormatLuaString(str)
 end
 
 function CodeGen.GetFullPath(Object, ExcludeCode, VariableName, IsInTable)
-	if rawequal(Object, game) or (wax.shared.ExecutorSupport["compareinstances"].IsWorking and compareinstances(Object, game)) then
+	if
+		rawequal(Object, game)
+		or (wax.shared.ExecutorSupport["compareinstances"].IsWorking and compareinstances(Object, game))
+	then
 		return "game"
 	end
-	
+
 	local CurrentObject = Object
 	local DidInsertNilFunction = false
 	local IsNil = false
@@ -115,12 +118,15 @@ function CodeGen.GetFullPath(Object, ExcludeCode, VariableName, IsInTable)
 					local Children = Parent:GetChildren()
 					local FoundIndex = nil
 
-					if wax.shared.ExecutorSupport["compareinstances"].IsWorking and not compareinstances(DirectChildPtr, CurrentObject) then
+					if
+						wax.shared.ExecutorSupport["compareinstances"].IsWorking
+						and not compareinstances(DirectChildPtr, CurrentObject)
+					then
 						for Index, Child in Children do
 							if not compareinstances(Child, CurrentObject) then
 								continue
 							end
-							
+
 							FoundIndex = Index
 							break
 						end
@@ -131,7 +137,6 @@ function CodeGen.GetFullPath(Object, ExcludeCode, VariableName, IsInTable)
 					if FoundIndex then
 						IndexName = ":GetChildren()[" .. tostring(FoundIndex) .. "]"
 					end
-
 				end
 			elseif Parent == nil then
 				IsNil = true
@@ -407,9 +412,14 @@ local Result = Event:%s(%s)
 local ExpectedResult = table.unpack(%s)
 
 ]],
-						((InsertedNilFunction or DidInsertNilFunction or DidInsertNilFunctionInExpectation) and GetNilCode .. "\n\n" or ""),
+						(
+							(InsertedNilFunction or DidInsertNilFunction or DidInsertNilFunctionInExpectation)
+								and GetNilCode .. "\n\n"
+							or ""
+						),
 						Path,
-						Method, CreateArgsString(PrettifiedOutput, CallInfo.OriginalInvokeArgs),
+						Method,
+						CreateArgsString(PrettifiedOutput, CallInfo.OriginalInvokeArgs),
 						PrettifiedExpectedResult
 					)
 			end
@@ -426,7 +436,8 @@ local ExpectedResult = table.unpack(%s)
 ]],
 						(DidInsertNilFunction or DidInsertNilFunctionInExpectation and GetNilCode .. "\n\n" or ""),
 						Path,
-						Method, CreateArgsString(SerializedArgs, CallInfo.Arguments),
+						Method,
+						CreateArgsString(SerializedArgs, CallInfo.Arguments),
 
 						PrettifiedExpectedResult
 					),

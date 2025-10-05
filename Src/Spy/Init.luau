@@ -1,3 +1,4 @@
+local LuaEncode = require(script.Parent.Parent.Utils.Serializer.LuaEncode)
 local Hooks = script.Parent.Hooks
 
 -- Main Thread Hooks
@@ -25,7 +26,7 @@ if wax.shared.ActorsEnabled then
 	local IgnorePlayerModule = wax.shared.SaveManager:GetState("IgnorePlayerModule")
 	local IngoredRemotesDropdown = wax.shared.SaveManager:GetState("IgnoredRemotesDropdown")
 
-	local ActorData = wax.shared.LuaEncode({
+	local ActorData = LuaEncode({
 		Token = wax.shared.CobaltVerificationToken,
 
 		IgnorePlayerModule = if typeof(IgnorePlayerModule) == "boolean" then IgnorePlayerModule else true,
@@ -103,7 +104,7 @@ if wax.shared.ActorsEnabled then
 			return
 		elseif not Log.Ignored then
 			local ReconstructedInfo = ReconstructTable(RawInfo, CyclicRefs)
-			
+
 			Log:Call(ReconstructedInfo)
 			wax.shared.Communicator:Fire(Log.Instance, Type, #Log.Calls)
 		end
