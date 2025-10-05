@@ -116,3 +116,5 @@ if wax.shared.ActorsEnabled then
 
 	run_on_actor(TargetActor, ActorsUtils.Unload.Value, CommunicationChannelID)
 end
+
+return {}

@@ -3902,3 +3902,5 @@ wax.shared.Connect(wax.shared.UserInputService.InputBegan:Connect(function(Input
 		end
 	end
 end))
+
+return {}

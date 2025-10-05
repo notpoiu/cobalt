@@ -3,8 +3,8 @@ local CodeGen = {
 	IndentTemplate = string.rep(" ", 4),
 }
 
-type SupportedRemoteTypes = RemoteEvent | RemoteFunction | BindableEvent | BindableFunction | UnreliableRemoteEvent
-type CallInfo = {
+export type SupportedRemoteTypes = RemoteEvent | RemoteFunction | BindableEvent | BindableFunction | UnreliableRemoteEvent
+export type CallInfo = {
 	Arguments: { [number]: any, n: number },
 	Time: string,
 	Origin: BaseScript?,

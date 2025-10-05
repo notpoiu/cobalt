@@ -204,7 +204,7 @@ wax.shared.SetupLoggingConnection = function()
 				Type = Type,
 			}, {
 				__index = CallDataFromHook,
-			}))
+			}) :: any)
 
 			local comprehensiveDataToSerialize = {
 				RemoteInstanceInfo = {
@@ -281,8 +281,8 @@ wax.shared.NewLog = function(Instance, Type, Method, CallingScript)
 	return Log
 end
 
-require("Window")
-require("Spy/Init")
+require(script.Window)
+require(script.Spy.Init)
 
 wax.shared.Connect(wax.shared.LocalPlayer.OnTeleport:Connect(function()
 	if not wax.shared.SaveManager:GetState("ExecuteOnTeleport") then
