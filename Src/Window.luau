@@ -2,7 +2,7 @@
 	Main Window Logic for cobalt, all UI elements are created and managed here.
 ]]
 
-local AnticheatData = require(script.Parent.Anticheats.Main)
+local AnticheatData = require(script.Parent.Utils.Anticheats.Main)
 local LuaEncode = require(script.Parent.Utils.Serializer.LuaEncode)
 
 local Utils = script.Parent.Utils
@@ -650,42 +650,70 @@ local function CreateSettingsCheckbox(
 		Parent = Options.Section,
 	})
 
-	local CheckContainer = Interface.New("Frame", {
-		AnchorPoint = Vector2.new(1, 0),
-		Position = UDim2.fromScale(1, 0),
-		BackgroundColor3 = Color3.fromRGB(0, 0, 0),
-		Size = UDim2.fromScale(1, 1),
-		SizeConstraint = Enum.SizeConstraint.RelativeYY,
+	local ToggleOnColor = Color3.fromRGB(52, 199, 89)
+	local ToggleOffColor = Color3.fromRGB(50, 50, 50)
+
+	local ToggleKnobOffSize = UDim2.fromOffset(16, 16)
+	local ToggleKnobOnSize = UDim2.fromOffset(18, 18)
+	local ToggleKnobInset = 10
+
+	local ToggleTrack = Interface.New("Frame", {
+		AnchorPoint = Vector2.new(1, 0.5),
+		Position = UDim2.new(1, 0, 0.5, 0),
+		Size = UDim2.fromOffset(36, 20),
+		BackgroundColor3 = ToggleOffColor,
 		Parent = CheckboxUI,
 
 		["UICorner"] = {
-			CornerRadius = UDim.new(0, 4),
-		},
-
-		["UIStroke"] = {
-			Color = Color3.fromRGB(25, 25, 25),
-			Thickness = 1,
-			ApplyStrokeMode = Enum.ApplyStrokeMode.Border,
-		},
-
-		["UIPadding"] = {
-			PaddingLeft = UDim.new(0, 2),
-			PaddingRight = UDim.new(0, 2),
-			PaddingTop = UDim.new(0, 2),
-			PaddingBottom = UDim.new(0, 2),
+			CornerRadius = UDim.new(1, 0),
 		},
 	})
 
-	local CheckImage = Interface.NewIcon("check", {
-		Size = UDim2.fromScale(1, 1),
-		BackgroundTransparency = 1,
-		ImageTransparency = Checkbox.Value and 0 or 1,
-		Parent = CheckContainer,
+	local ToggleKnob = Interface.New("Frame", {
+		AnchorPoint = Vector2.new(0.5, 0.5),
+		BackgroundColor3 = Color3.new(1, 1, 1),
+		Size = ToggleKnobOffSize,
+		Parent = ToggleTrack,
+
+		["UICorner"] = {
+			CornerRadius = UDim.new(1, 0),
+		},
 	})
 
-	CheckboxUI.MouseButton1Click:Connect(function()
+	local function UpdateToggleVisual(instant: boolean?)
+		local TargetTrackColor = if Checkbox.Value then ToggleOnColor else ToggleOffColor
+		local TargetKnobPosition = if Checkbox.Value
+			then UDim2.new(1, -ToggleKnobInset, 0.5, 0)
+			else UDim2.new(0, ToggleKnobInset, 0.5, 0)
+		local TargetKnobSize = if Checkbox.Value then ToggleKnobOnSize else ToggleKnobOffSize
+
+		if instant then
+			ToggleTrack.BackgroundColor3 = TargetTrackColor
+			ToggleKnob.Position = TargetKnobPosition
+			ToggleKnob.Size = TargetKnobSize
+		else
+			wax.shared.TweenService
+				:Create(ToggleTrack, DefaultTweenInfo, {
+					BackgroundColor3 = TargetTrackColor,
+				})
+				:Play()
+
+			wax.shared.TweenService
+				:Create(ToggleKnob, DefaultTweenInfo, {
+					Position = TargetKnobPosition,
+					Size = TargetKnobSize,
+				})
+				:Play()
+		end
+	end
+
+	UpdateToggleVisual(true)
+
+	local function Toggle()
 		Checkbox:SetValue(not Checkbox.Value)
-	end)
+	end
+
+	CheckboxUI.MouseButton1Click:Connect(Toggle)
 
 	function Checkbox:Reset()
 		Checkbox:SetValue(Checkbox.Default)
@@ -699,12 +727,7 @@ local function CreateSettingsCheckbox(
 		wax.shared.SaveManager:SetState(Idx, NewValue)
 
 		Checkbox.Value = NewValue
-
-		wax.shared.TweenService
-			:Create(CheckImage, DefaultTweenInfo, {
-				ImageTransparency = Checkbox.Value and 0 or 1,
-			})
-			:Play()
+		UpdateToggleVisual()
 
 		if Options.Callback then
 			Options.Callback(Checkbox.Value)
@@ -3736,7 +3759,9 @@ wax.shared.Connect(wax.shared.UserInputService.InputBegan:Connect(function(Input
 	elseif Input.KeyCode == Enum.KeyCode.K and wax.shared.UserInputService:IsKeyDown(Enum.KeyCode.LeftControl) then
 		OpenSearch()
 	elseif OpenedModal == SearchFrame then
-		if Input.KeyCode == Enum.KeyCode.Return then
+		if Input.KeyCode == Enum.KeyCode.Escape then
+			CloseModal()
+		elseif Input.KeyCode == Enum.KeyCode.Return then
 			EnterResult(SelectedResult)
 		elseif Input.KeyCode == Enum.KeyCode.Up then
 			SelectResult(SelectedResult - 1, true)

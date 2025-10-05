@@ -177,7 +177,7 @@ wax.shared.Unload = function()
 	wax.shared.Unloaded = true
 end
 
-local AnticheatData = require(script.Anticheats.Main)
+local AnticheatData = require(script.Utils.Anticheats.Main)
 
 -- Load Script
 wax.shared.Communicator = Instance.new("BindableEvent")
