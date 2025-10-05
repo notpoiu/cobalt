@@ -1121,6 +1121,18 @@ CreateSettingsCheckbox("PreferBufferFromString", {
 	Section = CodeGenSection,
 })
 
+CreateSettingsCheckbox("UseWaitForChildChains", {
+	Text = "Use WaitForChild Chains",
+	Default = false,
+	Section = CodeGenSection,
+})
+
+CreateSettingsCheckbox("ShowWatermark", {
+	Text = "Show Cobalt Watermark",
+	Default = true,
+	Section = CodeGenSection,
+})
+
 local MainSection = CreateSettingsSection("Main")
 
 CreateSettingsCheckbox("ExecuteOnTeleport", {

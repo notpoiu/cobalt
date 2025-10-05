@@ -73,6 +73,7 @@ function CodeGen.GetFullPath(Object, ExcludeCode, VariableName, IsInTable)
 	end
 
 	local CurrentObject = Object
+	local ShouldUseWaitForChild = wax.shared.SaveManager:GetState("UseWaitForChildChains")
 	local DidInsertNilFunction = false
 	local IsNil = false
 	local Path = ""
@@ -95,17 +96,29 @@ function CodeGen.GetFullPath(Object, ExcludeCode, VariableName, IsInTable)
 			Path = 'game:GetService("Players").LocalPlayer.Character' .. Path
 			break
 		elseif CurrentObject.Name and CurrentObject.Name == wax.shared.LocalPlayer.Name then
-			IndexName = '[game:GetService("Players").LocalPlayer.Name]'
+			if ShouldUseWaitForChild then
+				IndexName = ':WaitForChild(game:GetService("Players").LocalPlayer.Name)'
+			else
+				IndexName = '[game:GetService("Players").LocalPlayer.Name]'
+			end
 		elseif CurrentObject.Name and CurrentObject.Name == tostring(wax.shared.LocalPlayer.UserId) then
-			IndexName = '[game:GetService("Players").LocalPlayer.UserId]'
+			if ShouldUseWaitForChild then
+				IndexName = ':WaitForChild(game:GetService("Players").LocalPlayer.UserId)'
+			else
+				IndexName = '[game:GetService("Players").LocalPlayer.UserId]'
+			end
 		elseif CurrentObject == workspace then
 			Path = "workspace" .. Path
 			break
 		elseif CurrentObject.ClassName then
-			if string.match(CurrentObject.Name, "^[%a_][%w_]*$") then
-				IndexName = "." .. CurrentObject.Name
+			if ShouldUseWaitForChild then
+				IndexName = ':WaitForChild("' .. CodeGen.FormatLuaString(CurrentObject.Name) .. '")'
 			else
-				IndexName = '["' .. CodeGen.FormatLuaString(CurrentObject.Name) .. '"]'
+				if string.match(CurrentObject.Name, "^[%a_][%w_]*$") then
+					IndexName = "." .. CurrentObject.Name
+				else
+					IndexName = '["' .. CodeGen.FormatLuaString(CurrentObject.Name) .. '"]'
+				end
 			end
 
 			local Parent = CurrentObject.Parent
@@ -209,6 +222,12 @@ function CodeGen:BuildHookCode(CallInfo: CallInfo)
 	local Method = wax.shared.FunctionForClasses[Type][CallInfo.Instance.ClassName]
 
 	local CodeGenHeader = CodeGenHeaderTemplate
+	if
+		typeof(wax.shared.SaveManager:GetState("ShowWatermark")) == "boolean"
+		and wax.shared.SaveManager:GetState("ShowWatermark") == false
+	then
+		CodeGenHeader = ""
+	end
 
 	if Type == "Incoming" then
 		if DoesUseCallbackValue(CallInfo.Instance) then
@@ -388,6 +407,12 @@ function CodeGen:BuildCallCode(CallInfo: CallInfo)
 	)
 
 	local CodeGenHeader = CodeGenHeaderTemplate
+	if
+		typeof(wax.shared.SaveManager:GetState("ShowWatermark")) == "boolean"
+		and wax.shared.SaveManager:GetState("ShowWatermark") == false
+	then
+		CodeGenHeader = ""
+	end
 
 	if Type == "Incoming" then
 		if DoesUseCallbackValue(CallInfo.Instance) then
