@@ -73,7 +73,38 @@ function CodeGen.GetFullPath(Object, ExcludeCode, VariableName, IsInTable)
 	end
 
 	local CurrentObject = Object
-	local ShouldUseWaitForChild = wax.shared.SaveManager:GetState("UseWaitForChildChains")
+	local ChildLookupMode = wax.shared.SaveManager:GetState("InstancePathLookupChain")
+	if typeof(ChildLookupMode) == "boolean" then
+		ChildLookupMode = if ChildLookupMode then "WaitForChild" else "Index"
+		wax.shared.SaveManager:SetState("InstancePathLookupChain", ChildLookupMode)
+	end
+	if ChildLookupMode ~= "FindFirstChild" and ChildLookupMode ~= "WaitForChild" and ChildLookupMode ~= "Index" then
+		ChildLookupMode = "Index"
+	end
+
+	local function BuildDynamicAccessor(Expression: string): string
+		if ChildLookupMode == "WaitForChild" then
+			return ":WaitForChild(" .. Expression .. ")"
+		elseif ChildLookupMode == "FindFirstChild" then
+			return ":FindFirstChild(" .. Expression .. ")"
+		end
+
+		return "[" .. Expression .. "]"
+	end
+
+	local function BuildStaticAccessor(Name: string): string
+		local SanitizedName = CodeGen.FormatLuaString(Name)
+
+		if ChildLookupMode == "WaitForChild" then
+			return ':WaitForChild("' .. SanitizedName .. '")'
+		elseif ChildLookupMode == "FindFirstChild" then
+			return ':FindFirstChild("' .. SanitizedName .. '")'
+		elseif string.match(Name, "^[%a_][%w_]*$") then
+			return "." .. Name
+		end
+
+		return '["' .. SanitizedName .. '"]'
+	end
 	local DidInsertNilFunction = false
 	local IsNil = false
 	local Path = ""
@@ -96,30 +127,14 @@ function CodeGen.GetFullPath(Object, ExcludeCode, VariableName, IsInTable)
 			Path = 'game:GetService("Players").LocalPlayer.Character' .. Path
 			break
 		elseif CurrentObject.Name and CurrentObject.Name == wax.shared.LocalPlayer.Name then
-			if ShouldUseWaitForChild then
-				IndexName = ':WaitForChild(game:GetService("Players").LocalPlayer.Name)'
-			else
-				IndexName = '[game:GetService("Players").LocalPlayer.Name]'
-			end
+			IndexName = BuildDynamicAccessor('game:GetService("Players").LocalPlayer.Name')
 		elseif CurrentObject.Name and CurrentObject.Name == tostring(wax.shared.LocalPlayer.UserId) then
-			if ShouldUseWaitForChild then
-				IndexName = ':WaitForChild(game:GetService("Players").LocalPlayer.UserId)'
-			else
-				IndexName = '[game:GetService("Players").LocalPlayer.UserId]'
-			end
+			IndexName = BuildDynamicAccessor('game:GetService("Players").LocalPlayer.UserId')
 		elseif CurrentObject == workspace then
 			Path = "workspace" .. Path
 			break
 		elseif CurrentObject.ClassName then
-			if ShouldUseWaitForChild then
-				IndexName = ':WaitForChild("' .. CodeGen.FormatLuaString(CurrentObject.Name) .. '")'
-			else
-				if string.match(CurrentObject.Name, "^[%a_][%w_]*$") then
-					IndexName = "." .. CurrentObject.Name
-				else
-					IndexName = '["' .. CodeGen.FormatLuaString(CurrentObject.Name) .. '"]'
-				end
-			end
+			IndexName = BuildStaticAccessor(CurrentObject.Name)
 
 			local Parent = CurrentObject.Parent
 			if Parent then

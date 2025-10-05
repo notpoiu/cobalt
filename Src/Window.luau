@@ -717,6 +717,122 @@ local function CreateSettingsCheckbox(
 	wax.shared.Settings[Idx] = Checkbox
 	return Checkbox
 end
+--[[
+local function CreateSettingsTextBox(
+	Idx: string,
+	Options: {
+		Text: string,
+		Section: Frame,
+		Callback: (string) -> () | nil,
+		Default: string?,
+		Placeholder: string?,
+		ClearTextOnFocus: boolean?,
+		Width: number?,
+	}
+)
+	local DefaultValue = if typeof(Options.Default) == "string" then Options.Default else ""
+	local SavedValue = wax.shared.SaveManager:GetState(Idx)
+	local InitialValue = if typeof(SavedValue) == "string" then SavedValue else DefaultValue
+	local TextBoxWidth = Options.Width or 160
+
+	local TextSetting = {
+		Default = DefaultValue,
+		Value = InitialValue,
+	}
+
+	local Container = Interface.New("Frame", {
+		BackgroundTransparency = 1,
+		Size = UDim2.new(1, 0, 0, 26),
+		Parent = Options.Section,
+
+		["UIPadding"] = {
+			PaddingLeft = UDim.new(0, 2),
+			PaddingRight = UDim.new(0, 2),
+		},
+	})
+
+	Interface.New("TextLabel", {
+		BackgroundTransparency = 1,
+		Position = UDim2.fromOffset(0, 0),
+		Size = UDim2.new(1, -TextBoxWidth - 6, 1, 0),
+		Text = Options.Text,
+		TextSize = 16,
+		TextXAlignment = Enum.TextXAlignment.Left,
+		TextYAlignment = Enum.TextYAlignment.Center,
+		TextWrapped = true,
+		Parent = Container,
+	})
+
+	local Input = Interface.New("TextBox", {
+		AnchorPoint = Vector2.new(1, 0),
+		BackgroundColor3 = Color3.fromRGB(5, 5, 5),
+		ClearTextOnFocus = Options.ClearTextOnFocus or false,
+		PlaceholderColor3 = Color3.fromRGB(128, 128, 128),
+		PlaceholderText = Options.Placeholder or "",
+		Position = UDim2.fromScale(1, 0),
+		Size = UDim2.new(0, TextBoxWidth, 1, -2),
+		Text = InitialValue,
+		TextSize = 16,
+		TextXAlignment = Enum.TextXAlignment.Left,
+		Parent = Container,
+
+		["UICorner"] = {
+			CornerRadius = UDim.new(0, 4),
+		},
+
+		["UIStroke"] = {
+			Color = Color3.fromRGB(25, 25, 25),
+			Thickness = 1,
+			ApplyStrokeMode = Enum.ApplyStrokeMode.Border,
+		},
+
+		["UIPadding"] = {
+			PaddingLeft = UDim.new(0, 6),
+			PaddingRight = UDim.new(0, 6),
+		},
+	})
+
+	local function SyncValue(NewValue: string, FireCallback: boolean?)
+		TextSetting.Value = NewValue
+		Input.Text = NewValue
+		if FireCallback ~= false and Options.Callback then
+			Options.Callback(NewValue)
+		end
+	end
+
+	function TextSetting:Reset()
+		TextSetting:SetValue(TextSetting.Default)
+	end
+
+	function TextSetting:SetValue(NewValue)
+		NewValue = tostring(NewValue or "")
+
+		if NewValue == TextSetting.Value then
+			SyncValue(NewValue, false)
+			return
+		end
+
+		if wax.shared.ActorCommunicator then
+			wax.shared.ActorCommunicator:Fire("MainSettingsSync", Idx, NewValue)
+		end
+
+		wax.shared.SaveManager:SetState(Idx, NewValue)
+		SyncValue(NewValue)
+	end
+
+	Input.FocusLost:Connect(function()
+		TextSetting:SetValue(Input.Text)
+	end)
+
+	if wax.shared.ActorCommunicator then
+		wax.shared.ActorCommunicator:Fire("MainSettingsSync", Idx, TextSetting.Value)
+	end
+
+	SyncValue(TextSetting.Value, false)
+
+	wax.shared.Settings[Idx] = TextSetting
+	return TextSetting
+end]]
 
 local function CreateSettingsDropdown(
 	Idx: string,
@@ -733,7 +849,11 @@ local function CreateSettingsDropdown(
 	local AllowNull = Options.AllowNull or false
 	assert(AllowNull or Options.Default ~= nil, "Default value must be provided when AllowNull is false")
 
-	local function CreateLookupTable(Values: { any })
+	local function CreateLookupTable(Values: { any } | any)
+		if typeof(Values) ~= "table" then
+			return Values
+		end
+
 		local LookupTable = {}
 		for _, Value in Values do
 			LookupTable[Value] = true
@@ -829,10 +949,15 @@ local function CreateSettingsDropdown(
 	DropdownUI.MouseButton1Click:Connect(ContextMenu.Toggle)
 
 	function Dropdown:Reset()
-		for k, v in pairs(Dropdown.Default) do
-			warn(k, v)
+		if Dropdown.Multi then
+			local Cloned = {}
+			for Key, Value in pairs(Dropdown.Default) do
+				Cloned[Key] = Value
+			end
+			Dropdown:SetValue(Cloned)
+		else
+			Dropdown:SetValue(Dropdown.Default)
 		end
-		Dropdown:SetValue(Dropdown.Default)
 	end
 
 	function Dropdown:SetValue(NewValue)
@@ -1115,14 +1240,19 @@ end
 
 local CodeGenSection = CreateSettingsSection("Code Generation")
 
-CreateSettingsCheckbox("PreferBufferFromString", {
-	Text = "Prefer buffer.fromstring",
-	Default = false,
+CreateSettingsDropdown("InstancePathLookupChain", {
+	Text = "Instance Path Lookup Chain",
+	Values = {
+		["Index"] = "file",
+		["WaitForChild"] = "file-clock",
+		["FindFirstChild"] = "file-search",
+	},
+	Default = "Index",
 	Section = CodeGenSection,
 })
 
-CreateSettingsCheckbox("UseWaitForChildChains", {
-	Text = "Use WaitForChild Chains",
+CreateSettingsCheckbox("PreferBufferFromString", {
+	Text = "Prefer buffer.fromstring",
 	Default = false,
 	Section = CodeGenSection,
 })
