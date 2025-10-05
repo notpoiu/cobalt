@@ -900,20 +900,145 @@ local function CreateSettingsDropdown(
 		Text = Options.Text,
 		TextSize = 16,
 		BackgroundTransparency = 1,
-		Size = UDim2.new(1, 0, 0, 20),
+		Size = UDim2.new(1, 0, 0, 24),
 		TextXAlignment = Enum.TextXAlignment.Left,
+		TextYAlignment = Enum.TextYAlignment.Center,
 		Parent = Options.Section,
 	})
 
-	local DropdownIcon = Interface.NewIcon("chevron-down", {
-		Size = UDim2.fromScale(1, 1),
-		ImageTransparency = 0.5,
-		Position = UDim2.fromScale(1, 0),
-		AnchorPoint = Vector2.new(1, 0),
-		SizeConstraint = Enum.SizeConstraint.RelativeYY,
+	DropdownUI.AutoButtonColor = false
 
+	local DropdownDisplay = Interface.New("Frame", {
+		AnchorPoint = Vector2.new(1, 0.5),
+		BackgroundColor3 = Color3.fromRGB(0, 0, 0),
+		Position = UDim2.new(1, 0, 0.5, 0),
+		Size = UDim2.fromOffset(180, 24),
 		Parent = DropdownUI,
+
+		["UICorner"] = {
+			CornerRadius = UDim.new(0, 4),
+		},
+
+		["UIStroke"] = {
+			ApplyStrokeMode = Enum.ApplyStrokeMode.Border,
+			Color = Color3.fromRGB(25, 25, 25),
+			Thickness = 1,
+		},
+
+		["UIPadding"] = {
+			PaddingLeft = UDim.new(0, 8),
+			PaddingRight = UDim.new(0, 8),
+		},
 	})
+
+	local ValueLabel = Interface.New("TextLabel", {
+		BackgroundTransparency = 1,
+		Size = UDim2.new(1, -16, 1, 0),
+		Text = "Select...",
+		TextSize = 16,
+		TextTruncate = Enum.TextTruncate.AtEnd,
+		TextTransparency = 0.45,
+		TextXAlignment = Enum.TextXAlignment.Left,
+		TextYAlignment = Enum.TextYAlignment.Center,
+		Parent = DropdownDisplay,
+	})
+
+	local DropdownIcon = Interface.NewIcon("chevron-down", {
+		AnchorPoint = Vector2.new(1, 0.5),
+		ImageTransparency = 0.2,
+		Position = UDim2.new(1, 0, 0.5, 0),
+		Size = UDim2.fromOffset(12, 12),
+		Parent = DropdownDisplay,
+	})
+
+	local DisplayDefaultColor = DropdownDisplay.BackgroundColor3
+	local DisplayHoverColor = Color3.fromRGB(12, 12, 12)
+
+	local function TweenDisplayColor(TargetColor, TargetTransparency)
+		wax.shared.TweenService
+			:Create(DropdownDisplay, DefaultTweenInfo, {
+				BackgroundColor3 = TargetColor,
+			})
+			:Play()
+
+		if TargetTransparency then
+			wax.shared.TweenService
+				:Create(DropdownIcon, DefaultTweenInfo, {
+					ImageTransparency = TargetTransparency,
+				})
+				:Play()
+		end
+	end
+
+	DropdownUI.MouseEnter:Connect(function()
+		TweenDisplayColor(DisplayHoverColor, 0.05)
+	end)
+
+	DropdownUI.MouseLeave:Connect(function()
+		TweenDisplayColor(DisplayDefaultColor, 0.2)
+	end)
+
+	local function IterateValues(Callback: (any, string) -> ())
+		for Index, Object in Dropdown.Values do
+			local ActualValue = typeof(Index) == "number" and Object or Index
+			local DisplayText = typeof(Index) == "number" and tostring(Object) or tostring(Index)
+			Callback(ActualValue, DisplayText)
+		end
+	end
+
+	local function ResolveValueText(Value)
+		local Resolved
+		IterateValues(function(ActualValue, DisplayText)
+			if ActualValue == Value then
+				Resolved = DisplayText
+			end
+		end)
+		return Resolved or (Value ~= nil and tostring(Value) or "")
+	end
+
+	local function UpdateValueLabel()
+		local DisplayText = "Select..."
+		local Transparency = 0.45
+
+		if Dropdown.Multi then
+			local SelectedTexts = {}
+			IterateValues(function(Value, Text)
+				if Dropdown.Value[Value] then
+					table.insert(SelectedTexts, Text)
+				end
+			end)
+
+			if #SelectedTexts == 0 then
+				DisplayText = "None"
+				Transparency = 0.45
+			else
+				table.sort(SelectedTexts)
+				if #SelectedTexts <= 2 then
+					DisplayText = table.concat(SelectedTexts, ", ")
+				else
+					DisplayText = string.format("%s, +%d", SelectedTexts[1], #SelectedTexts - 1)
+				end
+				Transparency = 0
+			end
+		else
+			local CurrentValue = Dropdown.Value
+			if CurrentValue == nil or CurrentValue == "" then
+				DisplayText = "None"
+				Transparency = 0.45
+			else
+				local Resolved = ResolveValueText(CurrentValue)
+				if Resolved == "" then
+					DisplayText = tostring(CurrentValue)
+				else
+					DisplayText = Resolved
+				end
+				Transparency = 0
+			end
+		end
+
+		ValueLabel.Text = DisplayText
+		ValueLabel.TextTransparency = Transparency
+	end
 
 	local function BuildDropdownContext()
 		local Options = {}
@@ -937,6 +1062,8 @@ local function CreateSettingsDropdown(
 					end
 
 					wax.shared.SaveManager:SetState(Idx, Dropdown.Value)
+
+					UpdateValueLabel()
 				end,
 				TextProperties = function()
 					local Value = IsArray and Object or Index
@@ -967,10 +1094,9 @@ local function CreateSettingsDropdown(
 		return Options
 	end
 
-	local ContextMenu = CreateContextMenu(DropdownIcon, BuildDropdownContext())
+	local ContextMenu = CreateContextMenu(DropdownDisplay, BuildDropdownContext())
 
 	DropdownUI.MouseButton1Click:Connect(ContextMenu.Toggle)
-
 	function Dropdown:Reset()
 		if Dropdown.Multi then
 			local Cloned = {}
@@ -981,6 +1107,8 @@ local function CreateSettingsDropdown(
 		else
 			Dropdown:SetValue(Dropdown.Default)
 		end
+
+		UpdateValueLabel()
 	end
 
 	function Dropdown:SetValue(NewValue)
@@ -1002,11 +1130,15 @@ local function CreateSettingsDropdown(
 				Dropdown.Value = NewValue
 			end
 		end
+
+		UpdateValueLabel()
 	end
 
 	if wax.shared.ActorCommunicator then
 		wax.shared.ActorCommunicator:Fire("MainSettingsSync", Idx, Dropdown.Default)
 	end
+
+	UpdateValueLabel()
 
 	wax.shared.Settings[Idx] = Dropdown
 	return Dropdown
