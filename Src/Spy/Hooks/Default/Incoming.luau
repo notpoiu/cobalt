@@ -105,7 +105,9 @@ local function CreateConnectionFunction(Instance: InstancesToHook, Method: Metho
 
 			if Thread and getscriptfromthread then
 				Origin = getscriptfromthread(Thread)
-			elseif Function then
+			end
+
+			if not Origin and Function then
 				-- ts is unreliable because people could js set the script global to nil
 				-- if only debug.getinfo(Function).source or debug.info(Function, "s") returned an Instance...
 
@@ -163,7 +165,32 @@ local function HandleInstance(Instance: any)
 		end
 
 		Instance[Method] = function(...)
-			if LogRemote(Instance, Method, Callback, nil, ...) then
+			local Origin = nil
+
+			if getscriptfromthread then
+				Origin = getscriptfromthread(coroutine.running())
+			end
+
+			if not Origin then
+				-- ts is unreliable because people could js set the script global to nil
+				-- if only debug.getinfo(Function).source or debug.info(Function, "s") returned an Instance...
+
+				local Script = rawget(getfenv(Callback), "script")
+				if typeof(Script) == "Instance" then
+					Origin = Script
+				end
+			end
+
+			if
+				LogRemote(Instance, Method, Callback, {
+					Arguments = table.pack(...),
+					Time = os.date("%X"),
+					Origin = Origin,
+					Function = Callback,
+					Line = nil,
+					IsExecutor = Callback and isexecutorclosure(Callback) or false,
+				}, ...)
+			then
 				return
 			end
 
@@ -207,7 +234,32 @@ wax.shared.NewIndexHook = wax.shared.Hooking.HookMetaMethod(
 
 			if key == Method and IsCallable then
 				return wax.shared.NewIndexHook(self, key, function(...)
-					if LogRemote(self :: InstancesToHook, Method, value, nil, ...) then
+					local Origin = nil
+
+					if getscriptfromthread then
+						Origin = getscriptfromthread(coroutine.running())
+					end
+
+					if not Origin then
+						-- ts is unreliable because people could js set the script global to nil
+						-- if only debug.getinfo(Function).source or debug.info(Function, "s") returned an Instance...
+
+						local Script = rawget(getfenv(Callback), "script")
+						if typeof(Script) == "Instance" then
+							Origin = Script
+						end
+					end
+
+					if
+						LogRemote(self :: InstancesToHook, Method, value, {
+							Arguments = table.pack(...),
+							Time = os.date("%X"),
+							Origin = Origin,
+							Function = value,
+							Line = nil,
+							IsExecutor = value and isexecutorclosure(value) or false,
+						}, ...)
+					then
 						return
 					end
 
