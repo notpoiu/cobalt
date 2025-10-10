@@ -64,14 +64,19 @@ function CodeGen.FormatLuaString(str)
 	return string.gsub(str, '["\\\0-\31\127-\255]', CodeGen.CleanTable)
 end
 
-function CodeGen.GetFullPath(Object, ExcludeCode, VariableName, IsInTable)
-	if
-		rawequal(Object, game)
-		or (wax.shared.ExecutorSupport["compareinstances"].IsWorking and compareinstances(Object, game))
-	then
-		return "game"
+local function IsEqualToInstance(Object, ToCompareTo)
+	if rawequal(Object, ToCompareTo) then
+		return true
 	end
 
+	if wax.shared.ExecutorSupport["compareinstances"].IsWorking then
+		return compareinstances(Object, ToCompareTo)
+	end
+
+	return false
+end
+
+function CodeGen.GetFullPath(Object, ExcludeCode, VariableName, IsInTable)
 	local CurrentObject = Object
 	local ChildLookupMode = wax.shared.SaveManager:GetState("InstancePathLookupChain")
 	if typeof(ChildLookupMode) == "boolean" then
@@ -114,33 +119,38 @@ function CodeGen.GetFullPath(Object, ExcludeCode, VariableName, IsInTable)
 			break
 		end
 
-		if CurrentObject == game then
+		if IsEqualToInstance(CurrentObject, game) then
 			Path = "game" .. Path
 			break
 		end
 
 		local IndexName = ""
 
-		if CurrentObject == wax.shared.LocalPlayer then
+		if IsEqualToInstance(CurrentObject, wax.shared.LocalPlayer) then
 			IndexName = ".LocalPlayer"
-		elseif wax.shared.LocalPlayer.Character and CurrentObject == wax.shared.LocalPlayer.Character then
+		elseif
+			wax.shared.LocalPlayer.Character and IsEqualToInstance(CurrentObject, wax.shared.LocalPlayer.Character)
+		then
 			Path = 'game:GetService("Players").LocalPlayer.Character' .. Path
 			break
 		elseif CurrentObject.Name and CurrentObject.Name == wax.shared.LocalPlayer.Name then
 			IndexName = BuildDynamicAccessor('game:GetService("Players").LocalPlayer.Name')
 		elseif CurrentObject.Name and CurrentObject.Name == tostring(wax.shared.LocalPlayer.UserId) then
 			IndexName = BuildDynamicAccessor('game:GetService("Players").LocalPlayer.UserId')
-		elseif CurrentObject == workspace then
+		elseif IsEqualToInstance(CurrentObject, workspace) then
 			Path = "workspace" .. Path
 			break
-		elseif CurrentObject.ClassName then
+		elseif CurrentObject.ClassName and CurrentObject.Name then
 			IndexName = BuildStaticAccessor(CurrentObject.Name)
 
 			local Parent = CurrentObject.Parent
 			if Parent then
 				local DirectChildPtr = Parent:FindFirstChild(CurrentObject.Name)
 
-				if Parent == game and game:FindService(CurrentObject.ClassName) == CurrentObject then
+				if
+					IsEqualToInstance(Parent, game)
+					and IsEqualToInstance(game:FindService(CurrentObject.ClassName), CurrentObject)
+				then
 					IndexName = ':GetService("' .. CurrentObject.ClassName .. '")'
 				elseif DirectChildPtr then
 					local Children = Parent:GetChildren()

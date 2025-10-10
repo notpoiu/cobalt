@@ -1495,7 +1495,7 @@ CreateSettingsCheckbox("IgnorePlayerModule", {
 	Section = FilterSection,
 })
 CreateSettingsCheckbox("ShowExecutorLogs", {
-	Text = `Show {wax.shared.ExecutorName} Logs`,
+	Text = `Show {wax.shared.ExecutorName} Remote Logs`,
 	Default = true,
 	Section = FilterSection,
 	Callback = function()
