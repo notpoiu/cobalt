@@ -55,8 +55,7 @@ local function LogRemote(
 		Function: (...any) -> ...any,
 		Line: number,
 		IsExecutor: boolean,
-	} | nil,
-	...
+	}
 )
 	if not wax.shared.ShouldIgnore(Instance, getcallingscript()) and not LogConnectionFunctions[Function] then
 		local Log = wax.shared.Logs.Incoming[Instance]
@@ -67,16 +66,7 @@ local function LogRemote(
 		if Log.Blocked then
 			return true
 		elseif not Log.Ignored then
-			local CallInfo = Info
-				or {
-					Arguments = table.pack(...),
-					Time = os.date("%X"),
-					Origin = getcallingscript(),
-					Function = Function,
-					Line = getcallingline(),
-					IsExecutor = checkcaller(),
-				}
-			Log:Call(CallInfo)
+			Log:Call(Info)
 			wax.shared.Communicator:Fire(Log.Instance, "Incoming", #Log.Calls)
 		end
 	end
@@ -124,7 +114,7 @@ local function CreateConnectionFunction(Instance: InstancesToHook, Method: Metho
 				Function = Function,
 				Line = nil,
 				IsExecutor = Function and isexecutorclosure(Function) or false,
-			}, ...)
+			})
 		end
 	end
 
@@ -144,19 +134,23 @@ local function CreateCallbackDetour(Instance: InstancesToHook, Method: MethodsTo
 	return function(...)
 		local Origin = nil
 
+		-- May not exist in all executors
 		if getscriptfromthread then
 			Origin = getscriptfromthread(coroutine.running())
 		end
 
+		-- Unreliable method to get script.
 		if not Origin then
-			-- ts is unreliable because people could js set the script global to nil
-			-- if only debug.getinfo(Function).source or debug.info(Function, "s") returned an Instance...
-
 			local Script = rawget(getfenv(Callback), "script")
 			if typeof(Script) == "Instance" then
 				Origin = Script
 			end
 		end
+
+		local FunctionCaller = debug.info(2, "f")
+		local IsExecutor = if typeof(FunctionCaller) == "function"
+			then isexecutorclosure(FunctionCaller)
+			else isexecutorclosure(Callback)
 
 		if
 			LogRemote(Instance, Method, Callback, {
@@ -165,8 +159,8 @@ local function CreateCallbackDetour(Instance: InstancesToHook, Method: MethodsTo
 				Origin = Origin,
 				Function = Callback,
 				Line = nil,
-				IsExecutor = Callback and isexecutorclosure(Callback) or false,
-			}, ...)
+				IsExecutor = IsExecutor,
+			})
 		then
 			return
 		end
