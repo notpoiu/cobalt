@@ -13,28 +13,6 @@ local LogConnectionFunctions = {}
 local SignalMapping = setmetatable({}, { __mode = "kv" })
 
 --[[
-	Returns the calling line of the script that called the function via `debug.info`
-
-	@return number Returns the line number of the calling script.
-]]
-local function getcallingline()
-	for i = 4, 10 do
-		local Source, Line = debug.info(i, "sl")
-		if not Source then
-			break
-		end
-
-		if Source == "[C]" then
-			continue
-		end
-
-		return Line
-	end
-
-	return debug.info(4, "l")
-end
-
---[[
 	Individually logs an incoming remote call.
 
 	@param Instance The instance that was called.
