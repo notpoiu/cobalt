@@ -133,6 +133,49 @@ local function CreateConnectionFunction(Instance: InstancesToHook, Method: Metho
 end
 
 --[[
+	Creates a function that can be used to pass to callbacks (.OnInvoke & .OnClientInvoke) which will log all the incoming calls.
+	
+	@param Instance The instance to log.
+	@param Method The method to log (e.g., "OnClientEvent").
+	@param Function The original callback of the RemoteFunction
+	@return function Returns a function that logs all function calls to the given instance and method.
+]]
+local function CreateCallbackDetour(Instance: InstancesToHook, Method: MethodsToHook, Callback: (...any) -> ...any)
+	return function(...)
+		local Origin = nil
+
+		if getscriptfromthread then
+			Origin = getscriptfromthread(coroutine.running())
+		end
+
+		if not Origin then
+			-- ts is unreliable because people could js set the script global to nil
+			-- if only debug.getinfo(Function).source or debug.info(Function, "s") returned an Instance...
+
+			local Script = rawget(getfenv(Callback), "script")
+			if typeof(Script) == "Instance" then
+				Origin = Script
+			end
+		end
+
+		if
+			LogRemote(Instance, Method, Callback, {
+				Arguments = table.pack(...),
+				Time = os.date("%X"),
+				Origin = Origin,
+				Function = Callback,
+				Line = nil,
+				IsExecutor = Callback and isexecutorclosure(Callback) or false,
+			}, ...)
+		then
+			return
+		end
+
+		return Callback(...)
+	end
+end
+
+--[[
 	Handles setting up logging for the appropriate instances.
 
 	@param Instance The instance to handle.
@@ -164,38 +207,7 @@ local function HandleInstance(Instance: any)
 			return
 		end
 
-		Instance[Method] = function(...)
-			local Origin = nil
-
-			if getscriptfromthread then
-				Origin = getscriptfromthread(coroutine.running())
-			end
-
-			if not Origin then
-				-- ts is unreliable because people could js set the script global to nil
-				-- if only debug.getinfo(Function).source or debug.info(Function, "s") returned an Instance...
-
-				local Script = rawget(getfenv(Callback), "script")
-				if typeof(Script) == "Instance" then
-					Origin = Script
-				end
-			end
-
-			if
-				LogRemote(Instance, Method, Callback, {
-					Arguments = table.pack(...),
-					Time = os.date("%X"),
-					Origin = Origin,
-					Function = Callback,
-					Line = nil,
-					IsExecutor = Callback and isexecutorclosure(Callback) or false,
-				}, ...)
-			then
-				return
-			end
-
-			return Callback(...)
-		end
+		Instance[Method] = CreateCallbackDetour(Instance, Method, Callback)
 	end
 end
 
@@ -233,38 +245,7 @@ wax.shared.NewIndexHook = wax.shared.Hooking.HookMetaMethod(
 			)
 
 			if key == Method and IsCallable then
-				return wax.shared.NewIndexHook(self, key, function(...)
-					local Origin = nil
-
-					if getscriptfromthread then
-						Origin = getscriptfromthread(coroutine.running())
-					end
-
-					if not Origin then
-						-- ts is unreliable because people could js set the script global to nil
-						-- if only debug.getinfo(Function).source or debug.info(Function, "s") returned an Instance...
-
-						local Script = rawget(getfenv(Callback), "script")
-						if typeof(Script) == "Instance" then
-							Origin = Script
-						end
-					end
-
-					if
-						LogRemote(self :: InstancesToHook, Method, value, {
-							Arguments = table.pack(...),
-							Time = os.date("%X"),
-							Origin = Origin,
-							Function = value,
-							Line = nil,
-							IsExecutor = value and isexecutorclosure(value) or false,
-						}, ...)
-					then
-						return
-					end
-
-					return value(...)
-				end)
+				return wax.shared.NewIndexHook(self, key, CreateCallbackDetour(self :: InstancesToHook, Method, value))
 			end
 		end
 
