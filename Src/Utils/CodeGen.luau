@@ -78,7 +78,6 @@ end
 
 local ChildLookupModes = { "FindFirstChild", "WaitForChild", "Index" }
 function CodeGen.GetFullPath(Object, ExcludeCode, VariableName, IsInTable)
-	local CurrentObject = Object
 	local ChildLookupMode = wax.shared.SaveManager:GetState("InstancePathLookupChain")
 	if not table.find(ChildLookupModes, ChildLookupMode) then
 		ChildLookupMode = "Index"
@@ -107,6 +106,8 @@ function CodeGen.GetFullPath(Object, ExcludeCode, VariableName, IsInTable)
 
 		return '["' .. SanitizedName .. '"]'
 	end
+
+	local CurrentObject = Object
 	local DidInsertNilFunction = false
 	local IsNil = false
 	local Path = ""
