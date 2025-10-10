@@ -76,14 +76,11 @@ local function IsEqualToInstance(Object, ToCompareTo)
 	return false
 end
 
+local ChildLookupModes = { "FindFirstChild", "WaitForChild", "Index" }
 function CodeGen.GetFullPath(Object, ExcludeCode, VariableName, IsInTable)
 	local CurrentObject = Object
 	local ChildLookupMode = wax.shared.SaveManager:GetState("InstancePathLookupChain")
-	if typeof(ChildLookupMode) == "boolean" then
-		ChildLookupMode = if ChildLookupMode then "WaitForChild" else "Index"
-		wax.shared.SaveManager:SetState("InstancePathLookupChain", ChildLookupMode)
-	end
-	if ChildLookupMode ~= "FindFirstChild" and ChildLookupMode ~= "WaitForChild" and ChildLookupMode ~= "Index" then
+	if not table.find(ChildLookupModes, ChildLookupMode) then
 		ChildLookupMode = "Index"
 	end
 
