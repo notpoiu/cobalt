@@ -636,9 +636,7 @@ local function CreateSettingsCheckbox(
 )
 	local Checkbox = {
 		Default = Options.Default or false,
-		Value = if typeof(wax.shared.SaveManager:GetState(Idx)) == "boolean"
-			then wax.shared.SaveManager:GetState(Idx)
-			else (Options.Default or false),
+		Value = wax.shared.SaveManager:GetState(Idx, Options.Default),
 	}
 
 	local CheckboxUI = Interface.New("TextButton", {
@@ -889,10 +887,12 @@ local function CreateSettingsDropdown(
 		Default = Options.Default and CreateLookupTable(Options.Default)
 			or Options.AllowNull and (Options.Multi and {} or Options.Values[1])
 			or {},
-		Value = wax.shared.SaveManager:GetState(Idx)
-			or Options.Default and CreateLookupTable(Options.Default)
-			or Options.AllowNull and (Options.Multi and {} or Options.Values[1])
-			or {},
+		Value = wax.shared.SaveManager:GetState(
+			Idx,
+			Options.Default and CreateLookupTable(Options.Default)
+				or Options.AllowNull and (Options.Multi and {} or Options.Values[1])
+				or {}
+		),
 		Multi = Options.Multi or false,
 	}
 

@@ -43,6 +43,10 @@ function Log:Call(RawInfo)
 	if not Info.IsExecutor then
 		table.insert(self.GameCalls, Index)
 	end
+
+	if wax.shared.Communicator then
+		wax.shared.Communicator.Fire(wax.shared.Communicator, self.Instance, self.Type, #self.Calls)
+	end
 end
 
 function Log:Ignore()

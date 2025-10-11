@@ -263,7 +263,7 @@ wax.shared.SetupLoggingConnection = function()
 	end
 end
 
-if wax.shared.SaveManager:GetState("EnableLogging") then
+if wax.shared.SaveManager:GetState("EnableLogging", false) then
 	local LogConnection = wax.shared.SetupLoggingConnection()
 	wax.shared.LogConnection = wax.shared.Connect(wax.shared.Communicator.Event:Connect(LogConnection))
 end
@@ -285,7 +285,7 @@ require(script.Window)
 require(script.Spy.Init)
 
 wax.shared.Connect(wax.shared.LocalPlayer.OnTeleport:Connect(function()
-	if not wax.shared.SaveManager:GetState("ExecuteOnTeleport") then
+	if not wax.shared.SaveManager:GetState("ExecuteOnTeleport", false) then
 		return
 	end
 

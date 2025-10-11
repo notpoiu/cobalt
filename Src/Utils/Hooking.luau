@@ -2,8 +2,7 @@ local Hooking = {
 	IncludeInStackFunctions = {},
 }
 
-local UseAltHooks = wax.shared.SaveManager:GetState("UseAlternativeHooks")
-local AlternativeEnabled = typeof(UseAltHooks) == "boolean" and UseAltHooks or false
+local AlternativeEnabled = wax.shared.SaveManager:GetState("UseAlternativeHooks", false)
 wax.shared.AlternativeEnabled = AlternativeEnabled
 wax.shared.CobaltLuaSetStackHidden = false
 
@@ -15,14 +14,20 @@ Hooking.HookFunction = function(Original, Replacement)
 	return hookfunction(Original, Replacement)
 end
 Hooking.HookMetaMethod = function(object, method, hook)
-	if AlternativeEnabled or (not wax.shared.ExecutorSupport["hookmetamethod"].IsWorking and wax.shared.ExecutorSupport["getrawmetatable"].IsWorking) then
+	if
+		AlternativeEnabled
+		or (
+			not wax.shared.ExecutorSupport["hookmetamethod"].IsWorking
+			and wax.shared.ExecutorSupport["getrawmetatable"].IsWorking
+		)
+	then
 		local Metatable = wax.shared.getrawmetatable(object)
 		local originalMethod = rawget(Metatable, method)
-		
+
 		setreadonly(Metatable, false)
 		rawset(Metatable, method, hook)
 		setreadonly(Metatable, true)
-	
+
 		return originalMethod
 	end
 

@@ -20,22 +20,19 @@ if wax.shared.ActorsEnabled then
 	local CommunicationChannelID, Channel = create_comm_channel()
 	wax.shared.ActorCommunicator = get_comm_channel(CommunicationChannelID)
 
-	local UseAltHooks = wax.shared.SaveManager:GetState("UseAlternativeHooks")
-	local AlternativeEnabled = typeof(UseAltHooks) == "boolean" and UseAltHooks or false
+	local AlternativeEnabled = wax.shared.SaveManager:GetState("UseAlternativeHooks", false)
 
-	local IgnorePlayerModule = wax.shared.SaveManager:GetState("IgnorePlayerModule")
-	local IngoredRemotesDropdown = wax.shared.SaveManager:GetState("IgnoredRemotesDropdown")
+	local IgnorePlayerModule = wax.shared.SaveManager:GetState("IgnorePlayerModule", true)
+	local IngoredRemotesDropdown = wax.shared.SaveManager:GetState("IgnoredRemotesDropdown", {
+		["BindableEvent"] = true,
+		["BindableFunction"] = true,
+	})
 
 	local ActorData = LuaEncode({
 		Token = wax.shared.CobaltVerificationToken,
 
-		IgnorePlayerModule = if typeof(IgnorePlayerModule) == "boolean" then IgnorePlayerModule else true,
-		IgnoredRemotesDropdown = if typeof(IngoredRemotesDropdown) == "table"
-			then IngoredRemotesDropdown
-			else {
-				["BindableEvent"] = true,
-				["BindableFunction"] = true,
-			},
+		IgnorePlayerModule = IgnorePlayerModule,
+		IgnoredRemotesDropdown = IngoredRemotesDropdown,
 		UseAlternativeHooks = AlternativeEnabled,
 
 		ExecutorSupport = wax.shared.ExecutorSupport,
@@ -81,8 +78,7 @@ if wax.shared.ActorsEnabled then
 	end
 
 	wax.shared.Connect(Channel.Event:Connect(function(EventType, ...)
-		local LogActors = wax.shared.SaveManager:GetState("LogActors")
-		local ShouldLogActors = typeof(LogActors) ~= "boolean" and true or LogActors
+		local ShouldLogActors = wax.shared.SaveManager:GetState("LogActors", true)
 
 		if not ShouldLogActors then
 			return
@@ -93,6 +89,10 @@ if wax.shared.ActorsEnabled then
 		end
 
 		local Instance, Type, RawInfo, CyclicRefs = ...
+		if Instance == Channel or Instance == wax.shared.Communicator then
+			return
+		end
+
 		local Method = wax.shared.FunctionForClasses[Type][Instance.ClassName]
 		local Log = wax.shared.Logs[Type][Instance]
 

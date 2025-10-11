@@ -67,6 +67,7 @@ wax.shared.NamecallHook = wax.shared.Hooking.HookMetaMethod(
 			typeof(self) == "Instance"
 			and table.find(AllowedClassNames, self.ClassName)
 			and not rawequal(self, wax.shared.Communicator)
+			and not rawequal(self, wax.shared.ActorCommunicator)
 			and table.find(NamecallMethods, Method)
 			and not wax.shared.ShouldIgnore(self, getcallingscript())
 		then
@@ -87,7 +88,6 @@ wax.shared.NamecallHook = wax.shared.Hooking.HookMetaMethod(
 					IsExecutor = checkcaller(),
 				}
 				Log:Call(Info)
-				wax.shared.Communicator.Fire(wax.shared.Communicator, Log.Instance, "Outgoing", #Log.Calls)
 
 				-- For RemoteFunction return value (ex: local result = RemoteFunction:InvokeServer())
 				if self.ClassName == "RemoteFunction" and (Method == "InvokeServer" or Method == "invokeServer") then
@@ -112,7 +112,6 @@ wax.shared.NamecallHook = wax.shared.Hooking.HookMetaMethod(
 							OriginalInvokeArgs = table.pack(select(2, ...)),
 						}
 						Log:Call(RFResultInfo)
-						wax.shared.Communicator:Fire(Log.Instance, "Incoming", #Log.Calls)
 					end
 
 					return table.unpack(Result, 1, Result.n)
@@ -164,7 +163,6 @@ for _, Function in pairs(FunctionsToHook) do
 						IsExecutor = checkcaller(),
 					}
 					Log:Call(Info)
-					wax.shared.Communicator:Fire(Log.Instance, "Outgoing", #Log.Calls)
 
 					-- For RemoteFunction return value (ex: local result = RemoteFunction:InvokeServer())
 					if
@@ -192,7 +190,6 @@ for _, Function in pairs(FunctionsToHook) do
 								OriginalInvokeArgs = table.pack(select(2, ...)),
 							}
 							Log:Call(RFResultInfo)
-							wax.shared.Communicator:Fire(Log.Instance, "Incoming", #Log.Calls)
 						end
 
 						return table.unpack(Result, 1, Result.n)

@@ -76,12 +76,8 @@ local function IsEqualToInstance(Object, ToCompareTo)
 	return false
 end
 
-local ChildLookupModes = { "FindFirstChild", "WaitForChild", "Index" }
 function CodeGen.GetFullPath(Object, ExcludeCode, VariableName, IsInTable)
-	local ChildLookupMode = wax.shared.SaveManager:GetState("InstancePathLookupChain")
-	if not table.find(ChildLookupModes, ChildLookupMode) then
-		ChildLookupMode = "Index"
-	end
+	local ChildLookupMode = wax.shared.SaveManager:GetState("InstancePathLookupChain", "Index")
 
 	local function BuildDynamicAccessor(Expression: string): string
 		if ChildLookupMode == "WaitForChild" then
@@ -245,10 +241,7 @@ function CodeGen:BuildHookCode(CallInfo: CallInfo)
 	local Method = wax.shared.FunctionForClasses[Type][CallInfo.Instance.ClassName]
 
 	local CodeGenHeader = CodeGenHeaderTemplate
-	if
-		typeof(wax.shared.SaveManager:GetState("ShowWatermark")) == "boolean"
-		and wax.shared.SaveManager:GetState("ShowWatermark") == false
-	then
+	if not wax.shared.SaveManager:GetState("ShowWatermark", true) then
 		CodeGenHeader = ""
 	end
 
@@ -430,10 +423,7 @@ function CodeGen:BuildCallCode(CallInfo: CallInfo)
 	)
 
 	local CodeGenHeader = CodeGenHeaderTemplate
-	if
-		typeof(wax.shared.SaveManager:GetState("ShowWatermark")) == "boolean"
-		and wax.shared.SaveManager:GetState("ShowWatermark") == false
-	then
+	if not wax.shared.SaveManager:GetState("ShowWatermark", true) then
 		CodeGenHeader = ""
 	end
 

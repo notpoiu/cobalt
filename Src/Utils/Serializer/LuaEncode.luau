@@ -709,7 +709,7 @@ local function LuaEncode(inputTable, options)
 		end
 
 		TypeCases["buffer"] = function(value)
-			if wax.shared.SaveManager:GetState("PreferBufferFromString") then
+			if wax.shared.SaveManager:GetState("PreferBufferFromString", false) then
 				return `buffer.fromstring({SerializeString(buffer.tostring(value))})`
 			end
 

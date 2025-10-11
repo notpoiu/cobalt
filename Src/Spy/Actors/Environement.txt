@@ -51,11 +51,15 @@ wax.shared.newcclosure = wax.shared.ExecutorName == "AWP"
 		end
 	or newcclosure
 
-wax.shared.getrawmetatable = wax.shared.ExecutorSupport["getrawmetatable"].IsWorking and (getrawmetatable or debug.getmetatable) or function()
-	return setmetatable({}, {
-		__index = function() return function() end end
-	})
-end
+wax.shared.getrawmetatable = wax.shared.ExecutorSupport["getrawmetatable"].IsWorking
+		and (getrawmetatable or debug.getmetatable)
+	or function()
+		return setmetatable({}, {
+			__index = function()
+				return function() end
+			end,
+		})
+	end
 
 wax.shared.restorefunction = function(Function: (...any) -> ...any, Silent: boolean?)
 	local Original = wax.shared.Hooks[Function]
@@ -88,14 +92,20 @@ end
 wax.shared.AlternativeEnabled = Data.UseAlternativeHooks
 
 Hooking.HookMetaMethod = function(object, method, hook)
-	if Data.UseAlternativeHooks or (not wax.shared.ExecutorSupport["hookmetamethod"].IsWorking and wax.shared.ExecutorSupport["getrawmetatable"].IsWorking) then
+	if
+		Data.UseAlternativeHooks
+		or (
+			not wax.shared.ExecutorSupport["hookmetamethod"].IsWorking
+			and wax.shared.ExecutorSupport["getrawmetatable"].IsWorking
+		)
+	then
 		local Metatable = wax.shared.getrawmetatable(object)
 		local originalMethod = rawget(Metatable, method)
-		
+
 		setreadonly(Metatable, false)
 		rawset(Metatable, method, hook)
 		setreadonly(Metatable, true)
-	
+
 		return originalMethod
 	end
 
@@ -373,7 +383,12 @@ do
 	function Log:Call(RawInfo)
 		RawInfo["IsActor"] = true
 		local Info = DeepClone(RawInfo)
+
+		-- Seliware puts their actor BindableEvents in CoreGui
+		local identity = getthreadidentity()
+		setthreadidentity(8)
 		wax.shared.Communicator.Fire(wax.shared.Communicator, "ActorCall", self.Instance, self.Type, FixTable(Info))
+		setthreadidentity(identity)
 	end
 
 	function Log:Ignore()

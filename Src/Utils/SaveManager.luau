@@ -23,8 +23,12 @@ function SaveManager:SetState(Idx, Value)
 	pcall(writefile, "Cobalt/Settings.json", wax.shared.HttpService:JSONEncode(SaveManager.State))
 end
 
-function SaveManager:GetState(Idx)
-	return SaveManager.State[Idx]
+function SaveManager:GetState(Idx, Default)
+	if SaveManager.State[Idx] then
+		return SaveManager.State[Idx]
+	end
+
+	return Default
 end
 
 return SaveManager

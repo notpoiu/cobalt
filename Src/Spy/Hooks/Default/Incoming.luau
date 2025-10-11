@@ -45,7 +45,6 @@ local function LogRemote(
 			return true
 		elseif not Log.Ignored then
 			Log:Call(Info)
-			wax.shared.Communicator:Fire(Log.Instance, "Incoming", #Log.Calls)
 		end
 	end
 
@@ -153,7 +152,11 @@ end
 	@param Instance The instance to handle.
 ]]
 local function HandleInstance(Instance: any)
-	if not ClassesToHook[Instance.ClassName] or Instance == wax.shared.Communicator then
+	if
+		not ClassesToHook[Instance.ClassName]
+		or Instance == wax.shared.Communicator
+		or Instance == wax.shared.ActorCommunicator
+	then
 		return
 	end
 
