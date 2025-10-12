@@ -1,6 +1,8 @@
 local LuaEncode = require(script.Parent.Parent.Utils.Serializer.LuaEncode)
 local Hooks = script.Parent.Hooks
 
+wax.shared.BypassDetection = require(script.Parent.Hooks.BypassDetection)
+
 -- Main Thread Hooks
 for _, Hook in ipairs(Hooks.Default:GetChildren()) do
 	task.spawn(require, Hook)
