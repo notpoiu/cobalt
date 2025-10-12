@@ -24,7 +24,7 @@ function SaveManager:SetState(Idx, Value)
 end
 
 function SaveManager:GetState(Idx, Default)
-	if SaveManager.State[Idx] then
+	if SaveManager.State[Idx] ~= nil then
 		return SaveManager.State[Idx]
 	end
 
