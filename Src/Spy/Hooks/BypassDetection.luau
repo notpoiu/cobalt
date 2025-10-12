@@ -1,5 +1,5 @@
-local pcall, table_remove, unpack, error
-    = pcall, table.remove, unpack, error
+local pcall, table_pack, unpack, error
+    = pcall, table.pack, unpack, error
 
 --[[
     A simple, effective, and generic detection bypass that should be work on any AC that uses metamethod hooks with sus line info detection.
@@ -10,10 +10,9 @@ local pcall, table_remove, unpack, error
     @param ... Variable params
 ]]
 local function BypassDetection(Target: (...any) -> any, ...: any)
-    local Response = {pcall(Target, ...)}
+    local Response = table_pack(pcall(Target, ...))
     if Response[1] then
-        table_remove(Response, 1)
-        return unpack(Response)
+        return unpack(Response, 2, Response.n)
     end
 
     -- This is the key bypass step
