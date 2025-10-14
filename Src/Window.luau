@@ -24,7 +24,7 @@ local Resize = require(UIUtils.Resize)
 local Drag = require(UIUtils.Drag)
 
 local PaginationHelper = Pagination.new({
-	ItemsPerPage = 20,
+	ItemsPerPage = wax.shared.SaveManager:GetState("MaxItemPerPages", 20),
 	TotalItems = 0,
 })
 
@@ -738,7 +738,7 @@ local function CreateSettingsCheckbox(
 	wax.shared.Settings[Idx] = Checkbox
 	return Checkbox
 end
---[[
+
 local function CreateSettingsTextBox(
 	Idx: string,
 	Options: {
@@ -749,12 +749,58 @@ local function CreateSettingsTextBox(
 		Placeholder: string?,
 		ClearTextOnFocus: boolean?,
 		Width: number?,
+		NumericOnly: boolean?,
 	}
 )
-	local DefaultValue = if typeof(Options.Default) == "string" then Options.Default else ""
-	local SavedValue = wax.shared.SaveManager:GetState(Idx)
-	local InitialValue = if typeof(SavedValue) == "string" then SavedValue else DefaultValue
+	local NumericOnly = Options.NumericOnly == true
 	local TextBoxWidth = Options.Width or 160
+
+	local function NormalizeValue(NewValue: any): string
+		local Value = tostring(NewValue or "")
+
+		if not NumericOnly then
+			return Value
+		end
+
+		if Value == "" then
+			return ""
+		end
+
+		local Characters = table.create(#Value)
+		local HasDigits = false
+		local HasDecimal = false
+		local SignApplied = false
+
+		for Index = 1, #Value do
+			local Char = string.sub(Value, Index, Index)
+			local Byte = string.byte(Char)
+
+			if Char == "-" and not SignApplied and not HasDigits and not HasDecimal then
+				table.insert(Characters, Char)
+				SignApplied = true
+			elseif Char == "." and not HasDecimal then
+				table.insert(Characters, Char)
+				HasDecimal = true
+				SignApplied = true
+			elseif Byte and Byte >= 48 and Byte <= 57 then
+				table.insert(Characters, Char)
+				HasDigits = true
+				SignApplied = true
+			end
+		end
+
+		local Sanitized = table.concat(Characters)
+
+		if Sanitized == "-" or Sanitized == "." or Sanitized == "-." then
+			return ""
+		end
+
+		return Sanitized
+	end
+
+	local DefaultValue = NormalizeValue(Options.Default)
+	local SavedValue = wax.shared.SaveManager:GetState(Idx)
+	local InitialValue = NormalizeValue(if SavedValue ~= nil then SavedValue else DefaultValue)
 
 	local TextSetting = {
 		Default = DefaultValue,
@@ -816,8 +862,14 @@ local function CreateSettingsTextBox(
 	local function SyncValue(NewValue: string, FireCallback: boolean?)
 		TextSetting.Value = NewValue
 		Input.Text = NewValue
+
 		if FireCallback ~= false and Options.Callback then
-			Options.Callback(NewValue)
+			local ArgumentToPass = NewValue
+			if NumericOnly then
+				ArgumentToPass = tonumber(ArgumentToPass)
+			end
+
+			Options.Callback(ArgumentToPass)
 		end
 	end
 
@@ -826,19 +878,19 @@ local function CreateSettingsTextBox(
 	end
 
 	function TextSetting:SetValue(NewValue)
-		NewValue = tostring(NewValue or "")
+		local PreparedValue = NormalizeValue(NewValue)
 
-		if NewValue == TextSetting.Value then
-			SyncValue(NewValue, false)
+		if PreparedValue == TextSetting.Value then
+			SyncValue(PreparedValue, false)
 			return
 		end
 
 		if wax.shared.ActorCommunicator then
-			wax.shared.ActorCommunicator:Fire("MainSettingsSync", Idx, NewValue)
+			wax.shared.ActorCommunicator:Fire("MainSettingsSync", Idx, PreparedValue)
 		end
 
-		wax.shared.SaveManager:SetState(Idx, NewValue)
-		SyncValue(NewValue)
+		wax.shared.SaveManager:SetState(Idx, PreparedValue)
+		SyncValue(PreparedValue)
 	end
 
 	Input.FocusLost:Connect(function()
@@ -853,7 +905,7 @@ local function CreateSettingsTextBox(
 
 	wax.shared.Settings[Idx] = TextSetting
 	return TextSetting
-end]]
+end
 
 local function CreateSettingsDropdown(
 	Idx: string,
@@ -1419,6 +1471,27 @@ CreateSettingsCheckbox("ShowWatermark", {
 })
 
 local MainSection = CreateSettingsSection("Main")
+
+CreateSettingsTextBox("MaxItemPerPages", {
+	Text = "Logs Per Page",
+	Section = MainSection,
+	Default = 20,
+	NumericOnly = true,
+
+	Callback = function(max)
+		PaginationHelper:SetItemsPerPage(max)
+		
+		if not CurrentLog then
+			return
+		end
+
+		PaginationHelper:Update(#CurrentLog.Calls)
+		PaginationHelper:SetPage(1)
+		CurrentPage[CurrentLog] = 1
+
+		ShowLog(CurrentLog)
+	end,
+})
 
 CreateSettingsCheckbox("ExecuteOnTeleport", {
 	Text = "Execute On Teleport",

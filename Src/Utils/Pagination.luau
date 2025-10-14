@@ -33,6 +33,10 @@ function Pagination:GetInfo()
 	}
 end
 
+function Pagination:SetItemsPerPage(max: number)
+	self.ItemsPerPage = max
+end
+
 function Pagination:GetIndexRanges(Page: number?)
 	Page = Page or self.CurrentPage
 
