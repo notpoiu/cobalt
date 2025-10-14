@@ -47,7 +47,7 @@ local DefaultProperties = {
 	},
 }
 
-function Interface.New(ClassName: string, Properties: { [string]: any })
+function Interface.New(ClassName: string, Properties: { [string | number]: any })
 	local Object = Instance.new(ClassName)
 
 	for Key, Value in pairs(DefaultProperties[ClassName] or {}) do
