@@ -33,7 +33,7 @@ local CurrentPage = {}
 local CurrentInfo, CurrentTab, CurrentLog
 
 local LogsList
-local ShowPagination, ShowCalls
+local ShowPagination, ShowCalls, CreateCallFrame, ShowLog, CreateLogButton, CleanLogsList, UpdateSearch, SelectResult, EnterResult, OpenSearch
 
 local DefaultTweenInfo = TweenInfo.new(0.2, Enum.EasingStyle.Exponential)
 
@@ -1480,7 +1480,7 @@ CreateSettingsTextBox("MaxItemPerPages", {
 
 	Callback = function(max)
 		PaginationHelper:SetItemsPerPage(max)
-		
+
 		if not CurrentLog then
 			return
 		end
