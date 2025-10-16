@@ -22,6 +22,18 @@ function DeepClone(orig, copies)
 
 	if typeof(orig) == "Instance" then
 		return cloneref(orig)
+	elseif typeof(orig) == "userdata" then
+		if getmetatable(orig) then
+			return newproxy(true)
+		else
+			return newproxy()
+		end
+	elseif typeof(orig) == "function" then
+		if clonefunction then
+			return clonefunction(orig)
+		end
+
+		return orig
 	elseif type(orig) ~= "table" then
 		return orig
 	elseif copies[orig] then
