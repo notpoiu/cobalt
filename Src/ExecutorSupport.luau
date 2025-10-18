@@ -185,7 +185,7 @@ test("getcallbackvalue", function()
 
 	assert(typeof(FetchedInvoke) == "function", "getcallbackvalue did not return a function")
 
-	assert(FetchedInvoke(5) == 10, "getcallbackvalue did not return the correct function")
+	assert(FetchedInvoke(5) == 10, "getcallbackvalue's function return did not match expected value")
 	assert(FetchedInvoke == InvokeFunction, "getcallbackvalue did not return the original function")
 end)
 test("getnilinstances", function()
