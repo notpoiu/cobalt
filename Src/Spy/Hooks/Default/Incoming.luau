@@ -12,6 +12,8 @@ type MethodsToHook = "OnClientEvent" | "OnClientInvoke" | "Event" | "OnInvoke"
 local LogConnectionFunctions = {}
 local SignalMapping = setmetatable({}, { __mode = "kv" })
 
+local BypassDetection = wax.shared.BypassDetection
+
 --[[
 	Individually logs an incoming remote call.
 
@@ -200,14 +202,15 @@ for _, Category in CategoryToSearch do
 	end
 end
 
-wax.shared.NewIndexHook = wax.shared.Hooking.HookMetaMethod(
+local NewIndexHook
+NewIndexHook = wax.shared.Hooking.HookMetaMethod(
 	game,
 	"__newindex",
 	wax.shared.newcclosure(function(...)
 		local self, key, value = ...
 
 		if typeof(self) ~= "Instance" or not ClassesToHook[self.ClassName] then
-			return wax.shared.NewIndexHook(...)
+			return BypassDetection(NewIndexHook, ...)
 		end
 
 		if self.ClassName == "RemoteFunction" or self.ClassName == "BindableFunction" then
@@ -220,13 +223,15 @@ wax.shared.NewIndexHook = wax.shared.Hooking.HookMetaMethod(
 			)
 
 			if key == Method and IsCallable then
-				return wax.shared.NewIndexHook(self, key, CreateCallbackDetour(self :: InstancesToHook, Method, value))
+				return BypassDetection(NewIndexHook, self, key, CreateCallbackDetour(self :: InstancesToHook, Method, value))
 			end
 		end
 
-		return wax.shared.NewIndexHook(...)
+		return BypassDetection(NewIndexHook, ...)
 	end)
 )
+
+wax.shared.NewIndexHook = NewIndexHook
 
 local ConnectionKeys = {
 	"Connect",
@@ -238,12 +243,15 @@ local ConnectionKeys = {
 }
 
 local SignalMetatable = wax.shared.getrawmetatable(Instance.new("Part").Touched)
-wax.shared.Hooks[SignalMetatable.__index] = wax.shared.Hooking.HookFunction(SignalMetatable.__index, function(...)
+local Signal__index   = SignalMetatable.__index
+
+local IndexHook
+IndexHook = wax.shared.Hooking.HookFunction(Signal__index, function(...)
 	local self, key = ...
 
 	if table.find(ConnectionKeys, key) then
 		local Instance = SignalMapping[self]
-		local Connect = wax.shared.Hooks[SignalMetatable.__index](...)
+		local Connect = wax.shared.Hooks[Signal__index](...)
 
 		if not Instance then
 			return Connect
@@ -275,5 +283,7 @@ wax.shared.Hooks[SignalMetatable.__index] = wax.shared.Hooking.HookFunction(Sign
 		return Connect
 	end
 
-	return wax.shared.Hooks[SignalMetatable.__index](...)
+	return BypassDetection(IndexHook, ...)
 end)
+
+wax.shared.Hooks[Signal__index] = IndexHook
