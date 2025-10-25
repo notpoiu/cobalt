@@ -26,15 +26,20 @@ local function CheckFFlagValue(Name: string, Value: any)
 	return false
 end
 
-local function test(name, Callback, CheckType)
+local function test(name, Callback, CheckType, Essential)
 	local TestFunction = not CheckType and Callback or function()
 		return typeof(Callback) == "function"
+	end
+
+	if Essential == nil then
+		Essential = true
 	end
 
 	local Success, Result = pcall(TestFunction)
 	ExecutorSupport[name] = {
 		IsWorking = Success,
 		Details = Result,
+		Essential = Essential,
 	}
 
 	if not Success then
@@ -115,6 +120,10 @@ test("restorefunction", function()
 
 	assert(Original(2, 3) == 5, "restorefunction did not restore the original function")
 end)
+
+-- Oth Library
+test("oth.hook", oth and oth.hook, true, false)
+test("oth.unhook", oth and oth.unhook, true, false)
 
 -- Metamethod
 test("hookmetamethod", function()

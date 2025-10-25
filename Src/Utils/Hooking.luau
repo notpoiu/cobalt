@@ -4,9 +4,12 @@ local Hooking = {
 
 local AlternativeEnabled = wax.shared.SaveManager:GetState("UseAlternativeHooks", false)
 wax.shared.AlternativeEnabled = AlternativeEnabled
-wax.shared.CobaltLuaSetStackHidden = false
 
 Hooking.HookFunction = function(Original, Replacement)
+	if wax.shared.ExecutorSupport["oth.hook"] then
+		return oth.hook(Original, Replacement)
+	end
+
 	if not wax.shared.ExecutorSupport["hookfunction"].IsWorking then
 		return Original
 	end
@@ -14,6 +17,13 @@ Hooking.HookFunction = function(Original, Replacement)
 	return hookfunction(Original, Replacement)
 end
 Hooking.HookMetaMethod = function(object, method, hook)
+	local Metatable = wax.shared.getrawmetatable(object)
+	local originalMethod = rawget(Metatable, method)
+
+	if wax.shared.ExecutorSupport["oth.hook"].IsWorking then
+		return oth.hook(originalMethod, hook)
+	end
+
 	if
 		AlternativeEnabled
 		or (
@@ -21,9 +31,6 @@ Hooking.HookMetaMethod = function(object, method, hook)
 			and wax.shared.ExecutorSupport["getrawmetatable"].IsWorking
 		)
 	then
-		local Metatable = wax.shared.getrawmetatable(object)
-		local originalMethod = rawget(Metatable, method)
-
 		setreadonly(Metatable, false)
 		rawset(Metatable, method, hook)
 		setreadonly(Metatable, true)

@@ -82,6 +82,10 @@ end
 local Hooking = {}
 
 Hooking.HookFunction = function(Original, Replacement)
+	if wax.shared.ExecutorSupport["oth.hook"] then
+		return oth.hook(Original, Replacement)
+	end
+
 	if not wax.shared.ExecutorSupport["hookfunction"].IsWorking then
 		return Original
 	end
@@ -89,9 +93,17 @@ Hooking.HookFunction = function(Original, Replacement)
 	return hookfunction(Original, Replacement)
 end
 
+
 wax.shared.AlternativeEnabled = Data.UseAlternativeHooks
 
 Hooking.HookMetaMethod = function(object, method, hook)
+	local Metatable = wax.shared.getrawmetatable(object)
+	local originalMethod = rawget(Metatable, method)
+
+	if wax.shared.ExecutorSupport["oth.hook"].IsWorking then
+		return oth.hook(originalMethod, hook)
+	end
+
 	if
 		Data.UseAlternativeHooks
 		or (
@@ -99,9 +111,6 @@ Hooking.HookMetaMethod = function(object, method, hook)
 			and wax.shared.ExecutorSupport["getrawmetatable"].IsWorking
 		)
 	then
-		local Metatable = wax.shared.getrawmetatable(object)
-		local originalMethod = rawget(Metatable, method)
-
 		setreadonly(Metatable, false)
 		rawset(Metatable, method, hook)
 		setreadonly(Metatable, true)
