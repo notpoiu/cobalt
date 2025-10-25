@@ -11,6 +11,8 @@ local NamecallMethods = {
 local AllowedClassNames =
 	{ "RemoteEvent", "RemoteFunction", "UnreliableRemoteEvent", "BindableEvent", "BindableFunction" }
 
+local BypassDetection = wax.shared.BypassDetection
+
 --[[
 	Returns the calling function via `debug.info`
 
@@ -56,7 +58,8 @@ local function getcallingline()
 end
 
 -- metamethod hooks
-wax.shared.NamecallHook = wax.shared.Hooking.HookMetaMethod(
+local NamecallHook
+NamecallHook = wax.shared.Hooking.HookMetaMethod(
 	game,
 	"__namecall",
 	wax.shared.newcclosure(function(...)
@@ -100,7 +103,7 @@ wax.shared.NamecallHook = wax.shared.Hooking.HookMetaMethod(
 						return
 					end
 
-					local Result = table.pack(wax.shared.NamecallHook(...))
+					local Result = table.pack(NamecallHook(...))
 					if not Log.Ignored then
 						local RFResultInfo = {
 							Arguments = Result,
@@ -119,9 +122,11 @@ wax.shared.NamecallHook = wax.shared.Hooking.HookMetaMethod(
 			end
 		end
 
-		return wax.shared.NamecallHook(...)
+		return BypassDetection(NamecallHook, ...)
 	end)
 )
+
+wax.shared.NamecallHook = NamecallHook
 
 -- function hooks
 local FunctionsToHook = {
@@ -134,8 +139,9 @@ local FunctionsToHook = {
 
 for _, Function in pairs(FunctionsToHook) do
 	local Method = debug.info(Function, "n")
+	local Old
 
-	wax.shared.Hooks[Function] = wax.shared.Hooking.HookFunction(
+	Old = wax.shared.Hooking.HookFunction(
 		Function,
 		wax.shared.newcclosure(function(...)
 			local self = ...
@@ -178,7 +184,7 @@ for _, Function in pairs(FunctionsToHook) do
 							return
 						end
 
-						local Result = table.pack(wax.shared.Hooks[Function](...))
+						local Result = table.pack(BypassDetection(Old, ...))
 						if not Log.Ignored then
 							local RFResultInfo = {
 								Arguments = Result,
@@ -197,7 +203,9 @@ for _, Function in pairs(FunctionsToHook) do
 				end
 			end
 
-			return wax.shared.Hooks[Function](...)
+			return BypassDetection(Old, ...)
 		end)
 	)
+
+	wax.shared.Hooks[Function] = Old
 end
