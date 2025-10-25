@@ -1426,6 +1426,7 @@ do
 	local PartialSupportText = ""
 	local SupportSuffix = "\n\n"
 	for _, Name in wax.shared.ExecutorSupport.FailedChecks do
+		if not wax.shared.ExecutorSupport[Name].Essential then continue end
 		PartialSupportText ..= `❌ <b><font color="#ff0000">{Name}</font></b>\n<i><font size="14" transparency="0.5">{wax.shared.ExecutorSupport[Name].Details}</font></i>{SupportSuffix}`
 	end
 
