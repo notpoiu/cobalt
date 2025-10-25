@@ -366,6 +366,10 @@ local function LuaEncode(inputTable, options)
 			return "nil"
 		end
 
+		TypeCases["thread"] = function(value)
+			return "coroutine.create(function() end)"
+		end
+
 		TypeCases["function"] = function(value)
 			-- We can't serialize functions so we just return a comment block with function information
 			local FunctionName, ArgumentCount, VarArg, Line = debug.info(value, "nal")
