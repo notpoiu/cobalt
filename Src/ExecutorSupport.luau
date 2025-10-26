@@ -124,20 +124,50 @@ end)
 test("setstackhidden", function()
 	assert(typeof(setstackhidden) == "function", "setstackhidden is not a function")
 
-	local StackCheck
+	local StackCheck = {}
 
-	local function CallerFunction()
-		return StackCheck()
-	end
+	local CallerFunctionSource = [[
+		local StackCheck = ...
+		local function CallerFunction()
+			return StackCheck[1]()
+		end
+		return CallerFunction
+	]]
 
-	StackCheck = function()
-		return debug.info(2, "f") ~= CallerFunction
-	end
+	local CallerFunction = loadstring(CallerFunctionSource, "=CallerFunction")(StackCheck)
 
 	setstackhidden(CallerFunction, true)
 
+	StackCheck[1] = function()
+		return debug.info(2, "f") ~= CallerFunction
+	end
+
 	local IsHidden = CallerFunction()
-	assert(IsHidden == true, "setstackhidden did not hide the function from the stack")
+	assert(IsHidden == true, "setstackhidden did not hide the function from the stack (debug.info)")
+
+	StackCheck[1] = function()
+		return not debug.traceback():find("CallerFunction")
+	end
+
+	IsHidden = CallerFunction()
+	assert(IsHidden == true, "setstackhidden did not hide the function from the stack (debug.traceback)")
+
+	local TestTable = { math.huge, 0 / 0, 123, 58913 }
+	setfenv(CallerFunction, TestTable)
+
+	StackCheck[1] = function()
+		return getfenv(2) ~= TestTable
+	end
+
+	IsHidden = CallerFunction()
+	assert(IsHidden == true, "setstackhidden did not hide the function from the stack (getfenv)")
+
+	StackCheck[1] = function()
+		return not select(2, pcall(error, "", 3)):find("CallerFunction")
+	end
+
+	IsHidden = CallerFunction()
+	assert(IsHidden == true, "setstackhidden did not hide the function from the stack (error with level traceback)")
 end, false, false)
 
 -- Oth Library
