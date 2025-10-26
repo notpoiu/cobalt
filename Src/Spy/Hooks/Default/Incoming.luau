@@ -108,7 +108,7 @@ end
 	@return function Returns a function that logs all function calls to the given instance and method.
 ]]
 local function CreateCallbackDetour(Instance: InstancesToHook, Method: MethodsToHook, Callback: (...any) -> ...any)
-	return function(...)
+	local Detour = function(...)
 		local Origin = nil
 
 		-- May not exist in all executors
@@ -144,6 +144,12 @@ local function CreateCallbackDetour(Instance: InstancesToHook, Method: MethodsTo
 
 		return Callback(...)
 	end
+
+	if wax.shared.ExecutorSupport["setstackhidden"].IsWorking then
+		setstackhidden(Detour, true)
+	end
+
+	return Detour
 end
 
 --[[
@@ -200,33 +206,29 @@ for _, Category in CategoryToSearch do
 	end
 end
 
-wax.shared.NewIndexHook = wax.shared.Hooking.HookMetaMethod(
-	game,
-	"__newindex",
-	wax.shared.newcclosure(function(...)
-		local self, key, value = ...
+wax.shared.NewIndexHook = wax.shared.Hooking.HookMetaMethod(game, "__newindex", function(...)
+	local self, key, value = ...
 
-		if typeof(self) ~= "Instance" or not ClassesToHook[self.ClassName] then
-			return wax.shared.NewIndexHook(...)
-		end
-
-		if self.ClassName == "RemoteFunction" or self.ClassName == "BindableFunction" then
-			local Method = ClassesToHook[self.ClassName]
-
-			local IsCallable = (
-				typeof(value) == "function"
-				or wax.shared.getrawmetatable(value) ~= nil and typeof(wax.shared.getrawmetatable(value)["__call"]) == "function"
-				or false
-			)
-
-			if key == Method and IsCallable then
-				return wax.shared.NewIndexHook(self, key, CreateCallbackDetour(self :: InstancesToHook, Method, value))
-			end
-		end
-
+	if typeof(self) ~= "Instance" or not ClassesToHook[self.ClassName] then
 		return wax.shared.NewIndexHook(...)
-	end)
-)
+	end
+
+	if self.ClassName == "RemoteFunction" or self.ClassName == "BindableFunction" then
+		local Method = ClassesToHook[self.ClassName]
+
+		local IsCallable = (
+			typeof(value) == "function"
+			or wax.shared.getrawmetatable(value) ~= nil and typeof(wax.shared.getrawmetatable(value)["__call"]) == "function"
+			or false
+		)
+
+		if key == Method and IsCallable then
+			return wax.shared.NewIndexHook(self, key, CreateCallbackDetour(self :: InstancesToHook, Method, value))
+		end
+	end
+
+	return wax.shared.NewIndexHook(...)
+end)
 
 local ConnectionKeys = {
 	"Connect",
@@ -250,27 +252,24 @@ wax.shared.Hooks[SignalMetatable.__index] = wax.shared.Hooking.HookFunction(Sign
 		end
 
 		local Method = ClassesToHook[Instance.ClassName]
-		wax.shared.Hooks[Connect] = wax.shared.Hooking.HookFunction(
-			Connect,
-			wax.shared.newcclosure(function(...)
-				local _self, callback = ...
+		wax.shared.Hooks[Connect] = wax.shared.Hooking.HookFunction(Connect, function(...)
+			local _self, callback = ...
 
-				local Result = table.pack(wax.shared.Hooks[Connect](...))
-				local Log = wax.shared.Logs.Incoming[Instance]
+			local Result = table.pack(wax.shared.Hooks[Connect](...))
+			local Log = wax.shared.Logs.Incoming[Instance]
 
-				if Log and Log.Blocked then
-					for _, Connection in pairs(getconnections(Instance[Method])) do
-						if not Connection.ForeignState and Connection.Function ~= callback then
-							continue
-						end
-
-						Connection:Disable()
+			if Log and Log.Blocked then
+				for _, Connection in pairs(getconnections(Instance[Method])) do
+					if not Connection.ForeignState and Connection.Function ~= callback then
+						continue
 					end
-				end
 
-				return table.unpack(Result, 1, Result.n)
-			end)
-		)
+					Connection:Disable()
+				end
+			end
+
+			return table.unpack(Result, 1, Result.n)
+		end)
 
 		return Connect
 	end

@@ -121,6 +121,25 @@ test("restorefunction", function()
 	assert(Original(2, 3) == 5, "restorefunction did not restore the original function")
 end)
 
+test("setstackhidden", function()
+	assert(typeof(setstackhidden) == "function", "setstackhidden is not a function")
+
+	local StackCheck
+
+	local function CallerFunction()
+		return StackCheck()
+	end
+
+	StackCheck = function()
+		return debug.info(2, "f") ~= CallerFunction
+	end
+
+	setstackhidden(CallerFunction, true)
+
+	local IsHidden = CallerFunction()
+	assert(IsHidden == true, "setstackhidden did not hide the function from the stack")
+end, false, false)
+
 -- Oth Library
 test("oth.hook", oth and oth.hook, true, false)
 test("oth.unhook", oth and oth.unhook, true, false)

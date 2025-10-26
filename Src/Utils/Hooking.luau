@@ -1,13 +1,15 @@
-local Hooking = {
-	IncludeInStackFunctions = {},
-}
+local Hooking = {}
 
 local AlternativeEnabled = wax.shared.SaveManager:GetState("UseAlternativeHooks", false)
 wax.shared.AlternativeEnabled = AlternativeEnabled
 
 Hooking.HookFunction = function(Original, Replacement)
-	if wax.shared.ExecutorSupport["oth.hook"] then
+	if wax.shared.ExecutorSupport["oth.hook"] and iscclosure(Original) and islclosure(Replacement) then
 		return oth.hook(Original, Replacement)
+	end
+
+	if islclosure(Replacement) then
+		Replacement = wax.shared.newcclosure(Replacement)
 	end
 
 	if not wax.shared.ExecutorSupport["hookfunction"].IsWorking then
@@ -22,6 +24,10 @@ Hooking.HookMetaMethod = function(object, method, hook)
 
 	if wax.shared.ExecutorSupport["oth.hook"].IsWorking then
 		return oth.hook(originalMethod, hook)
+	end
+
+	if islclosure(hook) then
+		hook = wax.shared.newcclosure(hook)
 	end
 
 	if
