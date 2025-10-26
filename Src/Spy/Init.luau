@@ -18,7 +18,7 @@ if wax.shared.ActorsEnabled then
 	local ActorEnvironementCode = ActorsUtils.Environement.Value
 
 	local CommunicationChannelID, Channel = create_comm_channel()
-	wax.shared.ActorCommunicator = get_comm_channel(CommunicationChannelID)
+	wax.shared.ActorCommunicator = Channel
 
 	local AlternativeEnabled = wax.shared.SaveManager:GetState("UseAlternativeHooks", false)
 
