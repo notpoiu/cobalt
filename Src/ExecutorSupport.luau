@@ -210,7 +210,7 @@ test("oth", function()
 	VIM:Destroy()
 
 	assert(Working, "oth.hook is not running on a seperate thread")
-	assert(Success, "oth.unhook failed: " .. Error)
+	assert(Success, "oth.unhook failed: " .. tostring(Error))
 end, false, false)
 
 -- Metamethod
