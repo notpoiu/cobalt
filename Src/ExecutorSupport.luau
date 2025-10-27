@@ -180,8 +180,13 @@ end, false, false)
 -- Oth Library
 test("oth", function()
 	assert(oth ~= nil, "oth library not found")
+
 	assert(typeof(oth.hook) == "function", "oth.hook is not a function")
+	assert(hookfunction ~= oth.hook, "oth.hook is an alias of hookfunction")
+
 	assert(typeof(oth.unhook) == "function", "oth.unhook is not a function")
+	assert(restorefunction ~= oth.unhook, "oth.unhook is an alias of restorefunction")
+
 	assert(typeof(oth.is_hook_thread) == "function", "oth.is_hook_thread is not a function")
 	assert(typeof(oth.get_original_thread) == "function", "oth.get_original_thread is not a function")
 
