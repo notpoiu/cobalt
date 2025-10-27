@@ -141,7 +141,7 @@ test("setstackhidden", function()
 		return CallerFunction
 	]]
 
-	local CallerFunction = loadstring(CallerFunctionSource, "=CallerFunction")(StackCheck)
+	local CallerFunction = (loadstring(CallerFunctionSource, "=CallerFunction") :: (...any) -> ...any)(StackCheck)
 
 	setstackhidden(CallerFunction, true)
 
@@ -159,7 +159,7 @@ test("setstackhidden", function()
 	IsHidden = CallerFunction()
 	assert(IsHidden == true, "setstackhidden did not hide the function from the stack (debug.traceback)")
 
-	local TestTable = { math.huge, 0 / 0, 123, 58913 }
+	local TestTable = { math.huge, 0 / 0, 123, 58913 } :: { any }
 	setfenv(CallerFunction, TestTable)
 
 	StackCheck[1] = function()
