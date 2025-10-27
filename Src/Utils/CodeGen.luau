@@ -223,15 +223,19 @@ local function IndentCode(Code: string, IndentLevel: number)
 	return Indent .. IndentedCode
 end
 
+local WrapperActorCode = table.concat({
+	"-- Event originated from an Actor environement",
+	"for _, actor in getactors() do",
+	"	run_on_actor(actor, [[\n%s\n]])",
+	"end",
+}, "\n")
+
 local function WrapCodeInActor(Code: string, ShouldWrap: boolean)
 	if not ShouldWrap then
 		return Code
 	end
 
-	return string.format(
-		"-- Event originated from an Actor environement\nrun_on_actor(getactors()[1], [[\n%s\n]])",
-		IndentCode(Code, 1)
-	)
+	return string.format(WrapperActorCode, IndentCode(Code, 2))
 end
 
 function CodeGen:BuildHookCode(CallInfo: CallInfo)
@@ -463,23 +467,20 @@ local ExpectedResult = table.unpack(%s)
 			end
 
 			return CodeGenHeader
-				.. WrapCodeInActor(
-					string.format(
-						[[%s%s
+				.. string.format(
+					[[%s%s
 local Callback = getcallbackvalue(Event, "%s")
 Callback(%s)
 
 local ExpectedResult = table.unpack(%s)
 
 ]],
-						(DidInsertNilFunction or DidInsertNilFunctionInExpectation and GetNilCode .. "\n\n" or ""),
-						Path,
-						Method,
-						CreateArgsString(SerializedArgs, CallInfo.Arguments),
+					(DidInsertNilFunction or DidInsertNilFunctionInExpectation and GetNilCode .. "\n\n" or ""),
+					Path,
+					Method,
+					CreateArgsString(SerializedArgs, CallInfo.Arguments),
 
-						PrettifiedExpectedResult
-					),
-					IsFromActor
+					PrettifiedExpectedResult
 				)
 		end
 
@@ -498,16 +499,13 @@ firesignal(Event.%s%s)]],
 	end
 
 	return CodeGenHeader
-		.. WrapCodeInActor(
-			string.format(
-				[[%s%s
+		.. string.format(
+			[[%s%s
 Event:%s(%s)]],
-				(DidInsertNilFunction and GetNilCode .. "\n\n" or ""),
-				Path,
-				Method,
-				CreateArgsString(SerializedArgs, CallInfo.Arguments)
-			),
-			IsFromActor and ClientRemoteClassNames[CallInfo.Instance.ClassName]
+			(DidInsertNilFunction and GetNilCode .. "\n\n" or ""),
+			Path,
+			Method,
+			CreateArgsString(SerializedArgs, CallInfo.Arguments)
 		)
 end
 

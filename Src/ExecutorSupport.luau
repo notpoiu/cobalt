@@ -6,7 +6,10 @@
 ]]
 
 local ExecutorSupport = {
-	FailedChecks = {},
+	FailedChecks = {
+		Essential = {},
+		NonEssential = {},
+	},
 }
 
 local function CheckFFlagValue(Name: string, Value: any)
@@ -43,7 +46,11 @@ local function test(name, Callback, CheckType, Essential)
 	}
 
 	if not Success then
-		table.insert(ExecutorSupport.FailedChecks, name)
+		if Essential then
+			table.insert(ExecutorSupport.FailedChecks.Essential, name)
+		else
+			table.insert(ExecutorSupport.FailedChecks.NonEssential, name)
+		end
 	end
 end
 
@@ -171,8 +178,40 @@ test("setstackhidden", function()
 end, false, false)
 
 -- Oth Library
-test("oth.hook", oth and oth.hook, true, false)
-test("oth.unhook", oth and oth.unhook, true, false)
+test("oth", function()
+	assert(oth ~= nil, "oth library not found")
+	assert(typeof(oth.hook) == "function", "oth.hook is not a function")
+	assert(typeof(oth.unhook) == "function", "oth.unhook is not a function")
+	assert(typeof(oth.is_hook_thread) == "function", "oth.is_hook_thread is not a function")
+	assert(typeof(oth.get_original_thread) == "function", "oth.get_original_thread is not a function")
+
+	local VIM = Instance.new("VirtualInputManager")
+	local Origin = coroutine.running()
+
+	local Working = nil
+
+	local Old
+	Old = oth.hook(VIM.SendGravityEvent, function(...)
+		if Working == nil then
+			Working = (Origin ~= coroutine.running() and oth.is_hook_thread() and oth.get_original_thread() == Origin)
+			return
+		end
+
+		return Old(...)
+	end)
+
+	pcall(VIM.SendGravityEvent, VIM, 0, 0, 0)
+
+	repeat
+		task.wait()
+	until Working ~= nil
+	local Success, Error = pcall(oth.unhook, VIM.SendGravityEvent, Old)
+
+	VIM:Destroy()
+
+	assert(Working, "oth.hook is not running on a seperate thread")
+	assert(Success, "oth.unhook failed: " .. Error)
+end, false, false)
 
 -- Metamethod
 test("hookmetamethod", function()

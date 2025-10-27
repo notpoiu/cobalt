@@ -1,5 +1,6 @@
 local RelayChannel = get_comm_channel(...)
 
+local wax = shared.CobaltActorEnv
 local getrawmetatable = getrawmetatable or debug.getmetatable
 
 RelayChannel.Event:Connect(function(Type, ...)
@@ -9,8 +10,15 @@ RelayChannel.Event:Connect(function(Type, ...)
 
 	local gameMetatable = getrawmetatable(game)
 
-	if restorefunction then
+	if wax.shared.ExecutorSupport["oth"].IsWorking then
+		pcall(oth.unhook, gameMetatable.__namecall, wax.shared.NamecallHook)
+		pcall(oth.unhook, gameMetatable.__newindex, wax.shared.NewIndexHook)
+	elseif restorefunction then
 		pcall(restorefunction, gameMetatable.__namecall)
 		pcall(restorefunction, gameMetatable.__newindex)
 	end
+
+	task.defer(function()
+		shared.CobaltActorEnv = nil
+	end)
 end)

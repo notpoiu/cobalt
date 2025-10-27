@@ -1403,12 +1403,70 @@ local function CreateSettingsRemoteList(
 	return RemoteList
 end
 
+-- God this warning box code is so ass 🥀
+if #wax.shared.ExecutorSupport.FailedChecks.NonEssential > 0 then
+	local WarningDisplay = Interface.New("Frame", {
+		AnchorPoint = Vector2.new(1, 0.5),
+		BackgroundColor3 = Color3.fromRGB(245, 60, 54),
+		BackgroundTransparency = 0.75,
+		Position = UDim2.new(1, 0, 0.5, 0),
+		Size = UDim2.new(1, 0, 0, 0),
+		AutomaticSize = Enum.AutomaticSize.Y,
+		Parent = SettingsScrollingFrame,
+
+		["UICorner"] = {
+			CornerRadius = UDim.new(0, 4),
+		},
+
+		["UIStroke"] = {
+			ApplyStrokeMode = Enum.ApplyStrokeMode.Border,
+			Color = Color3.fromRGB(245, 60, 54),
+			Thickness = 1,
+		},
+
+		["UIPadding"] = {
+			PaddingLeft = UDim.new(0, 8),
+			PaddingRight = UDim.new(0, 8),
+			PaddingTop = UDim.new(0, 8),
+			PaddingBottom = UDim.new(0, 8),
+		},
+
+		["UIListLayout"] = {
+			FillDirection = Enum.FillDirection.Vertical,
+			HorizontalAlignment = Enum.HorizontalAlignment.Center,
+			VerticalAlignment = Enum.VerticalAlignment.Center,
+		},
+	})
+
+	local function CreatePaddingText(size: number)
+		return `<font size="{size}"> \n</font>`
+	end
+
+	local NoticeTitleInfoSeperator = CreatePaddingText(4)
+
+	Interface.New("TextLabel", {
+		Text = `<font size="16"><b>DETECTION NOTICE ⚠️</b></font>\n{NoticeTitleInfoSeperator}Cobalt can get detected because your executor does not support the following functions/libraries: {wax.shared.JoinTable(
+			wax.shared.ExecutorSupport.FailedChecks.NonEssential,
+			"<b>",
+			"</b>, "
+		) .. "</b>"}`,
+		TextSize = 15,
+		Size = UDim2.fromScale(1, 0),
+		AutomaticSize = Enum.AutomaticSize.Y,
+		TextXAlignment = Enum.TextXAlignment.Left,
+		TextYAlignment = Enum.TextYAlignment.Center,
+		BackgroundTransparency = 1,
+		Parent = WarningDisplay,
+		TextWrapped = true,
+	})
+end
+
 local ExecSupportSection = CreateSettingsSection("Support Info")
 do
 	Interface.New("TextLabel", {
 		Text = table.concat({
 			`Executor: <b>{wax.shared.ExecutorName}</b>`,
-			`Support: {#wax.shared.ExecutorSupport.FailedChecks == 0 and "<b>Full</b>" or "<b>Partial</b> (" .. #wax.shared.ExecutorSupport.FailedChecks .. " check(s) failed)"}`,
+			`Support: {#wax.shared.ExecutorSupport.FailedChecks.Essential == 0 and "<b>Full</b>" or "<b>Partial</b> (" .. #wax.shared.ExecutorSupport.FailedChecks.Essential .. " check(s) failed)"}`,
 		}, "\n"),
 		TextSize = 16,
 		Size = UDim2.fromScale(1, 0),
@@ -1425,14 +1483,13 @@ do
 
 	local PartialSupportText = ""
 	local SupportSuffix = "\n\n"
-	for _, Name in wax.shared.ExecutorSupport.FailedChecks do
-		if not wax.shared.ExecutorSupport[Name].Essential then continue end
+	for _, Name in wax.shared.ExecutorSupport.FailedChecks.Essential do
 		PartialSupportText ..= `❌ <b><font color="#ff0000">{Name}</font></b>\n<i><font size="14" transparency="0.5">{wax.shared.ExecutorSupport[Name].Details}</font></i>{SupportSuffix}`
 	end
 
 	PartialSupportText = PartialSupportText:sub(1, (#SupportSuffix * -1) - 1)
 
-	if #wax.shared.ExecutorSupport.FailedChecks > 0 then
+	if #wax.shared.ExecutorSupport.FailedChecks.Essential > 0 then
 		Interface.New("TextLabel", {
 			Text = PartialSupportText,
 			TextSize = 16,

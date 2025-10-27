@@ -11,8 +11,7 @@ end
 -- So we need to set up the hooks again in the actor lua vm in order to log everything
 local ActorsUtils = script.Parent.Actors
 
-local TargetActor = getactors and getactors()[1] or nil
-wax.shared.ActorsEnabled = (create_comm_channel and run_on_actor and TargetActor) ~= nil
+wax.shared.ActorsEnabled = create_comm_channel and run_on_actor
 
 if wax.shared.ActorsEnabled then
 	local ActorEnvironementCode = ActorsUtils.Environement.Value
@@ -40,6 +39,7 @@ if wax.shared.ActorsEnabled then
 
 	ActorEnvironementCode = ActorEnvironementCode:gsub("COBALT_ACTOR_DATA", ActorData)
 
+	-- Actor Logs Sync Layer
 	local function ReconstructTable(Info, CyclicRefs)
 		local Reconstructed = {}
 
@@ -110,11 +110,63 @@ if wax.shared.ActorsEnabled then
 		end
 	end))
 
-	for _, ActorHook in ipairs(Hooks.Actors:GetChildren()) do
-		run_on_actor(TargetActor, ActorEnvironementCode .. ActorHook.Value, CommunicationChannelID)
+	-- Actual Hooking Logic
+	wax.shared.HookedActors = {}
+
+	local function IsActorHooked(Actor: Actor)
+		if table.find(wax.shared.HookedActors, Actor) then
+			return true
+		end
+
+		for _, ActorToCompare in wax.shared.HookedActors do
+			if wax.shared.ExecutorSupport["compareinstances"].IsWorking and compareinstances(Actor, ActorToCompare) then
+				return true
+			end
+		end
+
+		return false
 	end
 
-	run_on_actor(TargetActor, ActorsUtils.Unload.Value, CommunicationChannelID)
+	for _, TargetActor in getactors() do
+		for _, ActorHook in Hooks.Actors:GetChildren() do
+			run_on_actor(TargetActor, ActorEnvironementCode .. ActorHook.Value, CommunicationChannelID)
+		end
+
+		run_on_actor(TargetActor, ActorsUtils.Unload.Value, CommunicationChannelID)
+
+		-- Deletion Handler
+		local TargetActorRef = cloneref(TargetActor)
+		table.insert(wax.shared.HookedActors, TargetActorRef)
+
+		wax.shared.Connect(TargetActor.Destroying:Connect(function()
+			table.remove(wax.shared.HookedActors, table.find(wax.shared.HookedActors, TargetActorRef))
+		end))
+	end
+
+	wax.shared.Connect(game.DescendantAdded:Connect(function(actor)
+		if not actor:IsA("Actor") or IsActorHooked(actor) then
+			return
+		end
+
+		-- wait until executor is ready to run_on_actor (fails on some execs if its not in getactors() i think)
+		repeat
+			task.wait()
+		until table.find(getactors(), actor) ~= nil
+
+		for _, ActorHook in Hooks.Actors:GetChildren() do
+			run_on_actor(actor, ActorEnvironementCode .. ActorHook.Value, CommunicationChannelID)
+		end
+
+		run_on_actor(actor, ActorsUtils.Unload.Value, CommunicationChannelID)
+
+		-- Deletion Handler
+		local ActorRef = cloneref(actor)
+		table.insert(wax.shared.HookedActors, ActorRef)
+
+		wax.shared.Connect(actor.Destroying:Connect(function()
+			table.remove(wax.shared.HookedActors, table.find(wax.shared.HookedActors, ActorRef))
+		end))
+	end))
 end
 
 return {}

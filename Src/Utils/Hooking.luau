@@ -4,7 +4,7 @@ local AlternativeEnabled = wax.shared.SaveManager:GetState("UseAlternativeHooks"
 wax.shared.AlternativeEnabled = AlternativeEnabled
 
 Hooking.HookFunction = function(Original, Replacement)
-	if wax.shared.ExecutorSupport["oth.hook"] and iscclosure(Original) and islclosure(Replacement) then
+	if wax.shared.ExecutorSupport["oth"].IsWorking and iscclosure(Original) and islclosure(Replacement) then
 		return oth.hook(Original, Replacement)
 	end
 
@@ -22,7 +22,7 @@ Hooking.HookMetaMethod = function(object, method, hook)
 	local Metatable = wax.shared.getrawmetatable(object)
 	local originalMethod = rawget(Metatable, method)
 
-	if wax.shared.ExecutorSupport["oth.hook"].IsWorking then
+	if wax.shared.ExecutorSupport["oth"].IsWorking then
 		return oth.hook(originalMethod, hook)
 	end
 
