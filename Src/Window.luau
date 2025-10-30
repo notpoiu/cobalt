@@ -1445,16 +1445,32 @@ if #wax.shared.ExecutorSupport.FailedChecks.NonEssential > 0 then
 	local NoticeTitleInfoSeperator = CreatePaddingText(4)
 
 	Interface.New("TextLabel", {
-		Text = `<font size="16"><b>DETECTION NOTICE ⚠️</b></font>\n{NoticeTitleInfoSeperator}Cobalt can get detected because your executor does not support the following functions/libraries: {wax.shared.JoinTable(
-			wax.shared.ExecutorSupport.FailedChecks.NonEssential,
-			"<b>",
-			"</b>, "
-		) .. "</b>"}`,
+		Text = `<font size="16"><b>DETECTION NOTICE ⚠️</b></font>\n{NoticeTitleInfoSeperator}Cobalt can get detected because your executor does not support the following functions/libraries:`,
 		TextSize = 15,
 		Size = UDim2.fromScale(1, 0),
 		AutomaticSize = Enum.AutomaticSize.Y,
 		TextXAlignment = Enum.TextXAlignment.Left,
 		TextYAlignment = Enum.TextYAlignment.Center,
+		BackgroundTransparency = 1,
+		Parent = WarningDisplay,
+		TextWrapped = true,
+	})
+
+	local NonEssentialFailures = wax.shared.ExecutorSupport.FailedChecks.NonEssential
+	local DetectionDetails = CreatePaddingText(6)
+	local DetectionSuffix = `\n{CreatePaddingText(7)}`
+	for _, Name in NonEssentialFailures do
+		DetectionDetails ..= `⚠️ <b><font color="#ff9900">{Name}</font></b>\n<i><font size="14" transparency="0.5">{wax.shared.ExecutorSupport[Name].Details}</font></i>{DetectionSuffix}`
+	end
+
+	DetectionDetails = DetectionDetails:sub(1, (#DetectionSuffix * -1) - 1)
+
+	Interface.New("TextLabel", {
+		Text = DetectionDetails,
+		TextSize = 15,
+		Size = UDim2.fromScale(1, 0),
+		AutomaticSize = Enum.AutomaticSize.Y,
+		TextXAlignment = Enum.TextXAlignment.Left,
 		BackgroundTransparency = 1,
 		Parent = WarningDisplay,
 		TextWrapped = true,
