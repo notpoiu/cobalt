@@ -22,6 +22,7 @@ wax.shared.Settings = {}
 wax.shared.Hooks = {}
 
 -- Executor Support
+wax.shared.ExecutorName = identifyexecutor()
 wax.shared.ExecutorSupport = require(script.ExecutorSupport)
 
 -- Utils
@@ -43,7 +44,6 @@ if not wax.shared.Players.LocalPlayer then
 end
 wax.shared.LocalPlayer = wax.shared.Players.LocalPlayer
 wax.shared.PlayerScripts = cloneref(wax.shared.LocalPlayer:WaitForChild("PlayerScripts"))
-wax.shared.ExecutorName = identifyexecutor()
 
 -- Functions
 wax.shared.gethui = gethui or function()

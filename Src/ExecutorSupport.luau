@@ -12,6 +12,10 @@ local ExecutorSupport = {
 	},
 }
 
+local BrokenFeatures = {
+	["Volcano"] = { "oth" },
+}
+
 local function CheckFFlagValue(Name: string, Value: any)
 	local Success, Result = pcall(getfflag, Name)
 	if not Success then
@@ -38,7 +42,13 @@ local function test(name, Callback, CheckType, Essential)
 		Essential = true
 	end
 
-	local Success, Result = pcall(TestFunction)
+	local Success, Result
+	if BrokenFeatures[wax.shared.ExecutorName] and table.find(BrokenFeatures[wax.shared.ExecutorName], name) then
+		Success = false
+	else
+		Success, Result = pcall(TestFunction)
+	end
+
 	ExecutorSupport[name] = {
 		IsWorking = Success,
 		Details = Result,
