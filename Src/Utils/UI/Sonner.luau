@@ -20,7 +20,7 @@ local Interface = require(script.Parent.Interface)
 local Animations = require(script.Parent.Animations)
 
 local function InternalCreateNotificationObject(zindex, image, text)
-	local NotificationTemplate = Interface.New("Frame", {
+	local NotificationTemplate = Interface.New("CanvasGroup", {
 		BorderSizePixel = 0,
 		BackgroundColor3 = Color3.fromRGB(0, 0, 0),
 		AnchorPoint = Vector2.new(0.5, 1),
@@ -62,14 +62,6 @@ local function InternalCreateNotificationObject(zindex, image, text)
 		ImageLabel.Visible = false
 	end
 
-	Animations.SetFadeExpectation("In", ImageLabel, {
-		ImageTransparency = 0,
-	})
-
-	Animations.SetFadeExpectation("Out", ImageLabel, {
-		ImageTransparency = 1,
-	})
-
 	local Frame = Interface.New("Frame", {
 		BorderSizePixel = 0,
 		BackgroundColor3 = Color3.fromRGB(255, 255, 255),
@@ -81,8 +73,6 @@ local function InternalCreateNotificationObject(zindex, image, text)
 		ZIndex = zindex + 1,
 		Parent = NotificationTemplate,
 	})
-
-	Animations.AddFadeExclusion(Frame)
 
 	Interface.New("TextLabel", {
 		BorderSizePixel = 0,
