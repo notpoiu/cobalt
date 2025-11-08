@@ -1,39 +1,40 @@
 {
-    "luau-lsp.sourcemap.rojoProjectFile": "default.project.json",
-    "luau-lsp.sourcemap.enabled": true,
+  "luau-lsp.sourcemap.rojoProjectFile": "default.project.json",
+  "luau-lsp.sourcemap.enabled": true,
 
-    "luau-lsp.types.definitionFiles": [".vscode/exploitTypes.d.luau"],
-    "luau-lsp.types.robloxSecurityLevel": "RobloxScriptSecurity",
+  "luau-lsp.types.definitionFiles": [".vscode/exploitTypes.d.luau"],
+  "luau-lsp.types.robloxSecurityLevel": "RobloxScriptSecurity",
 
-    "luau-lsp.plugin.maximumRequestBodySize": "1gb",
-    "luau-lsp.plugin.enabled": true,
+  "luau-lsp.plugin.maximumRequestBodySize": "1gb",
+  "luau-lsp.plugin.enabled": true,
 
-    "luau-lsp.diagnostics.strictDatamodelTypes": false,
-    "luau-lsp.diagnostics.workspace": true,
+  "luau-lsp.diagnostics.strictDatamodelTypes": false,
+  "luau-lsp.diagnostics.workspace": true,
 
-    "luau-lsp.sourcemap.autogenerate": true,
-    "luau-lsp.sourcemap.includeNonScripts": true,
+  "luau-lsp.sourcemap.autogenerate": true,
+  "luau-lsp.sourcemap.includeNonScripts": true,
 
-    "luau-lsp.ignoreGlobs": [
-        "Distribution/**",
-        ".vscode/**",
-        ".lune/**",
-        "Build/**"
-    ],
+  "luau-lsp.ignoreGlobs": [
+    "Distribution/**",
+    ".vscode/**",
+    ".lune/**",
+    "Build/**"
+  ],
 
-    "luau-lsp.bytecode.vectorCtor": "new",
-    "luau-lsp.bytecode.vectorLib": "Vector3",
-    "luau-lsp.bytecode.vectorType": "Vector3",
+  "luau-lsp.bytecode.vectorCtor": "new",
+  "luau-lsp.bytecode.vectorLib": "Vector3",
+  "luau-lsp.bytecode.vectorType": "Vector3",
 
-    "stylua.verify": true,
+  "stylua.verify": true,
 
-    "[luau]": {
-        "editor.defaultFormatter": "JohnnyMorganz.stylua"
-    },
+  "[luau]": {
+    "editor.defaultFormatter": "JohnnyMorganz.stylua"
+  },
 
-    "files.associations": {
-        "**/Src/Spy/Hooks/Actors/*": "luau",
-        "**/Src/Spy/Actors/*": "luau",
-    },
-    "stylua.targetReleaseVersion": "latest"
+  "files.associations": {
+    "**/Src/Spy/Hooks/Actors/*": "luau",
+    "**/Src/Spy/Actors/*": "luau"
+  },
+  "stylua.targetReleaseVersion": "latest",
+  "liveServer.settings.port": 5501
 }

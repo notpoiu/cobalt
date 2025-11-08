@@ -4,11 +4,11 @@
 
 ]]
 
-if shared.CobaltInitialized == true then
+if getgenv().CobaltInitialized == true then
 	return
 end
 
-shared.CobaltInitialized = true
+getgenv().CobaltInitialized = true
 
 type ActorData = {
 	Token: string,
@@ -22,6 +22,10 @@ type ActorData = {
 
 local Data: ActorData = COBALT_ACTOR_DATA
 
+if not isfile("luaencodetemp.lua") then
+	writefile("luaencodetemp.lua", game:HttpGet("https://raw.githubusercontent.com/chadhyatt/LuaEncode/refs/heads/master/src/LuaEncode.lua"))
+end
+local LuaEncode = loadstring(readfile("luaencodetemp.lua"))()
 local RelayChannel = get_comm_channel(...)
 
 local wax = { shared = {} }
@@ -417,8 +421,20 @@ do
 	end
 
 	function Log:Call(RawInfo)
+		if self.Instance == wax.shared.Communicator then
+			return
+		end
+
 		RawInfo["IsActor"] = true
 		local Info = DeepClone(RawInfo)
+
+		print("Log Data:", LuaEncode({
+			Instance = self.Instance,
+			Type = self.Type,
+			Method = self.Method	
+		}, {Prettify = true}))
+
+		print("Data:", LuaEncode(FixTable(Info), {Prettify = true}))
 
 		-- Seliware puts their actor BindableEvents in CoreGui
 		local identity = getthreadidentity()

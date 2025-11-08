@@ -16,6 +16,6 @@ wax.shared.Communicator.Event:Connect(function(Type, ...)
 	end
 
 	task.defer(function()
-		shared.CobaltInitialized = false
+		getgenv().CobaltInitialized = false
 	end)
 end)

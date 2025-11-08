@@ -8,6 +8,8 @@ for _, Hook in ipairs(Hooks.Default:GetChildren()) do
 	task.spawn(require, Hook)
 end
 
+getgenv().CobaltInitialized = true
+
 -- Actors use a different lua vm
 -- This means that our main thread metatable hooks dont apply in the actor's vm
 -- So we need to set up the hooks again in the actor lua vm in order to log everything
