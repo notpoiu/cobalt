@@ -124,7 +124,7 @@ if wax.shared.ActorsEnabled then
 			"task.spawn(function()",
 			CodeGen:IndentCode(ActorHook.Value, 1),
 			"end)",
-		}, "\n")
+		}, "\n") .. "\n\n"
 	end
 
 	CodeToRun ..= table.concat({
