@@ -1,9 +1,6 @@
-local RelayChannel = get_comm_channel(...)
-
-local wax = shared.CobaltActorEnv
 local getrawmetatable = getrawmetatable or debug.getmetatable
 
-RelayChannel.Event:Connect(function(Type, ...)
+wax.shared.Communicator.Event:Connect(function(Type, ...)
 	if Type ~= "Unload" then
 		return
 	end
@@ -19,6 +16,6 @@ RelayChannel.Event:Connect(function(Type, ...)
 	end
 
 	task.defer(function()
-		shared.CobaltActorEnv = nil
+		shared.CobaltInitialized = false
 	end)
 end)

@@ -17,7 +17,9 @@ local AllowedClassNames =
 	@return `function | nil` The calling function or nil if not found.
 ]]
 local function getcallingfunction()
-	for i = 4, 10 do
+	local BaseLevel = if wax.shared.ExecutorSupport["oth"] then 2 else 4
+
+	for i = BaseLevel, 10 do
 		local Function, Source = debug.info(i, "fs")
 		if not Function or not Source then
 			break
@@ -30,7 +32,7 @@ local function getcallingfunction()
 		return Function
 	end
 
-	return debug.info(4, "f")
+	return debug.info(BaseLevel, "f")
 end
 
 --[[

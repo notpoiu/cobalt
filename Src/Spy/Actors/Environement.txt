@@ -4,6 +4,12 @@
 
 ]]
 
+if shared.CobaltInitialized == true then
+	return
+end
+
+shared.CobaltInitialized = true
+
 type ActorData = {
 	Token: string,
 
@@ -20,430 +26,424 @@ local RelayChannel = get_comm_channel(...)
 
 local wax = { shared = {} }
 
-if not shared.CobaltActorEnv then
-	wax.shared.ExecutorSupport = Data.ExecutorSupport
+wax.shared.ExecutorSupport = Data.ExecutorSupport
 
-	for _, Service in pairs({
-		"Players",
-		"HttpService",
-	}) do
-		wax.shared[Service] = cloneref(game:GetService(Service))
-	end
+for _, Service in pairs({
+	"Players",
+	"HttpService",
+}) do
+	wax.shared[Service] = cloneref(game:GetService(Service))
+end
 
-	wax.shared.LocalPlayer = wax.shared.Players.LocalPlayer
-	wax.shared.PlayerScripts = cloneref(wax.shared.LocalPlayer:WaitForChild("PlayerScripts"))
-	wax.shared.ExecutorName = string.split(identifyexecutor(), " ")[1]
+wax.shared.LocalPlayer = wax.shared.Players.LocalPlayer
+wax.shared.PlayerScripts = cloneref(wax.shared.LocalPlayer:WaitForChild("PlayerScripts"))
+wax.shared.ExecutorName = string.split(identifyexecutor(), " ")[1]
 
-	wax.shared.newcclosure = wax.shared.ExecutorName == "AWP"
-			and function(f)
-				local env = getfenv(f)
-				local x = setmetatable({
-					__F = f,
-				}, {
-					__index = env,
-					__newindex = env,
-				})
-
-				local nf = function(...)
-					return __F(...)
-				end
-				setfenv(nf, x) -- set func env (env of nf gets deoptimized)
-				return newcclosure(nf)
-			end
-		or newcclosure
-
-	wax.shared.getrawmetatable = wax.shared.ExecutorSupport["getrawmetatable"].IsWorking
-			and (getrawmetatable or debug.getmetatable)
-		or function()
-			return setmetatable({}, {
-				__index = function()
-					return function() end
-				end,
+wax.shared.newcclosure = wax.shared.ExecutorName == "AWP"
+		and function(f)
+			local env = getfenv(f)
+			local x = setmetatable({
+				__F = f,
+			}, {
+				__index = env,
+				__newindex = env,
 			})
-		end
 
-	wax.shared.restorefunction = function(Function: (...any) -> ...any, Silent: boolean?)
-		local Original = wax.shared.Hooks[Function]
-
-		if Silent and not Original then
-			return
-		end
-
-		assert(Original, "Function not hooked")
-
-		if restorefunction and isfunctionhooked(Function) then
-			restorefunction(Function)
-		else
-			wax.shared.Hooking.HookFunction(Function, Original)
-		end
-
-		wax.shared.Hooks[Function] = nil
-	end
-
-	local Hooking = {}
-
-	wax.shared.AlternativeEnabled = Data.UseAlternativeHooks
-
-	Hooking.HookFunction = function(Original, Replacement)
-		if wax.shared.ExecutorSupport["oth"].IsWorking and iscclosure(Original) and islclosure(Replacement) then
-			return oth.hook(Original, Replacement)
-		end
-
-		if islclosure(Replacement) then
-			Replacement = wax.shared.newcclosure(Replacement)
-		end
-
-		if not wax.shared.ExecutorSupport["hookfunction"].IsWorking then
-			return Original
-		end
-
-		return hookfunction(Original, Replacement)
-	end
-
-	Hooking.HookMetaMethod = function(object, method, hook)
-		local Metatable = wax.shared.getrawmetatable(object)
-		local originalMethod = rawget(Metatable, method)
-
-		if wax.shared.ExecutorSupport["oth"].IsWorking then
-			return oth.hook(originalMethod, hook)
-		end
-
-		if islclosure(hook) then
-			hook = wax.shared.newcclosure(hook)
-		end
-
-		if
-			Data.UseAlternativeHooks
-			or (
-				not wax.shared.ExecutorSupport["hookmetamethod"].IsWorking
-				and wax.shared.ExecutorSupport["getrawmetatable"].IsWorking
-			)
-		then
-			setreadonly(Metatable, false)
-			rawset(Metatable, method, hook)
-			setreadonly(Metatable, true)
-
-			return originalMethod
-		end
-
-		if not wax.shared.ExecutorSupport["hookmetamethod"].IsWorking then
-			if method == "__index" then
-				local _, Metamethod = xpcall(function()
-					return object[tostring(math.random())]
-				end, function(err)
-					return debug.info(2, "f")
-				end)
-
-				return Metamethod
-			elseif method == "__newindex" then
-				local _, Metamethod = xpcall(function()
-					object[tostring(math.random())] = true
-				end, function(err)
-					return debug.info(2, "f")
-				end)
-
-				return Metamethod
-			elseif method == "__namecall" then
-				local _, Metamethod = xpcall(function()
-					object:Mustard()
-				end, function(err)
-					return debug.info(2, "f")
-				end)
-
-				return Metamethod
+			local nf = function(...)
+				return __F(...)
 			end
-
-			return nil
+			setfenv(nf, x) -- set func env (env of nf gets deoptimized)
+			return newcclosure(nf)
 		end
+	or newcclosure
 
-		return hookmetamethod(object, method, hook)
+wax.shared.getrawmetatable = wax.shared.ExecutorSupport["getrawmetatable"].IsWorking
+		and (getrawmetatable or debug.getmetatable)
+	or function()
+		return setmetatable({}, {
+			__index = function()
+				return function() end
+			end,
+		})
 	end
 
-	wax.shared.Hooking = Hooking
+wax.shared.restorefunction = function(Function: (...any) -> ...any, Silent: boolean?)
+	local Original = wax.shared.Hooks[Function]
 
-	wax.shared.Hooks = {}
-	wax.shared.Settings = {
-		IgnorePlayerModule = { Value = Data.IgnorePlayerModule },
-		IgnoredRemotesDropdown = { Value = Data.IgnoredRemotesDropdown },
-	}
-
-	wax.shared.IsPlayerModule = function(Origin: LocalScript | ModuleScript, Instance: Instance): boolean
-		if Instance and Instance.ClassName ~= "BindableEvent" then
-			return false
-		end
-
-		local PlayerModule = Origin and Origin.FindFirstAncestor(Origin, "PlayerModule") or nil
-		if not PlayerModule then
-			return false
-		end
-
-		if PlayerModule.Parent == nil then
-			return true
-		end
-
-		return compareinstances(PlayerModule.Parent, wax.shared.PlayerScripts)
-	end
-	wax.shared.ShouldIgnore = function(Instance, Origin)
-		return wax.shared.Settings.IgnoredRemotesDropdown.Value[Instance.ClassName] == true
-			or (wax.shared.Settings.IgnorePlayerModule.Value and wax.shared.IsPlayerModule(Origin, Instance))
+	if Silent and not Original then
+		return
 	end
 
-	wax.shared.Connections = {}
+	assert(Original, "Function not hooked")
 
-	wax.shared.Connect = function(Connection)
-		table.insert(wax.shared.Connections, Connection)
-		return Connection
+	if restorefunction and isfunctionhooked(Function) then
+		restorefunction(Function)
+	else
+		wax.shared.Hooking.HookFunction(Function, Original)
 	end
 
-	wax.shared.Disconnect = function(Connection)
-		Connection:Disconnect()
+	wax.shared.Hooks[Function] = nil
+end
 
-		local Index = table.find(wax.shared.Connections, Connection)
-		if Index then
-			table.remove(wax.shared.Connections, Index)
+local Hooking = {}
+
+wax.shared.AlternativeEnabled = Data.UseAlternativeHooks
+
+Hooking.HookFunction = function(Original, Replacement)
+	if wax.shared.ExecutorSupport["oth"].IsWorking and iscclosure(Original) and islclosure(Replacement) then
+		return oth.hook(Original, Replacement)
+	end
+
+	if islclosure(Replacement) then
+		Replacement = wax.shared.newcclosure(Replacement)
+	end
+
+	if not wax.shared.ExecutorSupport["hookfunction"].IsWorking then
+		return Original
+	end
+
+	return hookfunction(Original, Replacement)
+end
+
+Hooking.HookMetaMethod = function(object, method, hook)
+	local Metatable = wax.shared.getrawmetatable(object)
+	local originalMethod = rawget(Metatable, method)
+
+	if wax.shared.ExecutorSupport["oth"].IsWorking then
+		return oth.hook(originalMethod, hook)
+	end
+
+	if islclosure(hook) then
+		hook = wax.shared.newcclosure(hook)
+	end
+
+	if
+		Data.UseAlternativeHooks
+		or (
+			not wax.shared.ExecutorSupport["hookmetamethod"].IsWorking
+			and wax.shared.ExecutorSupport["getrawmetatable"].IsWorking
+		)
+	then
+		setreadonly(Metatable, false)
+		rawset(Metatable, method, hook)
+		setreadonly(Metatable, true)
+
+		return originalMethod
+	end
+
+	if not wax.shared.ExecutorSupport["hookmetamethod"].IsWorking then
+		if method == "__index" then
+			local _, Metamethod = xpcall(function()
+				return object[tostring(math.random())]
+			end, function(err)
+				return debug.info(2, "f")
+			end)
+
+			return Metamethod
+		elseif method == "__newindex" then
+			local _, Metamethod = xpcall(function()
+				object[tostring(math.random())] = true
+			end, function(err)
+				return debug.info(2, "f")
+			end)
+
+			return Metamethod
+		elseif method == "__namecall" then
+			local _, Metamethod = xpcall(function()
+				object:Mustard()
+			end, function(err)
+				return debug.info(2, "f")
+			end)
+
+			return Metamethod
 		end
 
+		return nil
+	end
+
+	return hookmetamethod(object, method, hook)
+end
+
+wax.shared.Hooking = Hooking
+
+wax.shared.Hooks = {}
+wax.shared.Settings = {
+	IgnorePlayerModule = { Value = Data.IgnorePlayerModule },
+	IgnoredRemotesDropdown = { Value = Data.IgnoredRemotesDropdown },
+}
+
+wax.shared.IsPlayerModule = function(Origin: LocalScript | ModuleScript, Instance: Instance): boolean
+	if Instance and Instance.ClassName ~= "BindableEvent" then
+		return false
+	end
+
+	local PlayerModule = Origin and Origin.FindFirstAncestor(Origin, "PlayerModule") or nil
+	if not PlayerModule then
+		return false
+	end
+
+	if PlayerModule.Parent == nil then
 		return true
 	end
 
-	local OnUnload
+	return compareinstances(PlayerModule.Parent, wax.shared.PlayerScripts)
+end
+wax.shared.ShouldIgnore = function(Instance, Origin)
+	return wax.shared.Settings.IgnoredRemotesDropdown.Value[Instance.ClassName] == true
+		or (wax.shared.Settings.IgnorePlayerModule.Value and wax.shared.IsPlayerModule(Origin, Instance))
+end
 
-	local RelayConnection
-	RelayConnection = RelayChannel.Event:Connect(function(Type, ...)
-		if Type == "Unload" then
-			RelayConnection:Disconnect()
-			wax.shared.Unloaded = true
-			for _, Connection in pairs(wax.shared.Connections) do
-				wax.shared.Disconnect(Connection)
-			end
+wax.shared.Connections = {}
 
-			if OnUnload then
-				OnUnload()
-			end
-		elseif Type == "MainBlock" then
-			local Instance, EventType = ...
-			local Log = wax.shared.Logs[EventType][Instance]
-			if Log then
-				Log:Block()
-			end
-		elseif Type == "MainIgnore" then
-			local Instance, EventType = ...
-			local Log = wax.shared.Logs[EventType][Instance]
-			if Log then
-				Log:Ignore()
-			end
-		elseif Type == "MainSettingsSync" then
-			local Setting, Value = ...
-			if wax.shared.Settings[Setting] then
-				wax.shared.Settings[Setting].Value = Value
-			end
-		end
-	end)
+wax.shared.Connect = function(Connection)
+	table.insert(wax.shared.Connections, Connection)
+	return Connection
+end
 
-	wax.shared.Unloaded = false
-	wax.shared.Communicator = RelayChannel
+wax.shared.Disconnect = function(Connection)
+	Connection:Disconnect()
 
-	wax.shared.Log = {}
-	do
-		local Log = wax.shared.Log
-		Log.__index = Log
-
-		function Log.new(Instance, Type, Method, Index, CallingScript)
-			local NewLog = setmetatable({
-				Instance = Instance,
-				Type = Type,
-				Method = Method,
-				Index = Index,
-				Calls = {},
-				Ignored = false,
-				Blocked = false,
-			}, Log)
-
-			return NewLog
-		end
-
-		local FunctionToMetatadata
-
-		local GenerateUUID = wax.shared.HttpService.GenerateGUID
-		local function GenerateId()
-			return GenerateUUID(wax.shared.HttpService, false)
-		end
-
-		local function FixTable(Table, Refs)
-			if not Table then
-				return nil
-			end
-
-			local CyclicRefs = Refs or {}
-			local Visited = {}
-			local OutputTable = {}
-			local ContainsCyclicRef = false
-
-			for Key, Value in Table do
-				if type(Value) == "table" then
-					if Visited[Value] then
-						ContainsCyclicRef = true
-
-						OutputTable[Key] = {
-							__CyclicRef = true,
-							__Id = CyclicRefs[Value],
-						}
-						continue
-					end
-
-					if getmetatable(Value) then
-						OutputTable[Key] =
-							"Cobalt: Impossible to bridge table with metatable from actor environement to main environement"
-					end
-
-					local Result, CycleMetadata, ContainsCyclic = FixTable(Value, CyclicRefs)
-					if not Result then
-						continue
-					end
-
-					if not ContainsCyclic then
-						OutputTable[Key] = Result
-						continue
-					end
-
-					-- Merge the cycle metadata
-					for k, v in pairs(CycleMetadata) do
-						OutputTable[k] = v
-					end
-
-					-- Create a new cyclic reference
-					local CycleId = GenerateId()
-
-					OutputTable[Key] = {
-						__CyclicRef = true,
-						__Id = CycleId,
-					}
-
-					CyclicRefs[CycleId] = Value
-
-					Visited[Value] = true
-				elseif type(Value) == "function" then
-					OutputTable[Key] = FunctionToMetatadata(Value)
-				else
-					OutputTable[Key] = Value
-				end
-			end
-
-			return OutputTable, CyclicRefs, ContainsCyclicRef
-		end
-
-		FunctionToMetatadata = function(Function)
-			if not Function then
-				return nil
-			end
-
-			local Metadata = {
-				Address = tostring(Function),
-				Name = debug.info(Function, "n"),
-				IsC = iscclosure(Function),
-			}
-
-			if not iscclosure(Function) then
-				Metadata["Upvalues"] = debug.getupvalues(Function)
-				Metadata["Constants"] = debug.getconstants(Function)
-				Metadata["Protos"] = debug.getprotos(Function)
-			end
-
-			-- to validate that this function was generated by FunctionToMetatadata
-			Metadata["Validation"] = Data.Token
-			Metadata["__Function"] = true
-
-			return Metadata
-		end
-
-		function DeepClone(orig, copies)
-			copies = copies or {}
-			if typeof(orig) == "Instance" then
-				return cloneref(orig)
-			elseif typeof(orig) == "userdata" then
-				if getmetatable(orig) then
-					return newproxy(true)
-				else
-					return newproxy()
-				end
-			elseif typeof(orig) == "function" then
-				if clonefunction then
-					return clonefunction(orig)
-				end
-
-				return orig
-			elseif type(orig) ~= "table" then
-				return orig
-			elseif copies[orig] then
-				return copies[orig]
-			end
-
-			local copy = {}
-			copies[orig] = copy
-			for k, v in pairs(orig) do
-				copy[DeepClone(k, copies)] = DeepClone(v, copies)
-			end
-			return copy
-		end
-
-		local ClassesConnectionsToggle = {
-			RemoteEvent = "OnClientEvent",
-			UnreliableRemoteEvent = "OnClientEvent",
-			BindableEvent = "Event",
-		}
-
-		function Log:SetConnectionsEnabled(enabled: boolean)
-			if not self.Instance or not ClassesConnectionsToggle[self.Instance.ClassName] then
-				return
-			end
-
-			local ConnectionName = ClassesConnectionsToggle[self.Instance.ClassName]
-			if self.Type ~= "Incoming" or not ConnectionName then
-				return
-			end
-
-			for _, Connection in pairs(getconnections(self.Instance[ConnectionName])) do
-				if enabled then
-					Connection:Enable()
-				else
-					Connection:Disable()
-				end
-			end
-		end
-
-		function Log:Call(RawInfo)
-			RawInfo["IsActor"] = true
-			local Info = DeepClone(RawInfo)
-
-			-- Seliware puts their actor BindableEvents in CoreGui
-			local identity = getthreadidentity()
-			setthreadidentity(8)
-			wax.shared.Communicator.Fire(wax.shared.Communicator, "ActorCall", self.Instance, self.Type, FixTable(Info))
-			setthreadidentity(identity)
-		end
-
-		function Log:Ignore()
-			self.Ignored = not self.Ignored
-		end
-
-		function Log:Block()
-			self.Blocked = not self.Blocked
-			self:SetConnectionsEnabled(not self.Blocked)
-		end
+	local Index = table.find(wax.shared.Connections, Connection)
+	if Index then
+		table.remove(wax.shared.Connections, Index)
 	end
 
-	wax.shared.Logs = {
-		Outgoing = {},
-		Incoming = {},
-	}
+	return true
+end
 
-	wax.shared.NewLog = function(Instance, Type, Method, Index, CallingScript)
-		local NewLog = wax.shared.Log.new(Instance, Type, Method, Index, CallingScript)
-		wax.shared.Logs[Type][Instance] = NewLog
+local OnUnload
+
+local RelayConnection
+RelayConnection = RelayChannel.Event:Connect(function(Type, ...)
+	if Type == "Unload" then
+		RelayConnection:Disconnect()
+		wax.shared.Unloaded = true
+		for _, Connection in pairs(wax.shared.Connections) do
+			wax.shared.Disconnect(Connection)
+		end
+
+		if OnUnload then
+			OnUnload()
+		end
+	elseif Type == "MainBlock" then
+		local Instance, EventType = ...
+		local Log = wax.shared.Logs[EventType][Instance]
+		if Log then
+			Log:Block()
+		end
+	elseif Type == "MainIgnore" then
+		local Instance, EventType = ...
+		local Log = wax.shared.Logs[EventType][Instance]
+		if Log then
+			Log:Ignore()
+		end
+	elseif Type == "MainSettingsSync" then
+		local Setting, Value = ...
+		if wax.shared.Settings[Setting] then
+			wax.shared.Settings[Setting].Value = Value
+		end
+	end
+end)
+
+wax.shared.Unloaded = false
+wax.shared.Communicator = RelayChannel
+
+wax.shared.Log = {}
+do
+	local Log = wax.shared.Log
+	Log.__index = Log
+
+	function Log.new(Instance, Type, Method, Index, CallingScript)
+		local NewLog = setmetatable({
+			Instance = Instance,
+			Type = Type,
+			Method = Method,
+			Index = Index,
+			Calls = {},
+			Ignored = false,
+			Blocked = false,
+		}, Log)
+
 		return NewLog
 	end
 
-	shared.CobaltActorEnv = wax
-else
-	wax = shared.CobaltActorEnv
+	local FunctionToMetatadata
+
+	local GenerateUUID = wax.shared.HttpService.GenerateGUID
+	local function GenerateId()
+		return GenerateUUID(wax.shared.HttpService, false)
+	end
+
+	local function FixTable(Table, Refs)
+		if not Table then
+			return nil
+		end
+
+		local CyclicRefs = Refs or {}
+		local Visited = {}
+		local OutputTable = {}
+		local ContainsCyclicRef = false
+
+		for Key, Value in Table do
+			if type(Value) == "table" then
+				if Visited[Value] then
+					ContainsCyclicRef = true
+
+					OutputTable[Key] = {
+						__CyclicRef = true,
+						__Id = CyclicRefs[Value],
+					}
+					continue
+				end
+
+				if getmetatable(Value) then
+					OutputTable[Key] =
+						"Cobalt: Impossible to bridge table with metatable from actor environement to main environement"
+				end
+
+				local Result, CycleMetadata, ContainsCyclic = FixTable(Value, CyclicRefs)
+				if not Result then
+					continue
+				end
+
+				if not ContainsCyclic then
+					OutputTable[Key] = Result
+					continue
+				end
+
+				-- Merge the cycle metadata
+				for k, v in pairs(CycleMetadata) do
+					OutputTable[k] = v
+				end
+
+				-- Create a new cyclic reference
+				local CycleId = GenerateId()
+
+				OutputTable[Key] = {
+					__CyclicRef = true,
+					__Id = CycleId,
+				}
+
+				CyclicRefs[CycleId] = Value
+
+				Visited[Value] = true
+			elseif type(Value) == "function" then
+				OutputTable[Key] = FunctionToMetatadata(Value)
+			else
+				OutputTable[Key] = Value
+			end
+		end
+
+		return OutputTable, CyclicRefs, ContainsCyclicRef
+	end
+
+	FunctionToMetatadata = function(Function)
+		if not Function then
+			return nil
+		end
+
+		local Metadata = {
+			Address = tostring(Function),
+			Name = debug.info(Function, "n"),
+			IsC = iscclosure(Function),
+		}
+
+		if not iscclosure(Function) then
+			Metadata["Upvalues"] = debug.getupvalues(Function)
+			Metadata["Constants"] = debug.getconstants(Function)
+			Metadata["Protos"] = debug.getprotos(Function)
+		end
+
+		-- to validate that this function was generated by FunctionToMetatadata
+		Metadata["Validation"] = Data.Token
+		Metadata["__Function"] = true
+
+		return Metadata
+	end
+
+	function DeepClone(orig, copies)
+		copies = copies or {}
+		if typeof(orig) == "Instance" then
+			return cloneref(orig)
+		elseif typeof(orig) == "userdata" then
+			if getmetatable(orig) then
+				return newproxy(true)
+			else
+				return newproxy()
+			end
+		elseif typeof(orig) == "function" then
+			if clonefunction then
+				return clonefunction(orig)
+			end
+
+			return orig
+		elseif type(orig) ~= "table" then
+			return orig
+		elseif copies[orig] then
+			return copies[orig]
+		end
+
+		local copy = {}
+		copies[orig] = copy
+		for k, v in pairs(orig) do
+			copy[DeepClone(k, copies)] = DeepClone(v, copies)
+		end
+		return copy
+	end
+
+	local ClassesConnectionsToggle = {
+		RemoteEvent = "OnClientEvent",
+		UnreliableRemoteEvent = "OnClientEvent",
+		BindableEvent = "Event",
+	}
+
+	function Log:SetConnectionsEnabled(enabled: boolean)
+		if not self.Instance or not ClassesConnectionsToggle[self.Instance.ClassName] then
+			return
+		end
+
+		local ConnectionName = ClassesConnectionsToggle[self.Instance.ClassName]
+		if self.Type ~= "Incoming" or not ConnectionName then
+			return
+		end
+
+		for _, Connection in pairs(getconnections(self.Instance[ConnectionName])) do
+			if enabled then
+				Connection:Enable()
+			else
+				Connection:Disable()
+			end
+		end
+	end
+
+	function Log:Call(RawInfo)
+		RawInfo["IsActor"] = true
+		local Info = DeepClone(RawInfo)
+
+		-- Seliware puts their actor BindableEvents in CoreGui
+		local identity = getthreadidentity()
+		setthreadidentity(8)
+		wax.shared.Communicator.Fire(wax.shared.Communicator, "ActorCall", self.Instance, self.Type, FixTable(Info))
+		setthreadidentity(identity)
+	end
+
+	function Log:Ignore()
+		self.Ignored = not self.Ignored
+	end
+
+	function Log:Block()
+		self.Blocked = not self.Blocked
+		self:SetConnectionsEnabled(not self.Blocked)
+	end
+end
+
+wax.shared.Logs = {
+	Outgoing = {},
+	Incoming = {},
+}
+
+wax.shared.NewLog = function(Instance, Type, Method, Index, CallingScript)
+	local NewLog = wax.shared.Log.new(Instance, Type, Method, Index, CallingScript)
+	wax.shared.Logs[Type][Instance] = NewLog
+	return NewLog
 end

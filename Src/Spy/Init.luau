@@ -1,4 +1,6 @@
 local LuaEncode = require(script.Parent.Parent.Utils.Serializer.LuaEncode)
+local CodeGen = require(script.Parent.Parent.Utils.CodeGen)
+
 local Hooks = script.Parent.Hooks
 
 -- Main Thread Hooks
@@ -110,62 +112,41 @@ if wax.shared.ActorsEnabled then
 		end
 	end))
 
-	-- Actual Hooking Logic
-	wax.shared.HookedActors = {}
+	-- Actor Hooking Code Generation
+	local CodeToRun = ActorEnvironementCode
 
-	local function IsActorHooked(Actor: Actor)
-		if table.find(wax.shared.HookedActors, Actor) then
-			return true
-		end
-
-		for _, ActorToCompare in wax.shared.HookedActors do
-			if wax.shared.ExecutorSupport["compareinstances"].IsWorking and compareinstances(Actor, ActorToCompare) then
-				return true
-			end
-		end
-
-		return false
+	for _, ActorHook in Hooks.Actors:GetChildren() :: { StringValue } do
+		CodeToRun ..= table.concat({
+			"task.spawn(function()",
+			CodeGen:IndentCode(ActorHook.Value, 1),
+			"end)",
+		}, "\n")
 	end
 
+	CodeToRun ..= table.concat({
+		"task.spawn(function()",
+		CodeGen:IndentCode(ActorsUtils.Unload.Value, 1),
+		"end)",
+	}, "\n")
+
+	-- Actual Hooking Logic
+	-- The hooking code wont run again if cobalt is already initialized in that Actor (to address deleted actors aka LuaStateProxy stuff)
 	for _, TargetActor in getactors() do
-		for _, ActorHook in Hooks.Actors:GetChildren() do
-			run_on_actor(TargetActor, ActorEnvironementCode .. ActorHook.Value, CommunicationChannelID)
-		end
-
-		run_on_actor(TargetActor, ActorsUtils.Unload.Value, CommunicationChannelID)
-
-		-- Deletion Handler
-		local TargetActorRef = cloneref(TargetActor)
-		table.insert(wax.shared.HookedActors, TargetActorRef)
-
-		wax.shared.Connect(TargetActor.Destroying:Connect(function()
-			table.remove(wax.shared.HookedActors, table.find(wax.shared.HookedActors, TargetActorRef))
-		end))
+		run_on_actor(TargetActor, CodeToRun, CommunicationChannelID)
 	end
 
 	wax.shared.Connect(game.DescendantAdded:Connect(function(actor)
-		if not actor:IsA("Actor") or IsActorHooked(actor) then
+		if not actor:IsA("Actor") then
 			return
 		end
 
-		-- wait until executor is ready to run_on_actor (fails on some execs if its not in getactors() i think)
+		-- wait until executor is ready to run_on_actor
+		-- might fail on some execs if its not in getactors() i think
 		repeat
 			task.wait()
 		until table.find(getactors(), actor) ~= nil
 
-		for _, ActorHook in Hooks.Actors:GetChildren() do
-			run_on_actor(actor, ActorEnvironementCode .. ActorHook.Value, CommunicationChannelID)
-		end
-
-		run_on_actor(actor, ActorsUtils.Unload.Value, CommunicationChannelID)
-
-		-- Deletion Handler
-		local ActorRef = cloneref(actor)
-		table.insert(wax.shared.HookedActors, ActorRef)
-
-		wax.shared.Connect(actor.Destroying:Connect(function()
-			table.remove(wax.shared.HookedActors, table.find(wax.shared.HookedActors, ActorRef))
-		end))
+		run_on_actor(actor, CodeToRun, CommunicationChannelID)
 	end))
 end
 
