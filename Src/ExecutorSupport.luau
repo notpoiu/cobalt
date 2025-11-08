@@ -45,6 +45,7 @@ local function test(name, Callback, CheckType, Essential)
 	local Success, Result
 	if BrokenFeatures[wax.shared.ExecutorName] and table.find(BrokenFeatures[wax.shared.ExecutorName], name) then
 		Success = false
+		Result = "This function/library is broken or can crash your game on this executor."
 	else
 		Success, Result = pcall(TestFunction)
 	end
@@ -71,7 +72,7 @@ test("setfflag", setfflag, true)
 -- Actor Library
 test("getactors", getactors, true)
 test("run_on_actor", run_on_actor, true)
-test("getnilinstances", getnilinstances, true)
+test("create_comm_channel", create_comm_channel, true)
 
 -- Closure Library
 test("newcclosure", function()

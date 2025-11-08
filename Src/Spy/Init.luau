@@ -13,7 +13,11 @@ end
 -- So we need to set up the hooks again in the actor lua vm in order to log everything
 local ActorsUtils = script.Parent.Actors
 
-wax.shared.ActorsEnabled = create_comm_channel and run_on_actor
+wax.shared.ActorsEnabled = (
+	wax.shared.ExecutorSupport["run_on_actor"]
+	and wax.shared.ExecutorSupport["getactors"]
+	and wax.shared.ExecutorSupport["create_comm_channel"]
+)
 
 if wax.shared.ActorsEnabled then
 	local ActorEnvironementCode = ActorsUtils.Environement.Value
