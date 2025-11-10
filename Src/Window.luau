@@ -1599,18 +1599,19 @@ if AnticheatData.Disabled then
 end
 
 CreateSettingsButton("Clear All Logs", function()
-	for _, Logs in pairs(wax.shared.Logs) do
-		for Index, Log in pairs(Logs) do
+	for _, LogCategory in pairs(wax.shared.Logs) do
+		for Index, Log in pairs(LogCategory) do
 			if Log.Button then
 				Log.Button.Instance:Destroy()
 				Log.Button = nil
 			end
 
 			CurrentPage[Log] = nil
-			Logs[Index] = nil
+			
+			table.clear(Log.Calls)
+			table.clear(Log.GameCalls)
+			Log.Index = 0
 		end
-
-		table.clear(Logs)
 	end
 
 	CleanLogsList()
@@ -3082,6 +3083,10 @@ function ShowTab(Tab)
 		:Play()
 
 	for _, Log in pairs(Tab.Logs) do
+		if #Log.Calls == 0 then
+			continue
+		end
+
 		if not Log.Button then
 			local Button, Name, Calls = CreateLogButton(Log)
 			Log:SetButton(Button, Name, Calls)
@@ -3975,6 +3980,10 @@ wax.shared.Connect(wax.shared.Communicator.Event:Connect(function(Instance, Type
 
 	local Log = wax.shared.Logs[Type][Instance]
 	if not Log then
+		return
+	end
+
+	if #Log.Calls == 0 then
 		return
 	end
 
