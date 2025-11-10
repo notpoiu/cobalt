@@ -183,7 +183,9 @@ wax.shared.Unload = function()
 	end
 
 	if wax.shared.ActorCommunicator then
-		wax.shared.ActorCommunicator:Fire("Unload")
+		pcall(function()
+			wax.shared.ActorCommunicator:Fire("Unload")
+		end)
 	end
 
 	getgenv().CobaltInitialized = false

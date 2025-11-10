@@ -99,6 +99,10 @@ function Interface.HideCorner(Frame: GuiObject, Size: UDim2, Offset: Vector2): F
 end
 
 function Interface.GetScreenParent(): Instance
+	if wax.shared.ExecutorName == "VOLT" then
+		return wax.shared.CoreGui
+	end
+	
 	local ScreenGui = Interface.New("ScreenGui", {})
 	local HiddenUI = wax.shared.gethui()
 

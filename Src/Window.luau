@@ -719,7 +719,9 @@ local function CreateSettingsCheckbox(
 
 	function Checkbox:SetValue(NewValue)
 		if wax.shared.ActorCommunicator then
-			wax.shared.ActorCommunicator:Fire("MainSettingsSync", Idx, NewValue)
+			pcall(function()
+				wax.shared.ActorCommunicator:Fire("MainSettingsSync", Idx, NewValue)
+			end)
 		end
 
 		wax.shared.SaveManager:SetState(Idx, NewValue)
@@ -733,7 +735,9 @@ local function CreateSettingsCheckbox(
 	end
 
 	if wax.shared.ActorCommunicator then
-		wax.shared.ActorCommunicator:Fire("MainSettingsSync", Idx, Checkbox.Value)
+		pcall(function()
+			wax.shared.ActorCommunicator:Fire("MainSettingsSync", Idx, Checkbox.Value)
+		end)
 	end
 	wax.shared.Settings[Idx] = Checkbox
 	return Checkbox
@@ -886,7 +890,9 @@ local function CreateSettingsTextBox(
 		end
 
 		if wax.shared.ActorCommunicator then
-			wax.shared.ActorCommunicator:Fire("MainSettingsSync", Idx, PreparedValue)
+			pcall(function()
+				wax.shared.ActorCommunicator:Fire("MainSettingsSync", Idx, PreparedValue)
+			end)
 		end
 
 		wax.shared.SaveManager:SetState(Idx, PreparedValue)
@@ -898,7 +904,9 @@ local function CreateSettingsTextBox(
 	end)
 
 	if wax.shared.ActorCommunicator then
-		wax.shared.ActorCommunicator:Fire("MainSettingsSync", Idx, TextSetting.Value)
+		pcall(function()
+			wax.shared.ActorCommunicator:Fire("MainSettingsSync", Idx, TextSetting.Value)
+		end)
 	end
 
 	SyncValue(TextSetting.Value, false)
@@ -1110,7 +1118,9 @@ local function CreateSettingsDropdown(
 					end
 
 					if wax.shared.ActorCommunicator then
-						wax.shared.ActorCommunicator:Fire("MainSettingsSync", Idx, Dropdown.Value)
+						pcall(function()
+							wax.shared.ActorCommunicator:Fire("MainSettingsSync", Idx, Dropdown.Value)
+						end)
 					end
 
 					wax.shared.SaveManager:SetState(Idx, Dropdown.Value)
@@ -1165,7 +1175,9 @@ local function CreateSettingsDropdown(
 
 	function Dropdown:SetValue(NewValue)
 		if wax.shared.ActorCommunicator then
-			wax.shared.ActorCommunicator:Fire("MainSettingsSync", Idx, NewValue)
+			pcall(function()
+				wax.shared.ActorCommunicator:Fire("MainSettingsSync", Idx, NewValue)
+			end)
 		end
 
 		wax.shared.SaveManager:SetState(Idx, NewValue)
@@ -1187,7 +1199,9 @@ local function CreateSettingsDropdown(
 	end
 
 	if wax.shared.ActorCommunicator then
-		wax.shared.ActorCommunicator:Fire("MainSettingsSync", Idx, Dropdown.Default)
+		pcall(function()
+			wax.shared.ActorCommunicator:Fire("MainSettingsSync", Idx, Dropdown.Default)
+		end)
 	end
 
 	UpdateValueLabel()

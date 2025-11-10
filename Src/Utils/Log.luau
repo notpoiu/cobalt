@@ -63,7 +63,9 @@ end
 
 function Log:Ignore()
 	if wax.shared.ActorCommunicator then
-		wax.shared.ActorCommunicator:Fire("MainIgnore", self.Instance, self.Type)
+		pcall(function()
+			wax.shared.ActorCommunicator:Fire("MainIgnore", self.Instance, self.Type)
+		end)
 	end
 
 	self.Ignored = not self.Ignored
@@ -96,7 +98,9 @@ end
 
 function Log:Block()
 	if wax.shared.ActorCommunicator then
-		wax.shared.ActorCommunicator:Fire("MainBlock", self.Instance, self.Type)
+		pcall(function()
+			wax.shared.ActorCommunicator:Fire("MainBlock", self.Instance, self.Type)
+		end)
 	end
 
 	self.Blocked = not self.Blocked
