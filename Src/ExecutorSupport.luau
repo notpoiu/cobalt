@@ -13,7 +13,7 @@ local ExecutorSupport = {
 }
 
 local BrokenFeatures = {
-	["Volcano"] = { "oth" }
+	["Volcano"] = { "oth", "run_on_actor" }
 }
 
 local function CheckFFlagValue(Name: string, Value: any)
