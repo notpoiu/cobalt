@@ -422,11 +422,11 @@ if CheckFFlagValue("DebugRunParallelLuaOnMainThread", false) and not ExecutorSup
 		local bindable = Instance.new("BindableFunction")
 
 		function bindable.OnInvoke(response)
-			if response == "Set FFlag" then
+			if response == "Enable Fix" then
 				setfflag("DebugRunParallelLuaOnMainThread", "true")
 				wax.shared.StarterGui:SetCore("SendNotification", {
 					Title = "Cobalt",
-					Text = "Please rejoin for the FFlag to take effect!",
+					Text = "Please rejoin for the fix to take effect!",
 					Duration = math.huge,
 				})
 			end
@@ -436,10 +436,10 @@ if CheckFFlagValue("DebugRunParallelLuaOnMainThread", false) and not ExecutorSup
 
 		wax.shared.StarterGui:SetCore("SendNotification", {
 			Title = "Cobalt",
-			Text = "Detected the possible use of Actors but your exec does not support this. We can set a FFlag for you so after rejoining it detects actor remotes.",
+			Text = "This game may use remotes in a way that your executor can't intercept. You can enable the fix and rejoin to detect them.",
 			Duration = math.huge,
 			Callback = bindable,
-			Button1 = "Set FFlag",
+			Button1 = "Enable Fix",
 			Button2 = "Dismiss",
 		})
 	end)

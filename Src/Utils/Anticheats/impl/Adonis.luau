@@ -31,27 +31,43 @@ function Adonis.Bypass()
 		pcall(coroutine.close, thread)
 	end
 
-	for _, value in getgc(true) do
-		if typeof(value) ~= "table" then
-			continue
+	local AdonisTables = {}
+	if filtergc then
+		local ContendorAdonisTables = filtergc("table", {
+			Keys = { "Detected", "RLocked" }
+		}, false)
+
+		for _, AdonisTable in ContendorAdonisTables do
+			if typeof(rawget(AdonisTable, "Detected")) ~= "function" then continue end
+			table.insert(AdonisTables, AdonisTable)
 		end
-
-		local IsAdonisOrigin = typeof(rawget(value, "Detected")) == "function" and rawget(value, "RLocked")
-		if IsAdonisOrigin then
-			for _, DetectionFunc in value do
-				-- Just in case they already loaded a custom anticheat bypass for adonis
-				if typeof(DetectionFunc) ~= "function" or isfunctionhooked(DetectionFunc) then
-					continue
-				end
-
-				wax.shared.Hooks[DetectionFunc] = wax.shared.Hooking.HookFunction(
-					DetectionFunc,
-					function(action, info, nocrash)
-						coroutine.yield(coroutine.running())
-						return task.wait(9e9)
-					end
-				)
+	else
+		for _, Table in getgc(true) do
+			if typeof(Table) ~= "table" then
+				continue
 			end
+	
+			local IsAdonisOrigin = typeof(rawget(Table, "Detected")) == "function" and rawget(Table, "RLocked")
+			if not IsAdonisOrigin then continue end
+
+			table.insert(AdonisTables, Table)
+		end
+	end
+
+	for _, Adonis in AdonisTables do
+		for _, DetectionFunc in Adonis do
+			-- Just in case they already loaded a custom anticheat bypass for adonis
+			if typeof(DetectionFunc) ~= "function" or isfunctionhooked(DetectionFunc) then
+				continue
+			end
+
+			wax.shared.Hooks[DetectionFunc] = wax.shared.Hooking.HookFunction(
+				DetectionFunc,
+				function(action, info, nocrash)
+					coroutine.yield(coroutine.running())
+					return task.wait(9e9)
+				end
+			)
 		end
 	end
 

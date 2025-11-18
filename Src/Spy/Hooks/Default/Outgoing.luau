@@ -122,13 +122,31 @@ wax.shared.NamecallHook = wax.shared.Hooking.HookMetaMethod(game, "__namecall", 
 end)
 
 -- function hooks
-local FunctionsToHook = {
-	Instance.new("BindableFunction").Invoke,
-	Instance.new("RemoteFunction").InvokeServer,
-	Instance.new("BindableEvent").Fire,
-	Instance.new("RemoteEvent").FireServer,
-	Instance.new("UnreliableRemoteEvent").FireServer,
-}
+local FunctionsToHook
+do
+	local BindableFunction = Instance.new("BindableFunction")
+	local BindableEvent = Instance.new("BindableEvent")
+
+	local RemoteFunction = Instance.new("RemoteFunction")
+	local RemoteEvent = Instance.new("RemoteEvent")
+	local UnreliableRemoteEvent = Instance.new("UnreliableRemoteEvent")
+
+	FunctionsToHook = {
+		BindableFunction.Invoke,
+		BindableEvent.Fire,
+
+		RemoteFunction.InvokeServer,
+		RemoteEvent.FireServer,
+		UnreliableRemoteEvent.FireServer,
+	}
+
+	BindableFunction:Destroy()
+	BindableEvent:Destroy()
+
+	RemoteFunction:Destroy()
+	RemoteEvent:Destroy()
+	UnreliableRemoteEvent:Destroy()
+end
 
 for _, Function in pairs(FunctionsToHook) do
 	local Method = debug.info(Function, "n")

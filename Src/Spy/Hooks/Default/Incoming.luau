@@ -195,7 +195,7 @@ end
 wax.shared.Connect(game.DescendantAdded:Connect(HandleInstance))
 
 -- getinstances() was unreliable and failed to find some instances... ts pmo bro..
-local CategoryToSearch = { game:GetDescendants() }
+local CategoryToSearch = { game:QueryDescendants("RemoteEvent, RemoteFunction, UnreliableRemoteEvent, BindableEvent, BindableFunction") }
 if wax.shared.ExecutorSupport["getnilinstances"].IsWorking then
 	table.insert(CategoryToSearch, getnilinstances())
 end
