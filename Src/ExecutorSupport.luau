@@ -304,6 +304,7 @@ test("getcallbackvalue", function()
 
 	local success, didNoValueReturnNil = pcall(function() 
 		local remoteFunction = Instance.new("RemoteFunction")
+		task.delay(1, remoteFunction.Destroy, remoteFunction)
 		return getcallbackvalue(remoteFunction, "OnClientInvoke") == nil
 	end)
 
