@@ -34,9 +34,9 @@ local function CheckFFlagValue(Name: string, Value: any)
 end
 
 local function test(name, Callback, CheckType, Essential)
-	local TestFunction = Callback
-	if CheckType == true then
-		TestFunction = function() assert(typeof(Callback) == "function", string.format("%s is not a function.", name)) end
+	local TestFunction = not CheckType and Callback or function()
+		assert(typeof(Callback) == "function", string.format("%s is not a function.", name))
+		return "Passed nil check."
 	end
 
 	if Essential == nil then
@@ -301,6 +301,13 @@ test("getcallbackvalue", function()
 
 	assert(FetchedInvoke(5) == 10, "getcallbackvalue's function return did not match expected value")
 	assert(FetchedInvoke == InvokeFunction, "getcallbackvalue did not return the original function")
+
+	local success, didNoValueReturnNil = pcall(function() 
+		local remoteFunction = Instance.new("RemoteFunction")
+		return getcallbackvalue(remoteFunction, "OnClientInvoke") == nil
+	end)
+
+	assert(success and didNoValueReturnNil, "getcallbackvalue raised an error instead of returning nil, the function is not supposed to raise an error when there is no callback.")
 end)
 test("getnilinstances", function()
 	assert(typeof(getnilinstances) == "function", "getnilinstances is not a function")
