@@ -22,7 +22,7 @@ wax.shared.ActorsEnabled = (
 )
 
 if wax.shared.ActorsEnabled then
-	local ActorEnvironementCode = ActorsUtils.Environement.Value
+	local ActorEnvironmentCode = ActorsUtils.Environment.Value
 
 	local CommunicationChannelID, Channel = create_comm_channel()
 	wax.shared.ActorCommunicator = Channel
@@ -45,7 +45,7 @@ if wax.shared.ActorsEnabled then
 		ExecutorSupport = wax.shared.ExecutorSupport,
 	})
 
-	ActorEnvironementCode = ActorEnvironementCode:gsub("COBALT_ACTOR_DATA", ActorData)
+	ActorEnvironmentCode = ActorEnvironmentCode:gsub("COBALT_ACTOR_DATA", ActorData)
 
 	-- Actor Logs Sync Layer
 	local function ReconstructTable(Info, CyclicRefs)
@@ -119,7 +119,7 @@ if wax.shared.ActorsEnabled then
 	end))
 
 	-- Actor Hooking Code Generation
-	local CodeToRun = ActorEnvironementCode
+	local CodeToRun = ActorEnvironmentCode
 
 	for _, ActorHook in Hooks.Actors:GetChildren() :: { StringValue } do
 		CodeToRun ..= table.concat({

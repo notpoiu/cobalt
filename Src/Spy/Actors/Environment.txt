@@ -1,6 +1,6 @@
 --[[
 
-    Wax environement replicated for actor env
+    Wax Environment replicated for actor env
 
 ]]
 
@@ -298,7 +298,7 @@ do
 
 				if getmetatable(Value) then
 					OutputTable[Key] =
-						"Cobalt: Impossible to bridge table with metatable from actor environement to main environement"
+						"Cobalt: Impossible to bridge table with metatable from actor Environment to main Environment"
 				end
 
 				local Result, CycleMetadata, ContainsCyclic = FixTable(Value, CyclicRefs)

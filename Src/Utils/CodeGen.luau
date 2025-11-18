@@ -219,7 +219,7 @@ function CodeGen:IndentCode(Code: string, IndentLevel: number)
 end
 
 local WrapperActorCode = table.concat({
-	"-- Event originated from an Actor environement",
+	"-- Event originated from an Actor Environment",
 	"for _, actor in getactors() do",
 	"	run_on_actor(actor, [[\n%s\n]])",
 	"end",
