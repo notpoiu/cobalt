@@ -16,9 +16,9 @@ getgenv().CobaltInitialized = true
 local ActorsUtils = script.Parent.Actors
 
 wax.shared.ActorsEnabled = (
-	wax.shared.ExecutorSupport["run_on_actor"]
-	and wax.shared.ExecutorSupport["getactors"]
-	and wax.shared.ExecutorSupport["create_comm_channel"]
+	wax.shared.ExecutorSupport["run_on_actor"].IsWorking
+	and wax.shared.ExecutorSupport["getactors"].IsWorking
+	and wax.shared.ExecutorSupport["create_comm_channel"].IsWorking
 )
 
 if wax.shared.ActorsEnabled then

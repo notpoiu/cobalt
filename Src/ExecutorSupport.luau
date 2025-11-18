@@ -34,8 +34,9 @@ local function CheckFFlagValue(Name: string, Value: any)
 end
 
 local function test(name, Callback, CheckType, Essential)
-	local TestFunction = not CheckType and Callback or function()
-		return typeof(Callback) == "function"
+	local TestFunction = Callback
+	if CheckType == true then
+		TestFunction = function() assert(typeof(Callback) == "function", string.format("%s is not a function.", name)) end
 	end
 
 	if Essential == nil then
