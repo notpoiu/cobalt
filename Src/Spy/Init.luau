@@ -137,8 +137,19 @@ if wax.shared.ActorsEnabled then
 
 	-- Actual Hooking Logic
 	-- The hooking code wont run again if cobalt is already initialized in that Actor (to address deleted actors aka LuaStateProxy stuff)
+	
+	-- `HookActor` is to address Volcano returning non initialized actors inside their `getactors` function.
+	-- God this code is so ass 🥹
+	local function HookActor(TargetActor: Actor)
+		local Hooked = false
+		repeat
+			Hooked, _ = pcall(run_on_actor, TargetActor, CodeToRun, CommunicationChannelID)
+			task.wait(0.25)
+		until Hooked
+	end
+
 	for _, TargetActor in getactors() do
-		run_on_actor(TargetActor, CodeToRun, CommunicationChannelID)
+		task.spawn(HookActor, TargetActor)
 	end
 
 	wax.shared.Connect(game.DescendantAdded:Connect(function(actor)
@@ -146,13 +157,7 @@ if wax.shared.ActorsEnabled then
 			return
 		end
 
-		-- wait until executor is ready to run_on_actor
-		-- might fail on some execs if its not in getactors() i think
-		repeat
-			task.wait()
-		until table.find(getactors(), actor) ~= nil
-
-		run_on_actor(actor, CodeToRun, CommunicationChannelID)
+		HookActor(actor)
 	end))
 end
 
