@@ -395,7 +395,7 @@ if CheckFFlagValue("DebugRunParallelLuaOnMainThread", false) and not ExecutorSup
 
 		local GameUsesActors = false
 
-		local CategoryToSearch = { game:GetDescendants() }
+		local CategoryToSearch = { game:QueryDescendants("Actor") }
 		if ExecutorSupport["getnilinstances"].IsWorking then
 			table.insert(CategoryToSearch, getnilinstances())
 		end
