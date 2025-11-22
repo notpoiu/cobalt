@@ -13,12 +13,14 @@ export type CallInfo = {
 	) -> any | {
 		Address: string,
 		Name: string,
+		Source: string?,
 		IsC: boolean,
 		Constants: { any }?,
 		Upvalues: { any }?,
 		Protos: { any }?,
 	},
 	Line: number?,
+	Source: string?,
 	Instance: SupportedRemoteTypes,
 	Order: number,
 	Type: "Incoming" | "Outgoing",
@@ -509,6 +511,7 @@ function CodeGen:BuildFunctionInfo(CallInfo: CallInfo)
 		return string.format(
 			[[<b>Function Address:</b> %s
 <b>Name:</b> %s
+<b>Script Path:</b> %s
 <b>Source:</b> %s
 <b>Calling Line:</b> %s
 <b>From Actor:</b> true
@@ -516,6 +519,7 @@ function CodeGen:BuildFunctionInfo(CallInfo: CallInfo)
 			CallInfo.Function.Address:match("0x%x+") or tostring(CallInfo.Function),
 			CallInfo.Function.Name ~= "" and CallInfo.Function.Name or "Anonymous",
 			CallInfo.Origin and self.GetFullPath(CallInfo.Origin, true) or wax.shared.ExecutorName,
+			CallInfo.Function.Source or "N/A",
 			tostring(CallInfo.Line),
 
 			CallInfo.Function.IsC and "<b>Closure Type</b>: C closure"
@@ -533,12 +537,14 @@ function CodeGen:BuildFunctionInfo(CallInfo: CallInfo)
 	return string.format(
 		[[<b>Function Address:</b> %s
 <b>Name:</b> %s
+<b>Script Path:</b> %s
 <b>Source:</b> %s
 <b>Calling Line:</b> %s
 %s]],
 		tostring(CallInfo.Function):match("0x%x+") or tostring(CallInfo.Function),
 		FunctionName ~= "" and FunctionName or "Anonymous",
 		CallInfo.Origin and self.GetFullPath(CallInfo.Origin, true) or wax.shared.ExecutorName,
+		CallInfo.Source or debug.info(CallInfo.Function, "s"),
 		tostring(CallInfo.Line),
 
 		iscclosure(CallInfo.Function) and "<b>Closure Type</b>: C closure"

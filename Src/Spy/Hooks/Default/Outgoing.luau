@@ -17,7 +17,7 @@ local AllowedClassNames =
 	@return `function | nil` The calling function or nil if not found.
 ]]
 local function getcallingfunction()
-	local BaseLevel = if wax.shared.ExecutorSupport["oth"] then 2 else 4
+	local BaseLevel = if wax.shared.ExecutorSupport["oth"].IsWorking then 2 else 4
 
 	for i = BaseLevel, 10 do
 		local Function, Source = debug.info(i, "fs")
@@ -41,7 +41,9 @@ end
 	@return number Returns the line number of the calling script.
 ]]
 local function getcallingline()
-	for i = 4, 10 do
+	local BaseLevel = if wax.shared.ExecutorSupport["oth"].IsWorking then 2 else 4
+
+	for i = BaseLevel, 10 do
 		local Source, Line = debug.info(i, "sl")
 		if not Source then
 			break
@@ -54,7 +56,31 @@ local function getcallingline()
 		return Line
 	end
 
-	return debug.info(4, "l")
+	return debug.info(BaseLevel, "l")
+end
+
+--[[
+	Returns the calling source of the script that called the function via `debug.info`
+
+	@return string Returns the source of the calling script.
+]]
+local function getcallingsource()
+	local BaseLevel = if wax.shared.ExecutorSupport["oth"].IsWorking then 2 else 4
+
+	for i = BaseLevel, 10 do
+		local Source = debug.info(i, "s")
+		if not Source then
+			break
+		end
+
+		if Source == "[C]" then
+			continue
+		end
+
+		return Source
+	end
+
+	return debug.info(BaseLevel, "s")
 end
 
 -- metamethod hooks
@@ -84,10 +110,10 @@ wax.shared.NamecallHook = wax.shared.Hooking.HookMetaMethod(game, "__namecall", 
 				Origin = getcallingscript(),
 				Function = getcallingfunction(),
 				Line = getcallingline(),
+				Source = getcallingsource(),
 				IsExecutor = checkcaller(),
 			}
 			Log:Call(Info)
-
 			-- For RemoteFunction return value (ex: local result = RemoteFunction:InvokeServer())
 			if self.ClassName == "RemoteFunction" and (Method == "InvokeServer" or Method == "invokeServer") then
 				Log = wax.shared.Logs.Incoming[self]
@@ -107,6 +133,7 @@ wax.shared.NamecallHook = wax.shared.Hooking.HookMetaMethod(game, "__namecall", 
 						Origin = getcallingscript(),
 						Function = getcallingfunction(),
 						Line = getcallingline(),
+						Source = getcallingsource(),
 						IsExecutor = checkcaller(),
 						OriginalInvokeArgs = table.pack(select(2, ...)),
 					}
@@ -174,10 +201,10 @@ for _, Function in pairs(FunctionsToHook) do
 					Origin = getcallingscript(),
 					Function = getcallingfunction(),
 					Line = getcallingline(),
+					Source = getcallingsource(),
 					IsExecutor = checkcaller(),
 				}
 				Log:Call(Info)
-
 				-- For RemoteFunction return value (ex: local result = RemoteFunction:InvokeServer())
 				if self.ClassName == "RemoteFunction" and (Method == "InvokeServer" or Method == "invokeServer") then
 					Log = wax.shared.Logs.Incoming[self]
@@ -197,6 +224,7 @@ for _, Function in pairs(FunctionsToHook) do
 							Origin = getcallingscript(),
 							Function = getcallingfunction(),
 							Line = getcallingline(),
+							Source = getcallingsource(),
 							IsExecutor = checkcaller(),
 							OriginalInvokeArgs = table.pack(select(2, ...)),
 						}

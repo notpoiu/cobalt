@@ -1621,7 +1621,7 @@ CreateSettingsButton("Clear All Logs", function()
 			end
 
 			CurrentPage[Log] = nil
-			
+
 			table.clear(Log.Calls)
 			table.clear(Log.GameCalls)
 			Log.Index = 0
@@ -2266,6 +2266,9 @@ CreateInfoDropdownButton("code", "Code", {
 			local Info = {
 				Function = typeof(CurrentInfo.Function) == "function" and {
 					Name = CurrentInfo.Function and debug.info(CurrentInfo.Function, "n") or "Unknown",
+					Source = CurrentInfo.Source
+						or (CurrentInfo.Function and debug.info(CurrentInfo.Function, "s"))
+						or "Unknown",
 					Type = CurrentInfo.Function
 							and (iscclosure(CurrentInfo.Function) and "C Closure" or "Luau function")
 						or "N/A",

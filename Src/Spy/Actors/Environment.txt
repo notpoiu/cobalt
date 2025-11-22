@@ -345,6 +345,7 @@ do
 		local Metadata = {
 			Address = tostring(Function),
 			Name = debug.info(Function, "n"),
+			Source = debug.info(Function, "s"),
 			IsC = iscclosure(Function),
 		}
 
