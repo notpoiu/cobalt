@@ -2487,6 +2487,10 @@ CreateInfoDropdownButton("network", "Event", {
 			CloseModal()
 
 			wax.shared.Sonner.success("Cleared logs for event successfully!")
+
+			if #CurrentLog.Calls == 0 then
+				CurrentLog.Button.Instance.Parent = nil
+			end
 		end,
 	},
 })
@@ -3525,6 +3529,10 @@ function CreateLogButton(Log): (TextButton, TextLabel, TextLabel)
 				end
 
 				wax.shared.Sonner.success("Cleared logs for event successfully!")
+
+				if #Log.Calls == 0 then
+					Log.Button.Instance.Parent = nil
+				end
 			end,
 		},
 	}, true)
