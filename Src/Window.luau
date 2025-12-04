@@ -1838,7 +1838,7 @@ local ExportLogsButton = CreateSettingsButton("Export Logs to HTML", function()
 		)
 
 		--// Export \\--
-		local FileName = `Cobalt_Session_{os.clock()}.html`
+		local FileName = `Cobalt_Session_{os.time()}.html`
 		writefile(
 			FileName,
 			SessionExporter:ExportSessionToHTML(Events, StringMap, SessionData)
