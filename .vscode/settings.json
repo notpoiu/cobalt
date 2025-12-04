@@ -34,7 +34,7 @@
   "files.associations": {
     "**/Src/Spy/Hooks/Actors/*": "luau",
     "**/Src/Spy/Actors/*": "luau",
-    "**/Src/Utils/CodeGen/SessionHTMLView.txt": "html"
+    //"**/Src/Utils/CodeGen/SessionHTMLView.txt": "html"
   },
   "stylua.targetReleaseVersion": "latest",
   "liveServer.settings.port": 5501
