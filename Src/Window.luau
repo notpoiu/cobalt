@@ -8,7 +8,8 @@ local LuaEncode = require(script.Parent.Utils.Serializer.LuaEncode)
 local Utils = script.Parent.Utils
 
 local Pagination = require(Utils.Pagination)
-local CodeGen = require(Utils.CodeGen)
+local CodeGen = require(Utils.CodeGen.Generator)
+local SessionExporter = require(Utils.CodeGen.SessionExporter)
 
 local UIUtils = script.Parent.Utils.UI
 
@@ -1753,21 +1754,33 @@ Interface.New("TextLabel", {
 	TextWrapped = true,
 })
 
-local SessionButtons = Interface.New("Frame", {
+local SessionButtonsContainer = Interface.New("Frame", {
 	BackgroundTransparency = 1,
 	Size = UDim2.fromScale(1, 0),
 	AutomaticSize = Enum.AutomaticSize.Y,
 	Parent = LoggingSection,
 
 	["UIListLayout"] = {
-		FillDirection = Enum.FillDirection.Horizontal,
-		HorizontalAlignment = Enum.HorizontalAlignment.Left,
+		FillDirection = Enum.FillDirection.Vertical,
 		Padding = UDim.new(0, 8),
 	},
 
 	["UIPadding"] = {
 		PaddingTop = UDim.new(0, 4),
 		PaddingBottom = UDim.new(0, 8),
+	},
+})
+
+local SessionButtons = Interface.New("Frame", {
+	BackgroundTransparency = 1,
+	Size = UDim2.fromScale(1, 0),
+	AutomaticSize = Enum.AutomaticSize.Y,
+	Parent = SessionButtonsContainer,
+
+	["UIListLayout"] = {
+		FillDirection = Enum.FillDirection.Horizontal,
+		HorizontalAlignment = Enum.HorizontalAlignment.Left,
+		Padding = UDim.new(0, 8),
 	},
 })
 local CopySessionName = CreateSettingsButton("Copy Session Name", function()
@@ -1806,6 +1819,39 @@ local CopyFullSessionPath = CreateSettingsButton("Copy Full Path", function()
 	wax.shared.Sonner.success("Successfully copied log path to clipboard")
 end, SessionButtons, 14)
 CopyFullSessionPath.Size = UDim2.new(0.5, -4, 0, 24)
+
+local ExportLogsButton = CreateSettingsButton("Export Logs to HTML", function()
+	wax.shared.Sonner.promise(function(UpdateProgress)
+		assert(typeof(writefile) == "function", "Exploit does not support writefile")
+		
+		--// Collect all logs \\--
+		local AllCalls = SessionExporter:FetchAllLogs()
+		local SessionData = SessionExporter:GetSessionData(AllCalls)
+
+		--// Data Processing \\--
+		UpdateProgress("Sorting calls...")
+		SessionExporter:SortCalls(AllCalls)
+		local Events, StringMap = SessionExporter:ProcessCalls(
+			AllCalls,
+			SessionData,
+			UpdateProgress
+		)
+
+		--// Export \\--
+		local FileName = `Cobalt_Session_{os.clock()}.html`
+		writefile(
+			FileName,
+			SessionExporter:ExportSessionToHTML(Events, StringMap, SessionData)
+		)
+		return FileName
+	end, {
+		loadingText = "Starting Export...",
+		successText = function(fileName) return `Successfully exported trace to {fileName}` end,
+		errorText = function(err) return `Export Failed: {err}` end,
+	})
+end, SessionButtonsContainer, 14)
+
+ExportLogsButton.Size = UDim2.new(1, 0, 0, 24)
 
 local CreditsSection = CreateSettingsSection("Credits")
 
@@ -2299,7 +2345,7 @@ CreateInfoDropdownButton("code", "Code", {
 				end
 			end
 
-			local Success, Error = pcall(setclipboard, `local Info = {LuaEncode(Info, { Prettify = true })}`)
+			local Success, Error = pcall(setclipboard, `local Info = {LuaEncode(Info, { Prettify = true, DisableNilParentHandler = true })}`)
 			if Success then
 				wax.shared.Sonner.success("Copied function info to clipboard")
 			else
@@ -2319,7 +2365,10 @@ CreateInfoDropdownButton("scroll-text", "Origin", {
 				return
 			end
 
-			local Success, Error = pcall(setclipboard, CodeGen.GetFullPath(CurrentInfo.Instance, false, "Event"))
+			local Success, Error = pcall(setclipboard, CodeGen.GetFullPath(CurrentInfo.Instance, {
+				VariableName = "Event",
+				DisableNilParentHandler = false
+			}))
 			if Success then
 				wax.shared.Sonner.success("Copied remote path to clipboard")
 			else
@@ -3680,7 +3729,10 @@ function CreateCallFrame(CallInfo)
 						return
 					end
 
-					local Success, Error = pcall(setclipboard, CodeGen.GetFullPath(CallInfo.Instance, false, "Event"))
+					local Success, Error = pcall(setclipboard, CodeGen.GetFullPath(CallInfo.Instance, {
+						VariableName = "Event",
+						DisableNilParentHandler = false,
+					}))
 
 					if Success then
 						wax.shared.Sonner.success("Copied remote path to clipboard")
@@ -3812,7 +3864,7 @@ function CreateCallFrame(CallInfo)
 			Position = UDim2.new(1, -2, 1, 0),
 			Size = UDim2.new(0.5, -2, 0, 22),
 			BackgroundTransparency = 1,
-			Text = "Time: " .. CallInfo.Time,
+			Text = "Time: " .. os.date("%X", CallInfo.CreationTime),
 			TextSize = 16,
 			TextTransparency = 0.5,
 			TextXAlignment = Enum.TextXAlignment.Right,

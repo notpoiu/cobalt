@@ -106,7 +106,6 @@ wax.shared.NamecallHook = wax.shared.Hooking.HookMetaMethod(game, "__namecall", 
 		elseif not Log.Ignored then
 			local Info = {
 				Arguments = table.pack(select(2, ...)),
-				Time = os.date("%X"),
 				Origin = getcallingscript(),
 				Function = getcallingfunction(),
 				Line = getcallingline(),
@@ -129,7 +128,6 @@ wax.shared.NamecallHook = wax.shared.Hooking.HookMetaMethod(game, "__namecall", 
 				if not Log.Ignored then
 					local RFResultInfo = {
 						Arguments = Result,
-						Time = os.date("%X"),
 						Origin = getcallingscript(),
 						Function = getcallingfunction(),
 						Line = getcallingline(),
@@ -197,7 +195,6 @@ for _, Function in pairs(FunctionsToHook) do
 			elseif not Log.Ignored then
 				local Info = {
 					Arguments = table.pack(select(2, ...)),
-					Time = os.date("%X"),
 					Origin = getcallingscript(),
 					Function = getcallingfunction(),
 					Line = getcallingline(),
@@ -220,7 +217,6 @@ for _, Function in pairs(FunctionsToHook) do
 					if not Log.Ignored then
 						local RFResultInfo = {
 							Arguments = Result,
-							Time = os.date("%X"),
 							Origin = getcallingscript(),
 							Function = getcallingfunction(),
 							Line = getcallingline(),

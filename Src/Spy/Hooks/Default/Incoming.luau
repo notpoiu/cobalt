@@ -28,7 +28,6 @@ local function LogRemote(
 	Function: (...any) -> ...any,
 	Info: {
 		Arguments: { [number]: any, n: number },
-		Time: string,
 		Origin: Instance,
 		Function: (...any) -> ...any,
 		Line: number,
@@ -86,7 +85,6 @@ local function CreateConnectionFunction(Instance: InstancesToHook, Method: Metho
 
 			LogRemote(Instance, Method, Function, {
 				Arguments = table.pack(...),
-				Time = os.date("%X"),
 				Origin = Origin,
 				Function = Function,
 				Line = nil,
@@ -132,7 +130,6 @@ local function CreateCallbackDetour(Instance: InstancesToHook, Method: MethodsTo
 		if
 			LogRemote(Instance, Method, Callback, {
 				Arguments = table.pack(...),
-				Time = os.date("%X"),
 				Origin = Origin,
 				Function = Callback,
 				Line = nil,

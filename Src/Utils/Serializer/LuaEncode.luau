@@ -8,7 +8,7 @@
 local table, string, next, pcall, game, workspace, tostring, tonumber, getmetatable =
 	table, string, next, pcall, game, workspace, tostring, tonumber, getmetatable
 
-local GetFullPath = require(script.Parent.Parent.CodeGen).GetFullPath
+local GetFullPath = require(script.Parent.Parent.CodeGen.Generator).GetFullPath
 
 local string_format = string.format
 local string_char = string.char
@@ -209,7 +209,7 @@ local function LuaEncode(inputTable, options)
 	CheckType(options.OutputWarnings, "options.OutputWarnings", "boolean", "nil")
 	CheckType(options.FunctionsReturnRaw, "options.FunctionsReturnRaw", "boolean", "nil")
 	CheckType(options.UseInstancePaths, "options.UseInstancePaths", "boolean", "nil")
-	CheckType(options.GetNilFunctionInsert, "options.GetNilFunctionInsert", "boolean", "nil")
+	CheckType(options.DisableNilParentHandler, "options.DisableNilParentHandler", "boolean", "nil")
 	CheckType(options.SerializeMathHuge, "options.SerializeMathHuge", "boolean", "nil")
 
 	CheckType(options._StackLevel, "options._StackLevel", "number", "nil")
@@ -221,7 +221,7 @@ local function LuaEncode(inputTable, options)
 	local IndentCount = options.IndentCount or (Prettify and 4) or 0
 	local InsertCycles = (options.InsertCycles == nil and false) or options.InsertCycles
 	local OutputWarnings = (options.OutputWarnings == nil and true) or options.OutputWarnings
-	local GetNilFunctionInsert = (options.GetNilFunctionInsert == nil and false) or options.GetNilFunctionInsert
+	local DisableNilParentHandler = (options.DisableNilParentHandler == nil and false) or options.DisableNilParentHandler
 	local UseInstancePaths = (options.UseInstancePaths == nil and true) or options.UseInstancePaths
 	local SerializeMathHuge = (options.SerializeMathHuge == nil and true) or options.SerializeMathHuge
 
@@ -539,7 +539,10 @@ local function LuaEncode(inputTable, options)
 		-- nil or some DataModel not under `game`, it'll just return nil
 		TypeCases["Instance"] = function(value)
 			if UseInstancePaths then
-				local InstancePath, NilFunctionInserted = GetFullPath(value, false, nil, GetNilFunctionInsert)
+				local InstancePath, NilFunctionInserted = GetFullPath(value, {
+					DisableNilParentHandler = DisableNilParentHandler,
+					OmitNilFunctionGetterCodeGeneration = true
+				})
 
 				if NilFunctionInserted then
 					DidInsertNilFunction = true

@@ -50,6 +50,8 @@ end
 
 function Log:Call(RawInfo)
 	local Info = DeepClone(RawInfo)
+	Info.CreationTime = tick()
+
 	local Index = #self.Calls + 1
 	self.Calls[Index] = Info
 	if not Info.IsExecutor then

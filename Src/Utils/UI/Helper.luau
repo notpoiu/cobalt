@@ -1,6 +1,6 @@
 local UIHelper = {}
 
-local CodeGen = require(script.Parent.Parent.CodeGen)
+local CodeGen = require(script.Parent.Parent.CodeGen.Generator)
 
 function UIHelper.IsMouseOverFrame(Frame: GuiObject, Position: Vector3): boolean
 	local AbsPos, AbsSize = Frame.AbsolutePosition, Frame.AbsoluteSize

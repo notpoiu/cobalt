@@ -1,3 +1,5 @@
+wax.shared.CobaltStartTime = tick()
+
 local FileLogger = require(script.Utils.FileLog)
 
 -- Environment
@@ -36,7 +38,7 @@ wax.shared.Sonner = require(script.Utils.UI.Sonner)
 local LuaEncode = require(script.Utils.Serializer.LuaEncode)
 wax.shared.LuaEncode = LuaEncode
 
-local CodeGen = require(script.Utils.CodeGen)
+local CodeGen = require(script.Utils.CodeGen.Generator)
 
 -- Variables
 if not wax.shared.Players.LocalPlayer then
@@ -229,7 +231,9 @@ wax.shared.SetupLoggingConnection = function()
 				RemoteInstanceInfo = {
 					Name = RemoteInstance and RemoteInstance.Name,
 					ClassName = RemoteInstance and RemoteInstance.ClassName,
-					Path = RemoteInstance and CodeGen.GetFullPath(RemoteInstance, true),
+					Path = RemoteInstance and CodeGen.GetFullPath(RemoteInstance, {
+						DisableNilParentHandler = true,
+					}),
 				},
 				EventType = Type,
 				CallOrderInLog = CallOrderInLog,
@@ -243,7 +247,9 @@ wax.shared.SetupLoggingConnection = function()
 
 			local instanceName = RemoteInstance and RemoteInstance.Name or "UnknownInstance"
 			local instanceClassName = RemoteInstance and RemoteInstance.ClassName or "UnknownClass"
-			local instancePath = RemoteInstance and CodeGen.GetFullPath(RemoteInstance, true) or "UnknownPath"
+			local instancePath = RemoteInstance and CodeGen.GetFullPath(RemoteInstance, {
+				DisableNilParentHandler = true
+			}) or "UnknownPath"
 
 			local logParts = {
 				("Instance: %s (%s)"):format(instanceName, instanceClassName),

@@ -1,5 +1,5 @@
 local LuaEncode = require(script.Parent.Parent.Utils.Serializer.LuaEncode)
-local CodeGen = require(script.Parent.Parent.Utils.CodeGen)
+local CodeGen = require(script.Parent.Parent.Utils.CodeGen.Generator)
 
 local Hooks = script.Parent.Hooks
 
@@ -112,6 +112,7 @@ if wax.shared.ActorsEnabled then
 			return
 		elseif not Log.Ignored then
 			local ReconstructedInfo = ReconstructTable(RawInfo, CyclicRefs)
+			ReconstructedInfo.IsActor = true
 
 			Log:Call(ReconstructedInfo)
 			wax.shared.Communicator:Fire(Log.Instance, Type, #Log.Calls)

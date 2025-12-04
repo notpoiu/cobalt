@@ -6,7 +6,7 @@ local CodeGen = {
 export type SupportedRemoteTypes = RemoteEvent | RemoteFunction | BindableEvent | BindableFunction | UnreliableRemoteEvent
 export type CallInfo = {
 	Arguments: { [number]: any, n: number },
-	Time: string,
+	CreationTime: number,
 	Origin: BaseScript?,
 	Function: (
 		...any
@@ -78,7 +78,24 @@ local function IsEqualToInstance(Object, ToCompareTo)
 	return false
 end
 
-function CodeGen.GetFullPath(Object, ExcludeCode, VariableName, IsInTable)
+function CodeGen.GetFullPath(Object, options: {
+	DisableNilParentHandler: boolean?,
+	VariableName: string?,
+	OmitNilFunctionGetterCodeGeneration: boolean?
+}?)
+	local DisableNilParentHandler = options and options.DisableNilParentHandler
+	local OmitNilFunctionGetterCodeGeneration = options and options.OmitNilFunctionGetterCodeGeneration
+	local VariableName = options and options.VariableName
+	do
+		if DisableNilParentHandler == nil then
+			DisableNilParentHandler = true
+		end
+
+		if OmitNilFunctionGetterCodeGeneration == nil then
+			OmitNilFunctionGetterCodeGeneration = false
+		end
+	end
+
 	local ChildLookupMode = wax.shared.SaveManager:GetState("InstancePathLookupChain", "Index")
 
 	local function BuildDynamicAccessor(Expression: string): string
@@ -175,14 +192,15 @@ function CodeGen.GetFullPath(Object, ExcludeCode, VariableName, IsInTable)
 			elseif Parent == nil then
 				IsNil = true
 
-				if ExcludeCode then
+				if DisableNilParentHandler then
 					Path = Path .. " --[[Nil Parent]]"
 				else
 					local Base = `GetNil("{CodeGen.FormatLuaString(CurrentObject.Name)}", "{CodeGen.FormatLuaString(
 						CurrentObject:GetDebugId()
 					)}")`
 					DidInsertNilFunction = true
-					if IsInTable then
+					
+					if OmitNilFunctionGetterCodeGeneration then
 						Path = Base
 						break
 					end
@@ -237,7 +255,10 @@ end
 
 function CodeGen:BuildHookCode(CallInfo: CallInfo)
 	local Type = CallInfo.Type
-	local Path = self.GetFullPath(CallInfo.Instance, false, "Event")
+	local Path = self.GetFullPath(CallInfo.Instance, {
+		VariableName = "Event",
+		DisableNilParentHandler = false,
+	})
 	local IsFromActor = CallInfo.IsActor or false
 	local Method = wax.shared.FunctionForClasses[Type][CallInfo.Instance.ClassName]
 
@@ -416,11 +437,14 @@ end
 function CodeGen:BuildCallCode(CallInfo: CallInfo)
 	local Type = CallInfo.Type
 	local IsFromActor = CallInfo.IsActor or false
-	local Path = self.GetFullPath(CallInfo.Instance, false, "Event")
+	local Path = self.GetFullPath(CallInfo.Instance, {
+		VariableName = "Event",
+		DisableNilParentHandler = false,
+	})
 	local Method = wax.shared.FunctionForClasses[Type][CallInfo.Instance.ClassName]
 	local SerializedArgs, DidInsertNilFunction = wax.shared.LuaEncode(
 		{ table.unpack(CallInfo.Arguments, 1, CallInfo.Arguments.n) },
-		{ Prettify = true, InsertCycles = true, GetNilFunctionInsert = true }
+		{ Prettify = true, InsertCycles = true }
 	)
 
 	local CodeGenHeader = CodeGenHeaderTemplate
@@ -432,7 +456,7 @@ function CodeGen:BuildCallCode(CallInfo: CallInfo)
 		if DoesUseCallbackValue(CallInfo.Instance) then
 			local PrettifiedExpectedResult, DidInsertNilFunctionInExpectation = wax.shared.LuaEncode(
 				{ table.unpack(CallInfo.Arguments, 1, CallInfo.Arguments.n) },
-				{ Prettify = true, InsertCycles = true, GetNilFunctionInsert = true }
+				{ Prettify = true, InsertCycles = true }
 			)
 
 			if CallInfo.OriginalInvokeArgs then
@@ -518,7 +542,7 @@ function CodeGen:BuildFunctionInfo(CallInfo: CallInfo)
 %s]],
 			CallInfo.Function.Address:match("0x%x+") or tostring(CallInfo.Function),
 			CallInfo.Function.Name ~= "" and CallInfo.Function.Name or "Anonymous",
-			CallInfo.Origin and self.GetFullPath(CallInfo.Origin, true) or wax.shared.ExecutorName,
+			CallInfo.Origin and self.GetFullPath(CallInfo.Origin, { DisableNilParentHandler = true }) or wax.shared.ExecutorName,
 			CallInfo.Function.Source or "N/A",
 			tostring(CallInfo.Line),
 
@@ -543,7 +567,7 @@ function CodeGen:BuildFunctionInfo(CallInfo: CallInfo)
 %s]],
 		tostring(CallInfo.Function):match("0x%x+") or tostring(CallInfo.Function),
 		FunctionName ~= "" and FunctionName or "Anonymous",
-		CallInfo.Origin and self.GetFullPath(CallInfo.Origin, true) or wax.shared.ExecutorName,
+		CallInfo.Origin and self.GetFullPath(CallInfo.Origin, { DisableNilParentHandler = true }) or wax.shared.ExecutorName,
 		CallInfo.Source or debug.info(CallInfo.Function, "s"),
 		tostring(CallInfo.Line),
 

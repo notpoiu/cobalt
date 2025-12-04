@@ -52,6 +52,11 @@ local function InternalCreateNotificationObject(zindex, image, text)
 		Parent = NotificationTemplate,
 	})
 
+	Animations.SetFadeExpectation("In", ImageLabel, {
+		BackgroundTransparency = 1,
+		ImageTransparency = 0,
+	})
+
 	if image then
 		if image:find("rbxasset") then
 			ImageLabel.Image = image
@@ -213,7 +218,9 @@ function Sonner.promise(func, options)
 			until success == false or resultOrError ~= nil
 		end)
 
-		success, resultOrError = pcall(func) -- yes mstudio45, your famous pcall is better (- deivid)
+		success, resultOrError = pcall(func, function(text)
+			notif.Frame.TextLabel.Text = text
+		end)
 
 		task.spawn(function()
 			setthreadidentity(8)
