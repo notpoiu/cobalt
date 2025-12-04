@@ -59,7 +59,7 @@ function UIHelper.QuickSerializeArgument(Argument)
 	elseif typeof(Argument) == "table" then
 		return "{...}"
 	elseif typeof(Argument) == "Instance" then
-		return CodeGen.GetFullPath(Argument, true)
+		return CodeGen.GetFullPath(Argument, { DisableNilParentHandler = true })
 	elseif typeof(Argument) == "userdata" then
 		return "newproxy(" .. getmetatable(Argument) and "true" or "false" .. ")"
 	end
