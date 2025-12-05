@@ -115,12 +115,17 @@ function SessionExporter:ProcessCalls(AllCalls, SessionData, UpdateProgress)
                 FunctionName = Call.Function.Name ~= "" and Call.Function.Name or "Anonymous"
                 FunctionSource = Call.Function.Source or "N/A"
                 FunctionLine = Call.Function.Line or -1
-                FunctionHash = Call.Function.FunctionHash or "N/A"
-
+                
                 if not Call.Function.IsC then
+                    FunctionHash = Call.Function.FunctionHash or "N/A"
                     FunctionUpvalues = self:SerializeLuauTableForHTML(Call.Function.Upvalues)
                     FunctionProtos = self:SerializeLuauTableForHTML(Call.Function.Protos)
                     FunctionConstants = self:SerializeLuauTableForHTML(Call.Function.Constants)
+                else
+                    FunctionHash = "N/A (C Closure)"
+                    FunctionUpvalues = "N/A (C Closure)"
+                    FunctionProtos = "N/A (C Closure)"
+                    FunctionConstants = "N/A (C Closure)"
                 end
             elseif type(Call.Function) == "function" then
                 FunctionName = debug.info(Call.Function, "n")
