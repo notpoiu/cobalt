@@ -124,12 +124,17 @@ function SessionExporter:ProcessCalls(AllCalls, SessionData, UpdateProgress)
                 end
             elseif type(Call.Function) == "function" then
                 FunctionName = debug.info(Call.Function, "n")
-                FunctionHash = getfunctionhash and getfunctionhash(Call.Function) or "N/A"
-
+            
                 if islclosure(Call.Function) then
+                    FunctionHash = getfunctionhash and getfunctionhash(Call.Function) or "N/A"
                     FunctionUpvalues = self:SerializeLuauTableForHTML(debug.getupvalues(Call.Function))
                     FunctionProtos = self:SerializeLuauTableForHTML(debug.getprotos(Call.Function))
                     FunctionConstants = self:SerializeLuauTableForHTML(debug.getconstants(Call.Function))
+                else
+                    FunctionHash = "N/A (C Closure)"
+                    FunctionUpvalues = "N/A (C Closure)"
+                    FunctionProtos = "N/A (C Closure)"
+                    FunctionConstants = "N/A (C Closure)"
                 end
             else
                 FunctionName = tostring(Call.Function or "Unknown")
