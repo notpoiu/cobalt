@@ -431,6 +431,12 @@ function CreateArgsString(SerializedArgs: string, Args: { [number]: any, n: numb
 		return ""
 	end
 
+	--// Cyclic Table Handler \\--
+	if string.sub(SerializedArgs, 1, 9) == "(function" then
+		return `{Prefix == nil and "" or Prefix}table.unpack({SerializedArgs})`
+	end
+
+	--// Normal Table Handler \\--
 	return `{Prefix == nil and "" or Prefix}{string.sub(SerializedArgs, 2, #SerializedArgs - 1)}`
 end
 
