@@ -967,7 +967,7 @@ local function LuaEncode(inputTable, options)
 								string_format("{%s}", (OutputWarnings and "--[[LuaEncode: Duplicate reference]]") or "")
 
 							if IndexPath then
-								CycleMaps[IndexPath] = RefMaps[Value]
+								CycleMaps[RefMaps[TablePointer] .. IndexPath] = RefMaps[Value]
 							end
 						end
 					end
