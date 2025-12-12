@@ -173,7 +173,7 @@ do
 	UnreliableRemoteEvent:Destroy()
 end
 
-for _, Function in pairs(FunctionsToHook) do
+for _, Function in next, FunctionsToHook do
 	local Method = debug.info(Function, "n")
 
 	wax.shared.Hooks[Function] = wax.shared.Hooking.HookFunction(Function, function(...)
