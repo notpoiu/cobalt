@@ -13,6 +13,8 @@ local Sonner = {
 	Queue = {},
 	TweenInfo = TweenInfo.new(0.5, Enum.EasingStyle.Exponential),
 	Wrapper = nil,
+	PendingQueue = {},
+	Processing = false,
 }
 
 local Icons = require(script.Parent.Icons)
@@ -98,7 +100,7 @@ local function InternalCreateNotificationObject(zindex, image, text)
 	return NotificationTemplate
 end
 
-local function toast(image, text, internalTime, removeCallback)
+local function InternalToast(image, text, internalTime, removeCallback)
 	assert(Sonner.Wrapper, "Sonner has not been initialized")
 	assert(typeof(image) == "string" or image == nil, "Image must be a string or nil")
 	assert(typeof(text) == "string", "Text is required!")
@@ -175,6 +177,32 @@ local function toast(image, text, internalTime, removeCallback)
 			Notif:Destroy()
 		end)
 	end
+end
+
+local function ProcessQueue()
+	if Sonner.Processing then
+		return
+	end
+	Sonner.Processing = true
+
+	while #Sonner.PendingQueue > 0 do
+		local Request = table.remove(Sonner.PendingQueue, 1)
+		InternalToast(Request.image, Request.text, Request.internalTime, Request.removeCallback)
+		task.wait(0.5)
+	end
+
+	Sonner.Processing = false
+end
+
+local function toast(image, text, internalTime, removeCallback)
+	table.insert(Sonner.PendingQueue, {
+		image = image,
+		text = text,
+		internalTime = internalTime,
+		removeCallback = removeCallback,
+	})
+
+	task.spawn(ProcessQueue)
 end
 
 function Sonner.info(text, internalTime)
