@@ -1,6 +1,10 @@
 local Log = {}
 Log.__index = Log
 
+--// Auto Ignore Constants \\--
+local SpamCallCountThreshold = 15
+local SpamTimeWindowSeconds = 1
+
 function Log.new(Instance, Type, Method, Index, CallingScript)
 	local NewLog = setmetatable({
 		Instance = Instance,
@@ -9,6 +13,7 @@ function Log.new(Instance, Type, Method, Index, CallingScript)
 		Index = Index,
 		Calls = {},
 		GameCalls = {},
+		SpamHistory = {},
 		Ignored = false,
 		Blocked = false,
 		Button = nil,
@@ -48,7 +53,37 @@ function DeepClone(orig, copies)
 	return copy
 end
 
+function Log:IsOverSpamThreshold()
+	if not wax.shared.SaveManager:GetState("AutoIgnoreSpammyEvents", false) then
+		return false
+	end
+
+	local Now = tick()
+	table.insert(self.SpamHistory, Now)
+
+	for i = #self.SpamHistory, 1, -1 do
+		if Now - self.SpamHistory[i] > SpamTimeWindowSeconds then
+			table.remove(self.SpamHistory, i)
+		end
+	end
+
+	if #self.SpamHistory > SpamCallCountThreshold then
+		if not self.Ignored then
+			self:Ignore()
+			wax.shared.Sonner.info(`Ignored {self.Instance.Name} ({self.Type}) due to event spam.`)
+		end
+		
+		return true
+	end
+
+	return false
+end
+
 function Log:Call(RawInfo)
+	if self:IsOverSpamThreshold() then
+		return
+	end
+
 	local Info = DeepClone(RawInfo)
 	Info.CreationTime = tick()
 

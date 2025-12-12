@@ -1646,6 +1646,12 @@ CreateSettingsDropdown("IgnoredRemotesDropdown", {
 	Section = FilterSection,
 })
 
+CreateSettingsCheckbox("AutoIgnoreSpammyEvents", {
+	Text = "Auto Ignore Spammy Events",
+	Default = false,
+	Section = FilterSection,
+})
+
 CreateSettingsCheckbox("LogActors", {
 	Text = "Log Events from Actors",
 	Default = true,
