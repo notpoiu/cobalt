@@ -2471,16 +2471,6 @@ CreateInfoDropdownButton("network", "Event", {
 			end
 
 			CurrentLog:Ignore()
-
-			local IgnoredRemoteList = wax.shared.Settings["IgnoredRemotes"]
-			if IgnoredRemoteList then
-				if CurrentLog.Ignored then
-					IgnoredRemoteList:AddToList(CurrentLog)
-				else
-					IgnoredRemoteList:RemoveFromList(CurrentLog)
-				end
-			end
-
 			wax.shared.Sonner.success(`{CurrentLog.Ignored and "Started" or "Stopped"} ignoring event`)
 		end,
 	},
@@ -3517,15 +3507,6 @@ function CreateLogButton(Log): (TextButton, TextLabel, TextLabel)
 			end,
 			Callback = function()
 				Log:Ignore()
-
-				local IgnoredRemoteList = wax.shared.Settings["IgnoredRemotes"]
-				if IgnoredRemoteList then
-					if Log.Ignored then
-						IgnoredRemoteList:AddToList(Log)
-					else
-						IgnoredRemoteList:RemoveFromList(Log)
-					end
-				end
 
 				wax.shared.Sonner.success(`{Log.Ignored and "Started" or "Stopped"} ignoring event`)
 			end,

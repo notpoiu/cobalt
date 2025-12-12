@@ -156,6 +156,8 @@ wax.shared.GetTextBounds = function(Text: string, Font: Font, Size: number, Widt
 	Params.Width = Width or workspace.CurrentCamera.ViewportSize.X - 32
 
 	local Bounds = wax.shared.TextService:GetTextBoundsAsync(Params)
+	Params:Destroy()
+	
 	return Bounds.X, Bounds.Y
 end
 
