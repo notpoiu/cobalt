@@ -14,6 +14,10 @@ local function DefaultCallback(_, Input: InputObject)
 	local Delta = Input.Position - Drag.StartPosition
 	local FramePosition: UDim2 = Drag.FramePosition
 
+	if wax.shared.GetDPIScale then
+		Delta = Delta / wax.shared.GetDPIScale()
+	end
+
 	Drag.Frame.Position = UDim2.new(
 		FramePosition.X.Scale,
 		FramePosition.X.Offset + Delta.X,

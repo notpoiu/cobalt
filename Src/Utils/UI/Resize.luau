@@ -198,6 +198,10 @@ function Resize.new(Options: {
 	local function createDragHandler(resizeTypeX, resizeTypeY)
 		return function(Info, Input: InputObject)
 			local mouseDelta = Input.Position - Info.StartPosition
+			if wax.shared.GetDPIScale then
+				mouseDelta = mouseDelta / wax.shared.GetDPIScale()
+			end
+			
 			local newSize, newPosition =
 				CalculateResizeProperties(Info.FramePosition, Info.FrameSize, mouseDelta, resizeTypeX, resizeTypeY)
 

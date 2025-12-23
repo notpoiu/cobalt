@@ -62,6 +62,12 @@ local function UpdateLogNameSize(Log)
 	Log.Button.Name.Size = UDim2.new(1, -(TextSizeX + 24), 1, 0)
 end
 
+local function GetDPIScale()
+	local Scale = wax.shared.SaveManager:GetState("WindowDPIScale", "100%")
+	return (tonumber(Scale:sub(1, #Scale - 1)) or 100) / 100
+end
+wax.shared.GetDPIScale = GetDPIScale
+
 -- ContentProvider PreloadAsync bypass
 Images = ImageFetcher.GetRemoteImages(Images)
 
@@ -74,6 +80,11 @@ local ScreenGui = Interface.New("ScreenGui", {
 	ZIndexBehavior = Enum.ZIndexBehavior.Sibling,
 })
 wax.shared.ScreenGui = ScreenGui
+
+local ScreenDPIScale = Interface.New("UIScale", {
+	Parent = ScreenGui,
+	Scale = GetDPIScale(),
+})
 
 local MainUICorner = Interface.New("UICorner", {
 	CornerRadius = UDim.new(0, 6),
@@ -223,7 +234,7 @@ local function CreateContextMenu(Parent: GuiObject, Options: {}, MouseOnCursorPo
 
 			local ItemText = Interface.New("TextLabel", {
 				AutomaticSize = Enum.AutomaticSize.X,
-				Position = UDim2.fromOffset(26, 0),
+				Position = UDim2.fromOffset(Data.Icon == nil and 0 or 26, 0),
 				Size = UDim2.fromScale(0, 1),
 				Text = TextToSet,
 				TextSize = 16,
@@ -321,11 +332,14 @@ local function CreateContextMenu(Parent: GuiObject, Options: {}, MouseOnCursorPo
 		if MouseOnCursorPosition then
 			ContextMenu.Position = UDim2.fromOffset(
 				wax.shared.UserInputService:GetMouseLocation().X,
-				wax.shared.UserInputService:GetMouseLocation().Y - 45
+				wax.shared.UserInputService:GetMouseLocation().Y - (45 / GetDPIScale())
 			)
 		else
 			ContextMenu.Position =
-				UDim2.fromOffset(Parent.AbsolutePosition.X, Parent.AbsolutePosition.Y + Parent.AbsoluteSize.Y)
+				UDim2.fromOffset(
+					Parent.AbsolutePosition.X / GetDPIScale(),
+					(Parent.AbsolutePosition.Y + Parent.AbsoluteSize.Y) / GetDPIScale()
+				)
 		end
 		ContextMenu.Visible = true
 	end
@@ -955,6 +969,7 @@ local function CreateSettingsDropdown(
 				or {}
 		),
 		Multi = Options.Multi or false,
+		Callback = Options.Callback,
 	}
 
 	local DropdownUI = Interface.New("TextButton", {
@@ -1127,6 +1142,10 @@ local function CreateSettingsDropdown(
 					wax.shared.SaveManager:SetState(Idx, Dropdown.Value)
 
 					UpdateValueLabel()
+
+					if Dropdown.Callback then
+						Dropdown.Callback(Dropdown.Value)
+					end
 				end,
 				TextProperties = function()
 					local Value = IsArray and Object or Index
@@ -1560,6 +1579,23 @@ CreateSettingsCheckbox("ShowWatermark", {
 })
 
 local MainSection = CreateSettingsSection("Main")
+
+CreateSettingsDropdown("WindowDPIScale", {
+	Text = "DPI Scale",
+	Values = {
+		"50%",
+		"75%",
+		"100%",
+		"125%",
+		"150%"
+	},
+	Default = "100%",
+	Section = MainSection,
+
+	Callback = function(value)
+		ScreenDPIScale.Scale = GetDPIScale()
+	end
+})
 
 CreateSettingsTextBox("MaxItemPerPages", {
 	Text = "Logs Per Page",
@@ -4027,7 +4063,7 @@ function OpenInfo(CallInfo)
 end
 
 Drag.Setup(RemoteListLine, RemoteListResize, function(Info, Input: InputObject)
-	local Delta = Input.Position - Info.StartPosition
+	local Delta = (Input.Position - Info.StartPosition) / GetDPIScale() 
 	local FramePosition: UDim2 = Info.FramePosition
 	local Offset = math.clamp(FramePosition.X.Offset + Delta.X, 120, (MainFrame.AbsoluteSize.X - 2) / 2)
 
