@@ -12,6 +12,15 @@ type MethodsToHook = "OnClientEvent" | "OnClientInvoke" | "Event" | "OnInvoke"
 local LogConnectionFunctions = {}
 local SignalMapping = setmetatable({}, { __mode = "kv" })
 
+local function CreateLookupTable(table)
+	local LookupTable = {}
+	for _, Method in next, table do
+		LookupTable[Method] = true
+	end
+	return LookupTable
+end
+
+
 --[[
 	Individually logs an incoming remote call.
 
@@ -226,20 +235,20 @@ wax.shared.NewIndexHook = wax.shared.Hooking.HookMetaMethod(game, "__newindex", 
 	return wax.shared.NewIndexHook(...)
 end)
 
-local ConnectionKeys = {
+local ConnectionKeys = CreateLookupTable({
 	"Connect",
 	"ConnectParallel",
 	"connect",
 	"connectParallel",
 	"once",
 	"Once",
-}
+})
 
 local SignalMetatable = wax.shared.getrawmetatable(Instance.new("Part").Touched)
 wax.shared.Hooks[SignalMetatable.__index] = wax.shared.Hooking.HookFunction(SignalMetatable.__index, function(...)
 	local self, key = ...
 
-	if table.find(ConnectionKeys, key) then
+	if ConnectionKeys[key] then
 		local Instance = SignalMapping[self]
 		local Connect = wax.shared.Hooks[SignalMetatable.__index](...)
 
