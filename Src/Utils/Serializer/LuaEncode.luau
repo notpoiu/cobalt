@@ -189,7 +189,7 @@ local function LuaEncode(inputTable, options)
     local InsertCycles = (options.InsertCycles == nil and false) or options.InsertCycles
     local OutputWarnings = (options.OutputWarnings == nil and true) or options.OutputWarnings
     local UseInstancePaths = (options.UseInstancePaths == nil and true) or options.UseInstancePaths
-    local DisableNilParentHandler = (options.DisableNilParentHandler == nil and false) or options.DisableNilParentHandler
+    local DisableNilParentHandler = options.DisableNilParentHandler or false
     local SerializeMathHuge = (options.SerializeMathHuge == nil and true) or options.SerializeMathHuge
     local IsArray = (options.IsArray == nil and false) or options.IsArray
 
