@@ -51,18 +51,6 @@ local LuaKeywords = LookupTable({
     "while", "continue"
 })
 
-local function GetGlobals(environement)
-    local metatable = getmetatable(environement)
-    if not metatable or typeof(metatable.__index) ~= "table" then
-        return {}
-    end
-
-    return LookupTable(metatable.__index, "key")
-end
-
-local EnvironementGlobals = GetGlobals(getfenv())
-local RobloxGlobals = GetGlobals(getrenv and getrenv() or {})
-
 -- Used to properly serialize NaN values
 local NumberCorrection = {
 	[string_pack(">n", 0 / 0)] = "0/0",
@@ -300,7 +288,7 @@ local function LuaEncode(inputTable, options)
 		end
 
         TypeCases["string"] = function(value, isKey)
-            if isKey and not LuaKeywords[value] and not EnvironementGlobals[value] and not RobloxGlobals[value] and string_match(value, DirectIndexPat) then
+            if isKey and not LuaKeywords[value] and string_match(value, DirectIndexPat) then
                 -- Doesn't need full string def
                 return value, true
             end
@@ -776,7 +764,7 @@ local function LuaEncode(inputTable, options)
                     if ValueIsTable then
                         local IndexPath
                         if InsertCycles and KeyIndexTypes[KeyType] and RefMaps[TablePointer] then
-                            if KeyType == "string" and not LuaKeywords[Key] and not EnvironementGlobals[Key] and not RobloxGlobals[Key] and string_match(Key, DirectIndexPat) then
+                            if KeyType == "string" and not LuaKeywords[Key] and string_match(Key, DirectIndexPat) then
                                 IndexPath = "." .. Key
                             else
                                 local EncodedKeyAsValue = TypeCases[KeyType](Key)
