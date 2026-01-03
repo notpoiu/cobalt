@@ -24,10 +24,17 @@ local table_concat = table.concat
 
 local Type = typeof or type
 
-local function LookupTable(array)
+local function LookupTable(array, lookupType)
     local Out = {}
-    for _, Value in next, array do
-        Out[Value] = true
+
+    if lookupType == "key" then
+        for Key, _ in next, array do
+            Out[Key] = true
+        end
+    else
+        for _, Value in next, array do
+            Out[Value] = true
+        end
     end
 
     return Out
@@ -50,7 +57,7 @@ local function GetGlobals(environement)
         return {}
     end
 
-    return LookupTable(metatable.__index)
+    return LookupTable(metatable.__index, "key")
 end
 
 local EnvironementGlobals = GetGlobals(getfenv())
