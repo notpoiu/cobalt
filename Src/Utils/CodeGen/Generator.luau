@@ -433,7 +433,7 @@ function CreateArgsString(SerializedArgs: string, Args: { [number]: any, n: numb
 
 	--// Cyclic Table Handler \\--
 	if string.sub(SerializedArgs, 1, 9) == "(function" then
-		return `{Prefix == nil and "" or Prefix}table.unpack({SerializedArgs})`
+		return `{Prefix == nil and "" or Prefix}table.unpack({SerializedArgs}, 1, {Args.n})`
 	end
 
 	--// Normal Table Handler \\--
@@ -449,8 +449,8 @@ function CodeGen:BuildCallCode(CallInfo: CallInfo)
 	})
 	local Method = wax.shared.FunctionForClasses[Type][CallInfo.Instance.ClassName]
 	local SerializedArgs, DidInsertNilFunction = wax.shared.LuaEncode(
-		{ table.unpack(CallInfo.Arguments, 1, CallInfo.Arguments.n) },
-		{ Prettify = true, InsertCycles = true }
+		CallInfo.Arguments,
+		{ Prettify = true, InsertCycles = true, IsArray = true }
 	)
 
 	local CodeGenHeader = CodeGenHeaderTemplate
@@ -461,14 +461,14 @@ function CodeGen:BuildCallCode(CallInfo: CallInfo)
 	if Type == "Incoming" then
 		if DoesUseCallbackValue(CallInfo.Instance) then
 			local PrettifiedExpectedResult, DidInsertNilFunctionInExpectation = wax.shared.LuaEncode(
-				{ table.unpack(CallInfo.Arguments, 1, CallInfo.Arguments.n) },
-				{ Prettify = true, InsertCycles = true }
+				CallInfo.Arguments,
+				{ Prettify = true, InsertCycles = true, IsArray = true }
 			)
 
 			if CallInfo.OriginalInvokeArgs then
 				local PrettifiedOutput, InsertedNilFunction = wax.shared.LuaEncode(
-					{ table.unpack(CallInfo.OriginalInvokeArgs, 1, CallInfo.OriginalInvokeArgs.n) },
-					{ Prettify = true, InsertCycles = true }
+					CallInfo.OriginalInvokeArgs,
+					{ Prettify = true, InsertCycles = true, IsArray = true }
 				)
 
 				Method = wax.shared.FunctionForClasses.Outgoing[CallInfo.Instance.ClassName]
