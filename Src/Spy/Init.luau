@@ -4,7 +4,7 @@ local CodeGen = require(script.Parent.Parent.Utils.CodeGen.Generator)
 local Hooks = script.Parent.Hooks
 
 -- Main Thread Hooks
-for _, Hook in ipairs(Hooks.Default:GetChildren()) do
+for _, Hook in Hooks.Default:GetChildren() do
 	task.spawn(require, Hook)
 end
 
@@ -113,6 +113,12 @@ if wax.shared.ActorsEnabled then
 		elseif not Log.Ignored then
 			local ReconstructedInfo = ReconstructTable(RawInfo, CyclicRefs)
 			ReconstructedInfo.IsActor = true
+
+			--// Reconstruct Packed Arguments (BindableEvents omit ["n"] for unknown reason) \\--
+			local Packed = ReconstructedInfo.Arguments
+			local PackedN, PackedData = Packed.n, Packed.Data
+			ReconstructedInfo.Arguments = PackedData
+			ReconstructedInfo.Arguments.n = PackedN
 
 			Log:Call(ReconstructedInfo)
 			wax.shared.Communicator:Fire(Log.Instance, Type, #Log.Calls)

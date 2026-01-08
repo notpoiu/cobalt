@@ -47,7 +47,7 @@ function DeepClone(orig, copies)
 
 	local copy = {}
 	copies[orig] = copy
-	for k, v in pairs(orig) do
+	for k, v in next, orig do
 		copy[DeepClone(k, copies)] = DeepClone(v, copies)
 	end
 	return copy

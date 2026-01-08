@@ -443,6 +443,11 @@ end
 function CodeGen:BuildCallCode(CallInfo: CallInfo)
 	local Type = CallInfo.Type
 	local IsFromActor = CallInfo.IsActor or false
+	print("Call code:", wax.shared.LuaEncode(CallInfo, {
+		Prettify = true
+	}), wax.shared.LuaEncode(getrawmetatable(CallInfo).__index, {
+		Prettify = true
+	}))
 	local Path = self.GetFullPath(CallInfo.Instance, {
 		VariableName = "Event",
 		DisableNilParentHandler = false,
@@ -512,16 +517,13 @@ local ExpectedResult = table.unpack(%s)
 		end
 
 		return CodeGenHeader
-			.. WrapCodeInActor(
-				string.format(
-					[[%s%s
+			.. string.format(
+				[[%s%s
 firesignal(Event.%s%s)]],
-					(DidInsertNilFunction and GetNilCode .. "\n\n" or ""),
-					Path,
-					Method,
-					CreateArgsString(SerializedArgs, CallInfo.Arguments, ", ")
-				),
-				IsFromActor
+				(DidInsertNilFunction and GetNilCode .. "\n\n" or ""),
+				Path,
+				Method,
+				CreateArgsString(SerializedArgs, CallInfo.Arguments, ", ")
 			)
 	end
 

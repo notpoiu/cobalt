@@ -709,7 +709,7 @@ local function LuaEncode(inputTable, options)
         StackLevel = StackLevelOpt + #TableStack
         IndentString = (Prettify and string_rep(IndentStringBase, StackLevel)) or IndentStringBase
         EndingIndentString = (#IndentString > 0 and string_sub(IndentString, 1, -IndentCount - 1)) or ""
-
+        
         local HasNextValue = (IsArray and NextKey < TablePointer["n"]) or (not IsArray and next(TablePointer, NextKey) ~= nil)
         
         -- Only append an opening brace to the table if this isn't just a continution up the stack

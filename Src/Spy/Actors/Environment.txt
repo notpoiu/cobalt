@@ -218,7 +218,7 @@ RelayConnection = RelayChannel.Event:Connect(function(Type, ...)
 	if Type == "Unload" then
 		RelayConnection:Disconnect()
 		wax.shared.Unloaded = true
-		for _, Connection in pairs(wax.shared.Connections) do
+		for _, Connection in wax.shared.Connections do
 			wax.shared.Disconnect(Connection)
 		end
 
@@ -312,7 +312,7 @@ do
 				end
 
 				-- Merge the cycle metadata
-				for k, v in pairs(CycleMetadata) do
+				for k, v in CycleMetadata do
 					OutputTable[k] = v
 				end
 
@@ -390,7 +390,7 @@ do
 
 		local copy = {}
 		copies[orig] = copy
-		for k, v in pairs(orig) do
+		for k, v in next, orig do
 			copy[DeepClone(k, copies)] = DeepClone(v, copies)
 		end
 		return copy
@@ -412,7 +412,7 @@ do
 			return
 		end
 
-		for _, Connection in pairs(getconnections(self.Instance[ConnectionName])) do
+		for _, Connection in getconnections(self.Instance[ConnectionName]) do
 			if enabled then
 				Connection:Enable()
 			else
@@ -428,6 +428,11 @@ do
 
 		RawInfo["IsActor"] = true
 		local Info = DeepClone(RawInfo)
+		local OldArguments = Info.Arguments
+		Info.Arguments = {
+			Data = OldArguments,
+			n = OldArguments.n or rawlen(OldArguments),
+		}
 
 		-- Seliware puts their actor BindableEvents in CoreGui
 		local identity = getthreadidentity()
