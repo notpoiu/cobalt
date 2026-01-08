@@ -80,7 +80,11 @@ function Log:IsOverSpamThreshold()
 end
 
 function Log:Call(RawInfo)
-	if self:IsOverSpamThreshold() then
+	local Success, Data = pcall(function()
+		return self:IsOverSpamThreshold()
+	end)
+
+	if Success and Data then
 		return
 	end
 
