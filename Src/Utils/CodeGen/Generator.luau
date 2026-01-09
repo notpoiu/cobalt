@@ -442,12 +442,7 @@ end
 
 function CodeGen:BuildCallCode(CallInfo: CallInfo)
 	local Type = CallInfo.Type
-	local IsFromActor = CallInfo.IsActor or false
-	print("Call code:", wax.shared.LuaEncode(CallInfo, {
-		Prettify = true
-	}), wax.shared.LuaEncode(getrawmetatable(CallInfo).__index, {
-		Prettify = true
-	}))
+
 	local Path = self.GetFullPath(CallInfo.Instance, {
 		VariableName = "Event",
 		DisableNilParentHandler = false,
