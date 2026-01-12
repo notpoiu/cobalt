@@ -854,7 +854,7 @@ local function LuaEncode(inputTable, options)
             -- When returning from a nested table, continue from NextKey + 1 instead of 1
             local StartIndex = IsNewTable and 1 or (NextKey + 1)
             for Index = StartIndex, TablePointer["n"] do
-                local Success = WalkTable(Index, TablePointer[Index])
+                local Success = WalkTable(Index, rawget(TablePointer, Index))
                 if not Success then
                     break
                 end
