@@ -170,10 +170,10 @@ wax.shared.Unload = function()
 	local gameMetatable = wax.shared.getrawmetatable(game)
 
 	if wax.shared.ExecutorSupport["oth"].IsWorking then
-		pcall(oth.unhook, gameMetatable.__namecall, wax.shared.NamecallHook)
-		pcall(oth.unhook, gameMetatable.__newindex, wax.shared.NewIndexHook)
+		pcall(oth.unhook, gameMetatable.__namecall)
+		pcall(oth.unhook, gameMetatable.__newindex)
 	else
-		if restorefunction and not wax.shared.AlternativeEnabled then
+		if wax.shared.ExecutorSupport["restorefunction"].IsWorking and not wax.shared.AlternativeEnabled then
 			pcall(restorefunction, gameMetatable.__namecall)
 			pcall(restorefunction, gameMetatable.__newindex)
 		else
@@ -183,7 +183,13 @@ wax.shared.Unload = function()
 	end
 
 	for Function, Original in pairs(wax.shared.Hooks) do
-		task.spawn(pcall, wax.shared.restorefunction, Function, true)
+		if wax.shared.ExecutorSupport["oth"].IsWorking then
+			task.spawn(pcall, oth.unhook, Function)
+		elseif wax.shared.ExecutorSupport["restorefunction"].IsWorking then
+			task.spawn(pcall, wax.shared.restorefunction, Function)
+		else
+			pcall(wax.shared.Hooking.HookFunction, Function, Original)
+		end
 	end
 
 	if wax.shared.ActorCommunicator then

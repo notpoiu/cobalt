@@ -8,11 +8,26 @@ wax.shared.Communicator.Event:Connect(function(Type, ...)
 	local gameMetatable = getrawmetatable(game)
 
 	if wax.shared.ExecutorSupport["oth"].IsWorking then
-		pcall(oth.unhook, gameMetatable.__namecall, wax.shared.NamecallHook)
-		pcall(oth.unhook, gameMetatable.__newindex, wax.shared.NewIndexHook)
-	elseif restorefunction then
-		pcall(restorefunction, gameMetatable.__namecall)
-		pcall(restorefunction, gameMetatable.__newindex)
+		pcall(oth.unhook, gameMetatable.__namecall)
+		pcall(oth.unhook, gameMetatable.__newindex)
+	else
+		if wax.shared.ExecutorSupport["restorefunction"].IsWorking and not wax.shared.AlternativeEnabled then
+			pcall(restorefunction, gameMetatable.__namecall)
+			pcall(restorefunction, gameMetatable.__newindex)
+		else
+			wax.shared.Hooking.HookMetaMethod(game, "__namecall", wax.shared.NamecallHook)
+			wax.shared.Hooking.HookMetaMethod(game, "__newindex", wax.shared.NewIndexHook)
+		end
+	end
+
+	for Function, Original in pairs(wax.shared.Hooks) do
+		if wax.shared.ExecutorSupport["oth"].IsWorking then
+			task.spawn(pcall, oth.unhook, Function)
+		elseif wax.shared.ExecutorSupport["restorefunction"].IsWorking then
+			task.spawn(pcall, wax.shared.restorefunction, Function)
+		else
+			pcall(wax.shared.Hooking.HookFunction, Function, Original)
+		end
 	end
 
 	task.defer(function()
