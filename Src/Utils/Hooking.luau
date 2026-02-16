@@ -22,6 +22,8 @@ Hooking.HookMetaMethod = function(object, method, hook)
 	local Metatable = wax.shared.getrawmetatable(object)
 	local originalMethod = rawget(Metatable, method)
 
+	assert(typeof(originalMethod) == "function", `{method} is not a function in the metatable of {object}`)
+
 	if wax.shared.ExecutorSupport["oth"].IsWorking then
 		return oth.hook(originalMethod, hook)
 	end

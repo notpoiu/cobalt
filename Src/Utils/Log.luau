@@ -154,7 +154,7 @@ function Log:Block()
 	end
 
 	self.Blocked = not self.Blocked
-	Log:SetConnectionsEnabled(not self.Blocked)
+	self:SetConnectionsEnabled(not self.Blocked)
 end
 
 function Log:SetButton(Instance, Name, Calls)
