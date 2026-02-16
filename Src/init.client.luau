@@ -338,6 +338,8 @@ wax.shared.Connect(wax.shared.LocalPlayer.OnTeleport:Connect(function()
 	))
 end))
 
+getgenv().Cobalt = wax
+
 task.wait(1)
 if AnticheatData.Disabled then
 	wax.shared.Sonner.success(`Cobalt has bypassed {AnticheatData.Name} (anticheat detected)`)
