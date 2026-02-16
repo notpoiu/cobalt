@@ -1649,7 +1649,7 @@ if AnticheatData.Disabled then
 	})
 end
 
-CreateSettingsButton("Clear All Logs", function()
+wax.shared.ClearLogs = function()
 	for _, LogCategory in pairs(wax.shared.Logs) do
 		for Index, Log in pairs(LogCategory) do
 			if Log.Button then
@@ -1669,7 +1669,9 @@ CreateSettingsButton("Clear All Logs", function()
 	CurrentLog = nil
 
 	wax.shared.Sonner.success("Successfully Cleared All Logs")
-end, MainSection)
+end
+
+CreateSettingsButton("Clear All Logs", wax.shared.ClearLogs, MainSection)
 
 local FilterSection = CreateSettingsSection("Filter")
 
