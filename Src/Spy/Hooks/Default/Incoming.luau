@@ -68,7 +68,7 @@ end
 ]]
 local function CreateConnectionFunction(Instance: InstancesToHook, Method: MethodsToHook)
 	local ConnectionFunction = function(...)
-		for _, Connection in pairs(getconnections((Instance :: any)[Method])) do
+		for _, Connection in getconnections((Instance :: any)[Method]) do
 			if Connection.ForeignState then
 				continue
 			end
@@ -240,7 +240,6 @@ local ConnectionKeys = CreateLookupTable({
 	"ConnectParallel",
 	"connect",
 	"connectParallel",
-	"once",
 	"Once",
 })
 
@@ -248,7 +247,7 @@ local SignalMetatable = wax.shared.getrawmetatable(Instance.new("Part").Touched)
 wax.shared.Hooks[SignalMetatable.__index] = wax.shared.Hooking.HookFunction(SignalMetatable.__index, function(...)
 	local self, key = ...
 
-	if ConnectionKeys[key] then
+	if not wax.shared.Unloaded and ConnectionKeys[key] then
 		local Instance = SignalMapping[self]
 		local Connect = wax.shared.Hooks[SignalMetatable.__index](...)
 
@@ -257,14 +256,14 @@ wax.shared.Hooks[SignalMetatable.__index] = wax.shared.Hooking.HookFunction(Sign
 		end
 
 		local Method = ClassesToHook[Instance.ClassName]
-		wax.shared.Hooks[Connect] = wax.shared.Hooking.HookFunction(Connect, function(...)
+		return wax.shared.newcclosure(function(...)
 			local _self, callback = ...
 
-			local Result = table.pack(wax.shared.Hooks[Connect](...))
+			local Result = table.pack(Connect(...))
 			local Log = wax.shared.Logs.Incoming[Instance]
 
 			if Log and Log.Blocked then
-				for _, Connection in pairs(getconnections(Instance[Method])) do
+				for _, Connection in getconnections(Instance[Method]) do
 					if not Connection.ForeignState and Connection.Function ~= callback then
 						continue
 					end
@@ -274,9 +273,7 @@ wax.shared.Hooks[SignalMetatable.__index] = wax.shared.Hooking.HookFunction(Sign
 			end
 
 			return table.unpack(Result, 1, Result.n)
-		end)
-
-		return Connect
+		end, debug.info(Connect, "n"))
 	end
 
 	return wax.shared.Hooks[SignalMetatable.__index](...)

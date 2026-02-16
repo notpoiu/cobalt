@@ -82,7 +82,7 @@ wax.shared.getrawmetatable = wax.shared.ExecutorSupport["getrawmetatable"].IsWor
 	end
 
 wax.shared.newcclosure = wax.shared.ExecutorName == "AWP"
-		and function(f)
+		and function(f, name)
 			local env = getfenv(f)
 			local x = setmetatable({
 				__F = f,
@@ -96,7 +96,7 @@ wax.shared.newcclosure = wax.shared.ExecutorName == "AWP"
 			end
 
 			setfenv(nf, x) -- set func env (env of nf gets deoptimized)
-			return newcclosure(nf)
+			return newcclosure(nf, name)
 		end
 	or newcclosure
 wax.shared.queue_on_teleport = queue_on_teleport or queueonteleport or function(...) end
