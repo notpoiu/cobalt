@@ -199,6 +199,7 @@ wax.shared.Unload = function()
 	end
 
 	getgenv().CobaltInitialized = false
+	getgenv().Cobalt = nil
 
 	wax.shared.Communicator:Destroy()
 	wax.shared.ScreenGui:Destroy()
