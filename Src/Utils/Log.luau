@@ -79,6 +79,18 @@ function Log:IsOverSpamThreshold()
 	return false
 end
 
+local function RunInterceptors(Interceptors: { (...any) -> (...any) }, Info: any, Log): boolean
+	for _, Callback in Interceptors do
+		local Ok, Result = pcall(Callback, Info, Log.Instance, Log.Type)
+		if not Ok then
+			warn(`[Cobalt Plugin Interceptor] Error: {Result}`)
+		elseif Result == false then
+			return true
+		end
+	end
+	return false
+end
+
 function Log:Call(RawInfo)
 	local Success, Data = pcall(function()
 		return self:IsOverSpamThreshold()
@@ -90,6 +102,23 @@ function Log:Call(RawInfo)
 
 	local Info = DeepClone(RawInfo)
 	Info.CreationTime = tick()
+
+	local PluginManager = wax.shared.CobaltPluginManager
+	if PluginManager and PluginManager.HasInterceptors then
+		-- Run Instance-specific interceptors (both exact type and "All")
+		local InstanceIntercept = PluginManager.Registry.Interceptors.Instance[self.Instance]
+		if InstanceIntercept then
+			if InstanceIntercept[self.Type] and RunInterceptors(InstanceIntercept[self.Type], Info, self) then return end
+			if InstanceIntercept["All"] and RunInterceptors(InstanceIntercept["All"], Info, self) then return end
+		end
+
+		-- Run Global interceptors (both exact type and "All")
+		local GlobalByType = PluginManager.Registry.Interceptors.Global[self.Type]
+		if GlobalByType and RunInterceptors(GlobalByType, Info, self) then return end
+
+		local GlobalAll = PluginManager.Registry.Interceptors.Global["All"]
+		if GlobalAll and RunInterceptors(GlobalAll, Info, self) then return end
+	end
 
 	local Index = #self.Calls + 1
 	self.Calls[Index] = Info

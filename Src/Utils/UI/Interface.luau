@@ -99,18 +99,16 @@ function Interface.HideCorner(Frame: GuiObject, Size: UDim2, Offset: Vector2): F
 end
 
 function Interface.GetScreenParent(): Instance
-	if wax.shared.ExecutorName == "VOLT" then
-		return wax.shared.CoreGui
-	end
-	
 	local ScreenGui = Interface.New("ScreenGui", {})
 	local HiddenUI = wax.shared.gethui()
 
-	if pcall(function()
-		ScreenGui.Parent = HiddenUI
-		ScreenGui:Destroy()
-	end) then
-		return HiddenUI
+	for _, Container in { HiddenUI, wax.shared.CoreGui } do
+		if pcall(function()
+			ScreenGui.Parent = Container
+		end) then
+			ScreenGui:Destroy()
+			return Container
+		end
 	end
 
 	return wax.shared.LocalPlayer:WaitForChild("PlayerGui")

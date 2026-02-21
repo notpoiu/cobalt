@@ -318,6 +318,11 @@ end
 require(script.Window)
 require(script.Spy.Init)
 
+local PluginManager = require(script.Utils.Plugins.Manager)
+PluginManager.SetupPlugins()
+
+wax.shared.CobaltPluginManager = PluginManager
+
 wax.shared.Connect(wax.shared.LocalPlayer.OnTeleport:Connect(function()
 	if not wax.shared.SaveManager:GetState("ExecuteOnTeleport", false) then
 		return

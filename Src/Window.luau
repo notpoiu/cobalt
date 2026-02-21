@@ -31,7 +31,7 @@ local PaginationHelper = Pagination.new({
 
 local Tabs = {}
 local CurrentPage = {}
-local CurrentInfo, CurrentTab, CurrentLog
+local CurrentInfo, CurrentTab, CurrentLog, InfoButtons
 
 local LogsList
 local ShowPagination, ShowCalls, CreateCallFrame, ShowLog, CreateLogButton, CleanLogsList, UpdateSearch, SelectResult, EnterResult, OpenSearch
@@ -578,865 +578,1201 @@ local SettingsScrollingFrame = Interface.New("ScrollingFrame", {
 	},
 })
 
-local function CreateSettingsSection(SectionName: string)
-	local Section = Interface.New("Frame", {
-		AutomaticSize = Enum.AutomaticSize.Y,
-		BackgroundTransparency = 1,
-		Size = UDim2.fromScale(1, 0),
-		Parent = SettingsScrollingFrame,
+-- Plugins
+local PluginsFrame = Interface.New("TextButton", {
+	AnchorPoint = Vector2.new(0.5, 0.5),
+	BackgroundColor3 = Color3.fromRGB(10, 10, 10),
+	Position = UDim2.fromScale(0.5, 0.5),
+	Size = UDim2.new(0.65, 0, 0, 285),
+	Text = "",
+	Visible = false,
+	Parent = ModalBackground,
 
-		["UIListLayout"] = {
-			FillDirection = Enum.FillDirection.Vertical,
-			HorizontalAlignment = Enum.HorizontalAlignment.Left,
-			Padding = UDim.new(0, 6),
-		},
+	["UICorner"] = {
+		CornerRadius = UDim.new(0, 8),
+	},
 
-		["TextLabel"] = {
-			Text = SectionName,
-			FontFace = Font.fromId(12187365364, Enum.FontWeight.Bold),
-			TextSize = 18,
-			Size = UDim2.new(1, 0, 0, 18),
-			TextXAlignment = Enum.TextXAlignment.Left,
-			LayoutOrder = -1,
-		},
-	})
+	["UIStroke"] = {
+		ApplyStrokeMode = Enum.ApplyStrokeMode.Border,
+		Color = Color3.fromRGB(25, 25, 25),
+		Thickness = 1,
+	},
+})
 
-	return Section
-end
+Resize.new({
+	MainFrame = PluginsFrame,
 
-local function CreateSettingsButton(Text: string, Callback: () -> (), Section: Frame, TextSize: number?)
-	local Button = Interface.New("TextButton", {
-		BackgroundColor3 = Color3.fromRGB(15, 15, 15),
-		Size = UDim2.new(1, 0, 0, 24),
-		TextSize = 15,
-		Text = "",
-		Parent = Section,
+	MaximumSize = UDim2.new(1, -2, 1, -2),
+	MinimumSize = UDim2.fromScale(0.65, 0.712),
+	Mirrored = true,
+	LockedPosition = true,
 
-		["UICorner"] = {
-			CornerRadius = UDim.new(0, 4),
-		},
+	CornerHandleSize = 20,
+	HandleSize = 6,
+})
 
-		["UIStroke"] = {
-			Color = Color3.fromRGB(25, 25, 25),
-			Thickness = 1,
-			ApplyStrokeMode = Enum.ApplyStrokeMode.Border,
-		},
+CreateModalTop("Plugins", "blocks", PluginsFrame)
 
-		["TextLabel"] = {
+local PluginsScrollingFrame = Interface.New("ScrollingFrame", {
+	AnchorPoint = Vector2.new(0, 1),
+	BackgroundTransparency = 1,
+	Position = UDim2.fromScale(0, 1),
+	Size = UDim2.new(1, 0, 1, -37),
+	ClipsDescendants = true,
+	ScrollBarThickness = 2,
+	AutomaticCanvasSize = Enum.AutomaticSize.Y,
+	CanvasSize = UDim2.fromScale(0, 0),
+	Parent = PluginsFrame,
+
+	["UIListLayout"] = {
+		FillDirection = Enum.FillDirection.Vertical,
+		HorizontalAlignment = Enum.HorizontalAlignment.Left,
+		Padding = UDim.new(0, 15),
+	},
+
+	["UIPadding"] = {
+		PaddingLeft = UDim.new(0, 8),
+		PaddingRight = UDim.new(0, 8),
+		PaddingTop = UDim.new(0, 8),
+		PaddingBottom = UDim.new(0, 8),
+	},
+})
+
+local SettingsBuilder = {}
+local SectionBuilder = {}
+do
+	-- Builders
+	SettingsBuilder.__index = SettingsBuilder
+	SectionBuilder.__index = SectionBuilder
+
+	function SettingsBuilder.new(Parent: Frame)
+		return setmetatable({
+			Parent = Parent,
+		}, SettingsBuilder)
+	end
+
+	function SectionBuilder.new(Parent: Frame, DataSavePrefix: string?)
+		return setmetatable({
+			Parent = Parent,
+			DataSavePrefix = DataSavePrefix or "",
+		}, SectionBuilder)
+	end
+
+	-- Sections Constructor
+	function SettingsBuilder:CreateSection(SectionName: string, DataSavePrefix: string?)
+		local Section = Interface.New("Frame", {
+			AutomaticSize = Enum.AutomaticSize.Y,
+			BackgroundTransparency = 1,
+			Size = UDim2.fromScale(1, 0),
+			Parent = self.Parent,
+
+			["UIListLayout"] = {
+				FillDirection = Enum.FillDirection.Vertical,
+				HorizontalAlignment = Enum.HorizontalAlignment.Left,
+				Padding = UDim.new(0, 6),
+			},
+
+			["TextLabel"] = {
+				Text = SectionName,
+				FontFace = Font.fromId(12187365364, Enum.FontWeight.Bold),
+				TextSize = 18,
+				Size = UDim2.new(1, 0, 0, 18),
+				TextXAlignment = Enum.TextXAlignment.Left,
+				LayoutOrder = -1,
+			},
+		})
+
+		return SectionBuilder.new(Section, DataSavePrefix)
+	end
+
+	-- Creates a horizontal sub-row inside a section and returns a SectionBuilder for it.
+	-- Use this when you want multiple elements side-by-side (e.g. two buttons in one row).
+	function SectionBuilder:CreateRow(Padding: UDim?)
+		local Row = Interface.New("Frame", {
+			BackgroundTransparency = 1,
+			Size = UDim2.fromScale(1, 0),
+			AutomaticSize = Enum.AutomaticSize.Y,
+			Parent = self.Parent,
+
+			["UIListLayout"] = {
+				FillDirection = Enum.FillDirection.Horizontal,
+				HorizontalAlignment = Enum.HorizontalAlignment.Left,
+				Padding = Padding or UDim.new(0, 8),
+			},
+		})
+		return SectionBuilder.new(Row, self.DataSavePrefix)
+	end
+
+	function SectionBuilder:AddLabel(Text: string, TextSize: number?)
+		return Interface.New("TextLabel", {
 			Text = Text,
 			TextSize = TextSize or 16,
-			TextTransparency = 0.5,
-			Size = UDim2.fromScale(1, 1),
-			Position = UDim2.fromOffset(0, -1),
-		},
-	})
-
-	Button.MouseButton1Click:Connect(function()
-		if Callback then
-			Callback()
-		end
-	end)
-
-	return Button
-end
-
-local function CreateSettingsCheckbox(
-	Idx: string,
-	Options: {
-		Text: string,
-		Callback: (boolean) -> () | nil,
-		Default: boolean?,
-		Section: Frame,
-	}
-)
-	local Checkbox = {
-		Default = Options.Default or false,
-		Value = wax.shared.SaveManager:GetState(Idx, Options.Default),
-	}
-
-	local CheckboxUI = Interface.New("TextButton", {
-		Text = Options.Text,
-		TextSize = 16,
-		BackgroundTransparency = 1,
-		Size = UDim2.new(1, 0, 0, 20),
-		TextXAlignment = Enum.TextXAlignment.Left,
-		Parent = Options.Section,
-	})
-
-	local ToggleOnColor = Color3.fromRGB(52, 199, 89)
-	local ToggleOffColor = Color3.fromRGB(50, 50, 50)
-
-	local ToggleKnobOffSize = UDim2.fromOffset(16, 16)
-	local ToggleKnobOnSize = UDim2.fromOffset(18, 18)
-	local ToggleKnobInset = 10
-
-	local ToggleTrack = Interface.New("Frame", {
-		AnchorPoint = Vector2.new(1, 0.5),
-		Position = UDim2.new(1, 0, 0.5, 0),
-		Size = UDim2.fromOffset(36, 20),
-		BackgroundColor3 = ToggleOffColor,
-		Parent = CheckboxUI,
-
-		["UICorner"] = {
-			CornerRadius = UDim.new(1, 0),
-		},
-	})
-
-	local ToggleKnob = Interface.New("Frame", {
-		AnchorPoint = Vector2.new(0.5, 0.5),
-		BackgroundColor3 = Color3.new(1, 1, 1),
-		Size = ToggleKnobOffSize,
-		Parent = ToggleTrack,
-
-		["UICorner"] = {
-			CornerRadius = UDim.new(1, 0),
-		},
-	})
-
-	local function UpdateToggleVisual(instant: boolean?)
-		local TargetTrackColor = if Checkbox.Value then ToggleOnColor else ToggleOffColor
-		local TargetKnobPosition = if Checkbox.Value
-			then UDim2.new(1, -ToggleKnobInset, 0.5, 0)
-			else UDim2.new(0, ToggleKnobInset, 0.5, 0)
-		local TargetKnobSize = if Checkbox.Value then ToggleKnobOnSize else ToggleKnobOffSize
-
-		if instant then
-			ToggleTrack.BackgroundColor3 = TargetTrackColor
-			ToggleKnob.Position = TargetKnobPosition
-			ToggleKnob.Size = TargetKnobSize
-		else
-			wax.shared.TweenService
-				:Create(ToggleTrack, DefaultTweenInfo, {
-					BackgroundColor3 = TargetTrackColor,
-				})
-				:Play()
-
-			wax.shared.TweenService
-				:Create(ToggleKnob, DefaultTweenInfo, {
-					Position = TargetKnobPosition,
-					Size = TargetKnobSize,
-				})
-				:Play()
-		end
+			Size = UDim2.fromScale(1, 0),
+			AutomaticSize = Enum.AutomaticSize.Y,
+			TextXAlignment = Enum.TextXAlignment.Left,
+			BackgroundTransparency = 1,
+			Parent = self.Parent,
+			TextWrapped = true,
+		})
 	end
 
-	UpdateToggleVisual(true)
+	-- Section Element Constructors
+	function SectionBuilder:CreateButton(Text: string, Callback: () -> (), TextSize: number?)
+		local Button = Interface.New("TextButton", {
+			BackgroundColor3 = Color3.fromRGB(15, 15, 15),
+			Size = UDim2.new(1, 0, 0, 24),
+			TextSize = 15,
+			Text = "",
+			Parent = self.Parent,
 
-	local function Toggle()
-		Checkbox:SetValue(not Checkbox.Value)
-	end
+			["UICorner"] = {
+				CornerRadius = UDim.new(0, 4),
+			},
 
-	CheckboxUI.MouseButton1Click:Connect(Toggle)
+			["UIStroke"] = {
+				Color = Color3.fromRGB(25, 25, 25),
+				Thickness = 1,
+				ApplyStrokeMode = Enum.ApplyStrokeMode.Border,
+			},
 
-	function Checkbox:Reset()
-		Checkbox:SetValue(Checkbox.Default)
-	end
+			["TextLabel"] = {
+				Text = Text,
+				TextSize = TextSize or 16,
+				TextTransparency = 0.5,
+				Size = UDim2.fromScale(1, 1),
+				Position = UDim2.fromOffset(0, -1),
+			},
+		})
 
-	function Checkbox:SetValue(NewValue)
-		if wax.shared.ActorCommunicator then
-			pcall(function()
-				wax.shared.ActorCommunicator:Fire("MainSettingsSync", Idx, NewValue)
-			end)
-		end
-
-		wax.shared.SaveManager:SetState(Idx, NewValue)
-
-		Checkbox.Value = NewValue
-		UpdateToggleVisual()
-
-		if Options.Callback then
-			Options.Callback(Checkbox.Value)
-		end
-	end
-
-	if wax.shared.ActorCommunicator then
-		pcall(function()
-			wax.shared.ActorCommunicator:Fire("MainSettingsSync", Idx, Checkbox.Value)
+		Button.MouseButton1Click:Connect(function()
+			if Callback then
+				Callback()
+			end
 		end)
+
+		return Button
 	end
-	wax.shared.Settings[Idx] = Checkbox
-	return Checkbox
-end
 
-local function CreateSettingsTextBox(
-	Idx: string,
-	Options: {
-		Text: string,
-		Section: Frame,
-		Callback: (string) -> () | nil,
-		Default: string?,
-		Placeholder: string?,
-		ClearTextOnFocus: boolean?,
-		Width: number?,
-		NumericOnly: boolean?,
-	}
-)
-	local NumericOnly = Options.NumericOnly == true
-	local TextBoxWidth = Options.Width or 160
+	function SectionBuilder:CreateCheckbox(
+		Idx: string,
+		Options: {
+			Text: string,
+			Callback: (boolean) -> () | nil,
+			Default: boolean?,
+		}
+	)
+		Idx = self.DataSavePrefix .. Idx
+		local Checkbox = {
+			Default = Options.Default or false,
+			Value = wax.shared.SaveManager:GetState(Idx, Options.Default),
+		}
 
-	local function NormalizeValue(NewValue: any): string
-		local Value = tostring(NewValue or "")
+		local CheckboxUI = Interface.New("TextButton", {
+			Text = Options.Text,
+			TextSize = 16,
+			BackgroundTransparency = 1,
+			Size = UDim2.new(1, 0, 0, 20),
+			TextXAlignment = Enum.TextXAlignment.Left,
+			Parent = self.Parent,
+		})
 
-		if not NumericOnly then
-			return Value
-		end
+		local ToggleOnColor = Color3.fromRGB(52, 199, 89)
+		local ToggleOffColor = Color3.fromRGB(50, 50, 50)
 
-		if Value == "" then
-			return ""
-		end
+		local ToggleKnobOffSize = UDim2.fromOffset(16, 16)
+		local ToggleKnobOnSize = UDim2.fromOffset(18, 18)
+		local ToggleKnobInset = 10
 
-		local Characters = table.create(#Value)
-		local HasDigits = false
-		local HasDecimal = false
-		local SignApplied = false
+		local ToggleTrack = Interface.New("Frame", {
+			AnchorPoint = Vector2.new(1, 0.5),
+			Position = UDim2.new(1, 0, 0.5, 0),
+			Size = UDim2.fromOffset(36, 20),
+			BackgroundColor3 = ToggleOffColor,
+			Parent = CheckboxUI,
 
-		for Index = 1, #Value do
-			local Char = string.sub(Value, Index, Index)
-			local Byte = string.byte(Char)
+			["UICorner"] = {
+				CornerRadius = UDim.new(1, 0),
+			},
+		})
 
-			if Char == "-" and not SignApplied and not HasDigits and not HasDecimal then
-				table.insert(Characters, Char)
-				SignApplied = true
-			elseif Char == "." and not HasDecimal then
-				table.insert(Characters, Char)
-				HasDecimal = true
-				SignApplied = true
-			elseif Byte and Byte >= 48 and Byte <= 57 then
-				table.insert(Characters, Char)
-				HasDigits = true
-				SignApplied = true
+		local ToggleKnob = Interface.New("Frame", {
+			AnchorPoint = Vector2.new(0.5, 0.5),
+			BackgroundColor3 = Color3.new(1, 1, 1),
+			Size = ToggleKnobOffSize,
+			Parent = ToggleTrack,
+
+			["UICorner"] = {
+				CornerRadius = UDim.new(1, 0),
+			},
+		})
+
+		local function UpdateToggleVisual(instant: boolean?)
+			local TargetTrackColor = if Checkbox.Value then ToggleOnColor else ToggleOffColor
+			local TargetKnobPosition = if Checkbox.Value
+				then UDim2.new(1, -ToggleKnobInset, 0.5, 0)
+				else UDim2.new(0, ToggleKnobInset, 0.5, 0)
+			local TargetKnobSize = if Checkbox.Value then ToggleKnobOnSize else ToggleKnobOffSize
+
+			if instant then
+				ToggleTrack.BackgroundColor3 = TargetTrackColor
+				ToggleKnob.Position = TargetKnobPosition
+				ToggleKnob.Size = TargetKnobSize
+			else
+				wax.shared.TweenService
+					:Create(ToggleTrack, DefaultTweenInfo, {
+						BackgroundColor3 = TargetTrackColor,
+					})
+					:Play()
+
+				wax.shared.TweenService
+					:Create(ToggleKnob, DefaultTweenInfo, {
+						Position = TargetKnobPosition,
+						Size = TargetKnobSize,
+					})
+					:Play()
 			end
 		end
 
-		local Sanitized = table.concat(Characters)
+		UpdateToggleVisual(true)
 
-		if Sanitized == "-" or Sanitized == "." or Sanitized == "-." then
-			return ""
+		local function Toggle()
+			Checkbox:SetValue(not Checkbox.Value)
 		end
 
-		return Sanitized
-	end
+		CheckboxUI.MouseButton1Click:Connect(Toggle)
 
-	local DefaultValue = NormalizeValue(Options.Default)
-	local SavedValue = wax.shared.SaveManager:GetState(Idx)
-	local InitialValue = NormalizeValue(if SavedValue ~= nil then SavedValue else DefaultValue)
+		function Checkbox:Reset()
+			Checkbox:SetValue(Checkbox.Default)
+		end
 
-	local TextSetting = {
-		Default = DefaultValue,
-		Value = InitialValue,
-	}
-
-	local Container = Interface.New("Frame", {
-		BackgroundTransparency = 1,
-		Size = UDim2.new(1, 0, 0, 26),
-		Parent = Options.Section,
-
-		["UIPadding"] = {
-			PaddingLeft = UDim.new(0, 2),
-			PaddingRight = UDim.new(0, 2),
-		},
-	})
-
-	Interface.New("TextLabel", {
-		BackgroundTransparency = 1,
-		Position = UDim2.fromOffset(0, 0),
-		Size = UDim2.new(1, -TextBoxWidth - 6, 1, 0),
-		Text = Options.Text,
-		TextSize = 16,
-		TextXAlignment = Enum.TextXAlignment.Left,
-		TextYAlignment = Enum.TextYAlignment.Center,
-		TextWrapped = true,
-		Parent = Container,
-	})
-
-	local Input = Interface.New("TextBox", {
-		AnchorPoint = Vector2.new(1, 0),
-		BackgroundColor3 = Color3.fromRGB(5, 5, 5),
-		ClearTextOnFocus = Options.ClearTextOnFocus or false,
-		PlaceholderColor3 = Color3.fromRGB(128, 128, 128),
-		PlaceholderText = Options.Placeholder or "",
-		Position = UDim2.fromScale(1, 0),
-		Size = UDim2.new(0, TextBoxWidth, 1, -2),
-		Text = InitialValue,
-		TextSize = 16,
-		TextXAlignment = Enum.TextXAlignment.Left,
-		Parent = Container,
-
-		["UICorner"] = {
-			CornerRadius = UDim.new(0, 4),
-		},
-
-		["UIStroke"] = {
-			Color = Color3.fromRGB(25, 25, 25),
-			Thickness = 1,
-			ApplyStrokeMode = Enum.ApplyStrokeMode.Border,
-		},
-
-		["UIPadding"] = {
-			PaddingLeft = UDim.new(0, 6),
-			PaddingRight = UDim.new(0, 6),
-		},
-	})
-
-	local function SyncValue(NewValue: string, FireCallback: boolean?)
-		TextSetting.Value = NewValue
-		Input.Text = NewValue
-
-		if FireCallback ~= false and Options.Callback then
-			local ArgumentToPass = NewValue
-			if NumericOnly then
-				ArgumentToPass = tonumber(ArgumentToPass)
+		function Checkbox:SetValue(NewValue)
+			if wax.shared.ActorCommunicator then
+				pcall(function()
+					wax.shared.ActorCommunicator:Fire("MainSettingsSync", Idx, NewValue)
+				end)
 			end
 
-			Options.Callback(ArgumentToPass)
-		end
-	end
+			wax.shared.SaveManager:SetState(Idx, NewValue)
 
-	function TextSetting:Reset()
-		TextSetting:SetValue(TextSetting.Default)
-	end
+			Checkbox.Value = NewValue
+			UpdateToggleVisual()
 
-	function TextSetting:SetValue(NewValue)
-		local PreparedValue = NormalizeValue(NewValue)
-
-		if PreparedValue == TextSetting.Value then
-			SyncValue(PreparedValue, false)
-			return
+			if Options.Callback then
+				Options.Callback(Checkbox.Value)
+			end
 		end
 
 		if wax.shared.ActorCommunicator then
 			pcall(function()
-				wax.shared.ActorCommunicator:Fire("MainSettingsSync", Idx, PreparedValue)
+				wax.shared.ActorCommunicator:Fire("MainSettingsSync", Idx, Checkbox.Value)
+			end)
+		end
+		wax.shared.Settings[Idx] = Checkbox
+		return Checkbox
+	end
+
+	function SectionBuilder:CreateTextBox(
+		Idx: string,
+		Options: {
+			Text: string,
+			Callback: (string) -> () | nil,
+			Default: string?,
+			Placeholder: string?,
+			ClearTextOnFocus: boolean?,
+			Width: number?,
+			NumericOnly: boolean?,
+		}
+	)
+		Idx = self.DataSavePrefix .. Idx
+		local NumericOnly = Options.NumericOnly == true
+		local TextBoxWidth = Options.Width or 160
+
+		local function NormalizeValue(NewValue: any): string
+			local Value = tostring(NewValue or "")
+
+			if not NumericOnly then
+				return Value
+			end
+
+			if Value == "" then
+				return ""
+			end
+
+			local Characters = table.create(#Value)
+			local HasDigits = false
+			local HasDecimal = false
+			local SignApplied = false
+
+			for Index = 1, #Value do
+				local Char = string.sub(Value, Index, Index)
+				local Byte = string.byte(Char)
+
+				if Char == "-" and not SignApplied and not HasDigits and not HasDecimal then
+					table.insert(Characters, Char)
+					SignApplied = true
+				elseif Char == "." and not HasDecimal then
+					table.insert(Characters, Char)
+					HasDecimal = true
+					SignApplied = true
+				elseif Byte and Byte >= 48 and Byte <= 57 then
+					table.insert(Characters, Char)
+					HasDigits = true
+					SignApplied = true
+				end
+			end
+
+			local Sanitized = table.concat(Characters)
+
+			if Sanitized == "-" or Sanitized == "." or Sanitized == "-." then
+				return ""
+			end
+
+			return Sanitized
+		end
+
+		local DefaultValue = NormalizeValue(Options.Default)
+		local SavedValue = wax.shared.SaveManager:GetState(Idx)
+		local InitialValue = NormalizeValue(if SavedValue ~= nil then SavedValue else DefaultValue)
+
+		local TextSetting = {
+			Default = DefaultValue,
+			Value = InitialValue,
+		}
+
+		local Container = Interface.New("Frame", {
+			BackgroundTransparency = 1,
+			Size = UDim2.new(1, 0, 0, 26),
+			Parent = self.Parent,
+
+			["UIPadding"] = {
+				PaddingLeft = UDim.new(0, 2),
+				PaddingRight = UDim.new(0, 2),
+			},
+		})
+
+		Interface.New("TextLabel", {
+			BackgroundTransparency = 1,
+			Position = UDim2.fromOffset(0, 0),
+			Size = UDim2.new(1, -TextBoxWidth - 6, 1, 0),
+			Text = Options.Text,
+			TextSize = 16,
+			TextXAlignment = Enum.TextXAlignment.Left,
+			TextYAlignment = Enum.TextYAlignment.Center,
+			TextWrapped = true,
+			Parent = Container,
+		})
+
+		local Input = Interface.New("TextBox", {
+			AnchorPoint = Vector2.new(1, 0),
+			BackgroundColor3 = Color3.fromRGB(5, 5, 5),
+			ClearTextOnFocus = Options.ClearTextOnFocus or false,
+			PlaceholderColor3 = Color3.fromRGB(128, 128, 128),
+			PlaceholderText = Options.Placeholder or "",
+			Position = UDim2.fromScale(1, 0),
+			Size = UDim2.new(0, TextBoxWidth, 1, -2),
+			Text = InitialValue,
+			TextSize = 16,
+			TextXAlignment = Enum.TextXAlignment.Left,
+			Parent = Container,
+
+			["UICorner"] = {
+				CornerRadius = UDim.new(0, 4),
+			},
+
+			["UIStroke"] = {
+				Color = Color3.fromRGB(25, 25, 25),
+				Thickness = 1,
+				ApplyStrokeMode = Enum.ApplyStrokeMode.Border,
+			},
+
+			["UIPadding"] = {
+				PaddingLeft = UDim.new(0, 6),
+				PaddingRight = UDim.new(0, 6),
+			},
+		})
+
+		local function SyncValue(NewValue: string, FireCallback: boolean?)
+			TextSetting.Value = NewValue
+			Input.Text = NewValue
+
+			if FireCallback ~= false and Options.Callback then
+				local ArgumentToPass = NewValue
+				if NumericOnly then
+					ArgumentToPass = tonumber(ArgumentToPass)
+				end
+
+				Options.Callback(ArgumentToPass)
+			end
+		end
+
+		function TextSetting:Reset()
+			TextSetting:SetValue(TextSetting.Default)
+		end
+
+		function TextSetting:SetValue(NewValue)
+			local PreparedValue = NormalizeValue(NewValue)
+
+			if PreparedValue == TextSetting.Value then
+				SyncValue(PreparedValue, false)
+				return
+			end
+
+			if wax.shared.ActorCommunicator then
+				pcall(function()
+					wax.shared.ActorCommunicator:Fire("MainSettingsSync", Idx, PreparedValue)
+				end)
+			end
+
+			wax.shared.SaveManager:SetState(Idx, PreparedValue)
+			SyncValue(PreparedValue)
+		end
+
+		Input.FocusLost:Connect(function()
+			TextSetting:SetValue(Input.Text)
+		end)
+
+		if wax.shared.ActorCommunicator then
+			pcall(function()
+				wax.shared.ActorCommunicator:Fire("MainSettingsSync", Idx, TextSetting.Value)
 			end)
 		end
 
-		wax.shared.SaveManager:SetState(Idx, PreparedValue)
-		SyncValue(PreparedValue)
+		SyncValue(TextSetting.Value, false)
+
+		wax.shared.Settings[Idx] = TextSetting
+		return TextSetting
 	end
 
-	Input.FocusLost:Connect(function()
-		TextSetting:SetValue(Input.Text)
-	end)
+	function SectionBuilder:CreateDropdown(
+		Idx: string,
+		Options: {
+			Multi: boolean?,
+			AllowNull: boolean?,
+			Values: { [any]: any },
+			Default: any | { [any]: any },
+			Callback: (any) -> () | nil,
+			Text: string,
+		}
+	)
+		Idx = self.DataSavePrefix .. Idx
+		local AllowNull = Options.AllowNull or false
+		assert(AllowNull or Options.Default ~= nil, "Default value must be provided when AllowNull is false")
 
-	if wax.shared.ActorCommunicator then
-		pcall(function()
-			wax.shared.ActorCommunicator:Fire("MainSettingsSync", Idx, TextSetting.Value)
-		end)
-	end
+		local function CreateLookupTable(Values: { any } | any)
+			if typeof(Values) ~= "table" then
+				return Values
+			end
 
-	SyncValue(TextSetting.Value, false)
-
-	wax.shared.Settings[Idx] = TextSetting
-	return TextSetting
-end
-
-local function CreateSettingsDropdown(
-	Idx: string,
-	Options: {
-		Multi: boolean?,
-		AllowNull: boolean?,
-		Values: { any },
-		Default: any | { any },
-		Callback: (any) -> () | nil,
-		Text: string,
-		Section: Frame,
-	}
-)
-	local AllowNull = Options.AllowNull or false
-	assert(AllowNull or Options.Default ~= nil, "Default value must be provided when AllowNull is false")
-
-	local function CreateLookupTable(Values: { any } | any)
-		if typeof(Values) ~= "table" then
-			return Values
+			local LookupTable = {}
+			for _, Value in Values do
+				LookupTable[Value] = true
+			end
+			return LookupTable
 		end
 
-		local LookupTable = {}
-		for _, Value in Values do
-			LookupTable[Value] = true
-		end
-		return LookupTable
-	end
-
-	local Dropdown = {
-		Values = Options.Values or {},
-		Default = Options.Default and CreateLookupTable(Options.Default)
-			or Options.AllowNull and (Options.Multi and {} or Options.Values[1])
-			or {},
-		Value = wax.shared.SaveManager:GetState(
-			Idx,
-			Options.Default and CreateLookupTable(Options.Default)
+		local Dropdown = {
+			Values = Options.Values or {},
+			Default = Options.Default and CreateLookupTable(Options.Default)
 				or Options.AllowNull and (Options.Multi and {} or Options.Values[1])
-				or {}
-		),
-		Multi = Options.Multi or false,
-		Callback = Options.Callback,
-	}
+				or {},
+			Value = wax.shared.SaveManager:GetState(
+				Idx,
+				Options.Default and CreateLookupTable(Options.Default)
+					or Options.AllowNull and (Options.Multi and {} or Options.Values[1])
+					or {}
+			),
+			Multi = Options.Multi or false,
+			Callback = Options.Callback,
+		}
 
-	local DropdownUI = Interface.New("TextButton", {
-		Text = Options.Text,
-		TextSize = 16,
-		BackgroundTransparency = 1,
-		Size = UDim2.new(1, 0, 0, 24),
-		TextXAlignment = Enum.TextXAlignment.Left,
-		TextYAlignment = Enum.TextYAlignment.Center,
-		Parent = Options.Section,
-	})
+		local DropdownUI = Interface.New("TextButton", {
+			Text = Options.Text,
+			TextSize = 16,
+			BackgroundTransparency = 1,
+			Size = UDim2.new(1, 0, 0, 24),
+			TextXAlignment = Enum.TextXAlignment.Left,
+			TextYAlignment = Enum.TextYAlignment.Center,
+			Parent = self.Parent,
+		})
 
-	DropdownUI.AutoButtonColor = false
+		DropdownUI.AutoButtonColor = false
 
-	local DropdownDisplay = Interface.New("Frame", {
-		AnchorPoint = Vector2.new(1, 0.5),
-		BackgroundColor3 = Color3.fromRGB(0, 0, 0),
-		Position = UDim2.new(1, 0, 0.5, 0),
-		Size = UDim2.fromOffset(180, 24),
-		Parent = DropdownUI,
+		local DropdownDisplay = Interface.New("Frame", {
+			AnchorPoint = Vector2.new(1, 0.5),
+			BackgroundColor3 = Color3.fromRGB(0, 0, 0),
+			Position = UDim2.new(1, 0, 0.5, 0),
+			Size = UDim2.fromOffset(180, 24),
+			Parent = DropdownUI,
 
-		["UICorner"] = {
-			CornerRadius = UDim.new(0, 4),
-		},
+			["UICorner"] = {
+				CornerRadius = UDim.new(0, 4),
+			},
 
-		["UIStroke"] = {
-			ApplyStrokeMode = Enum.ApplyStrokeMode.Border,
-			Color = Color3.fromRGB(25, 25, 25),
-			Thickness = 1,
-		},
+			["UIStroke"] = {
+				ApplyStrokeMode = Enum.ApplyStrokeMode.Border,
+				Color = Color3.fromRGB(25, 25, 25),
+				Thickness = 1,
+			},
 
-		["UIPadding"] = {
-			PaddingLeft = UDim.new(0, 8),
-			PaddingRight = UDim.new(0, 8),
-		},
-	})
+			["UIPadding"] = {
+				PaddingLeft = UDim.new(0, 8),
+				PaddingRight = UDim.new(0, 8),
+			},
+		})
 
-	local ValueLabel = Interface.New("TextLabel", {
-		BackgroundTransparency = 1,
-		Size = UDim2.new(1, -16, 1, 0),
-		Text = "Select...",
-		TextSize = 16,
-		TextTruncate = Enum.TextTruncate.AtEnd,
-		TextTransparency = 0.45,
-		TextXAlignment = Enum.TextXAlignment.Left,
-		TextYAlignment = Enum.TextYAlignment.Center,
-		Parent = DropdownDisplay,
-	})
+		local ValueLabel = Interface.New("TextLabel", {
+			BackgroundTransparency = 1,
+			Size = UDim2.new(1, -16, 1, 0),
+			Text = "Select...",
+			TextSize = 16,
+			TextTruncate = Enum.TextTruncate.AtEnd,
+			TextTransparency = 0.45,
+			TextXAlignment = Enum.TextXAlignment.Left,
+			TextYAlignment = Enum.TextYAlignment.Center,
+			Parent = DropdownDisplay,
+		})
 
-	local DropdownIcon = Interface.NewIcon("chevron-down", {
-		AnchorPoint = Vector2.new(1, 0.5),
-		ImageTransparency = 0.2,
-		Position = UDim2.new(1, 0, 0.5, 0),
-		Size = UDim2.fromOffset(12, 12),
-		Parent = DropdownDisplay,
-	})
+		local DropdownIcon = Interface.NewIcon("chevron-down", {
+			AnchorPoint = Vector2.new(1, 0.5),
+			ImageTransparency = 0.2,
+			Position = UDim2.new(1, 0, 0.5, 0),
+			Size = UDim2.fromOffset(12, 12),
+			Parent = DropdownDisplay,
+		})
 
-	local DisplayDefaultColor = DropdownDisplay.BackgroundColor3
-	local DisplayHoverColor = Color3.fromRGB(12, 12, 12)
+		local DisplayDefaultColor = DropdownDisplay.BackgroundColor3
+		local DisplayHoverColor = Color3.fromRGB(12, 12, 12)
 
-	local function TweenDisplayColor(TargetColor, TargetTransparency)
-		wax.shared.TweenService
-			:Create(DropdownDisplay, DefaultTweenInfo, {
-				BackgroundColor3 = TargetColor,
-			})
-			:Play()
-
-		if TargetTransparency then
+		local function TweenDisplayColor(TargetColor, TargetTransparency)
 			wax.shared.TweenService
-				:Create(DropdownIcon, DefaultTweenInfo, {
-					ImageTransparency = TargetTransparency,
+				:Create(DropdownDisplay, DefaultTweenInfo, {
+					BackgroundColor3 = TargetColor,
 				})
 				:Play()
-		end
-	end
 
-	DropdownUI.MouseEnter:Connect(function()
-		TweenDisplayColor(DisplayHoverColor, 0.05)
-	end)
-
-	DropdownUI.MouseLeave:Connect(function()
-		TweenDisplayColor(DisplayDefaultColor, 0.2)
-	end)
-
-	local function IterateValues(Callback: (any, string) -> ())
-		for Index, Object in Dropdown.Values do
-			local ActualValue = typeof(Index) == "number" and Object or Index
-			local DisplayText = typeof(Index) == "number" and tostring(Object) or tostring(Index)
-			Callback(ActualValue, DisplayText)
-		end
-	end
-
-	local function ResolveValueText(Value)
-		local Resolved
-		IterateValues(function(ActualValue, DisplayText)
-			if ActualValue == Value then
-				Resolved = DisplayText
+			if TargetTransparency then
+				wax.shared.TweenService
+					:Create(DropdownIcon, DefaultTweenInfo, {
+						ImageTransparency = TargetTransparency,
+					})
+					:Play()
 			end
+		end
+
+		DropdownUI.MouseEnter:Connect(function()
+			TweenDisplayColor(DisplayHoverColor, 0.05)
 		end)
-		return Resolved or (Value ~= nil and tostring(Value) or "")
-	end
 
-	local function UpdateValueLabel()
-		local DisplayText = "Select..."
-		local Transparency = 0.45
+		DropdownUI.MouseLeave:Connect(function()
+			TweenDisplayColor(DisplayDefaultColor, 0.2)
+		end)
 
-		if Dropdown.Multi then
-			local SelectedTexts = {}
-			IterateValues(function(Value, Text)
-				if Dropdown.Value[Value] then
-					table.insert(SelectedTexts, Text)
+		local function IterateValues(Callback: (any, string) -> ())
+			for Index, Object in Dropdown.Values do
+				local ActualValue = typeof(Index) == "number" and Object or Index
+				local DisplayText = typeof(Index) == "number" and tostring(Object) or tostring(Index)
+				Callback(ActualValue, DisplayText)
+			end
+		end
+
+		local function ResolveValueText(Value)
+			local Resolved
+			IterateValues(function(ActualValue, DisplayText)
+				if ActualValue == Value then
+					Resolved = DisplayText
 				end
 			end)
-
-			if #SelectedTexts == 0 then
-				DisplayText = "None"
-				Transparency = 0.45
-			else
-				table.sort(SelectedTexts)
-				if #SelectedTexts <= 2 then
-					DisplayText = table.concat(SelectedTexts, ", ")
-				else
-					DisplayText = string.format("%s, +%d", SelectedTexts[1], #SelectedTexts - 1)
-				end
-				Transparency = 0
-			end
-		else
-			local CurrentValue = Dropdown.Value
-			if CurrentValue == nil or CurrentValue == "" then
-				DisplayText = "None"
-				Transparency = 0.45
-			else
-				local Resolved = ResolveValueText(CurrentValue)
-				if Resolved == "" then
-					DisplayText = tostring(CurrentValue)
-				else
-					DisplayText = Resolved
-				end
-				Transparency = 0
-			end
+			return Resolved or (Value ~= nil and tostring(Value) or "")
 		end
 
-		ValueLabel.Text = DisplayText
-		ValueLabel.TextTransparency = Transparency
-	end
-
-	local function BuildDropdownContext()
-		local Options = {}
-		for Index, Object in Dropdown.Values do
-			local IsArray = typeof(Index) == "number"
-
-			local ContextOption = {
-				Text = tostring(Object),
-				CloseOnClick = not Dropdown.Multi,
-				Callback = function()
-					local Value = IsArray and Object or Index
-
-					if Dropdown.Multi then
-						Dropdown.Value[Value] = not (Dropdown.Value[Value] or false)
-					else
-						Dropdown.Value = Value
-					end
-
-					if wax.shared.ActorCommunicator then
-						pcall(function()
-							wax.shared.ActorCommunicator:Fire("MainSettingsSync", Idx, Dropdown.Value)
-						end)
-					end
-
-					wax.shared.SaveManager:SetState(Idx, Dropdown.Value)
-
-					UpdateValueLabel()
-
-					if Dropdown.Callback then
-						Dropdown.Callback(Dropdown.Value)
-					end
-				end,
-				TextProperties = function()
-					local Value = IsArray and Object or Index
-
-					if Dropdown.Multi and Dropdown.Value[Value] then
-						return {
-							TextTransparency = 0,
-						}
-					elseif not Dropdown.Multi and Dropdown.Value == Value then
-						return {
-							TextTransparency = 0,
-						}
-					end
-
-					return {
-						TextTransparency = 0.5,
-					}
-				end,
-			}
-
-			if not IsArray then
-				ContextOption.Text = Index
-				ContextOption.Icon = Object
-			end
-
-			table.insert(Options, ContextOption)
-		end
-		return Options
-	end
-
-	local ContextMenu = CreateContextMenu(DropdownDisplay, BuildDropdownContext())
-
-	DropdownUI.MouseButton1Click:Connect(ContextMenu.Toggle)
-	function Dropdown:Reset()
-		if Dropdown.Multi then
-			local Cloned = {}
-			for Key, Value in pairs(Dropdown.Default) do
-				Cloned[Key] = Value
-			end
-			Dropdown:SetValue(Cloned)
-		else
-			Dropdown:SetValue(Dropdown.Default)
-		end
-
-		UpdateValueLabel()
-	end
-
-	function Dropdown:SetValue(NewValue)
-		if wax.shared.ActorCommunicator then
-			pcall(function()
-				wax.shared.ActorCommunicator:Fire("MainSettingsSync", Idx, NewValue)
-			end)
-		end
-
-		wax.shared.SaveManager:SetState(Idx, NewValue)
-
-		ContextMenu:Close()
-
-		for Image, Object in pairs(Dropdown.Values) do
-			local IsArray = typeof(Image) == "number"
-			local Value = IsArray and Object or Image
+		local function UpdateValueLabel()
+			local DisplayText = "Select..."
+			local Transparency = 0.45
 
 			if Dropdown.Multi then
-				Dropdown.Value[Value] = NewValue[Value]
+				local SelectedTexts = {}
+				IterateValues(function(Value, Text)
+					if Dropdown.Value[Value] then
+						table.insert(SelectedTexts, Text)
+					end
+				end)
+
+				if #SelectedTexts == 0 then
+					DisplayText = "None"
+					Transparency = 0.45
+				else
+					table.sort(SelectedTexts)
+					if #SelectedTexts <= 2 then
+						DisplayText = table.concat(SelectedTexts, ", ")
+					else
+						DisplayText = string.format("%s, +%d", SelectedTexts[1], #SelectedTexts - 1)
+					end
+					Transparency = 0
+				end
 			else
-				Dropdown.Value = NewValue
+				local CurrentValue = Dropdown.Value
+				if CurrentValue == nil or CurrentValue == "" then
+					DisplayText = "None"
+					Transparency = 0.45
+				else
+					local Resolved = ResolveValueText(CurrentValue)
+					if Resolved == "" then
+						DisplayText = tostring(CurrentValue)
+					else
+						DisplayText = Resolved
+					end
+					Transparency = 0
+				end
 			end
+
+			ValueLabel.Text = DisplayText
+			ValueLabel.TextTransparency = Transparency
+		end
+
+		local function BuildDropdownContext()
+			local Options = {}
+			for Index, Object in Dropdown.Values do
+				local IsArray = typeof(Index) == "number"
+
+				local ContextOption = {
+					Text = tostring(Object),
+					CloseOnClick = not Dropdown.Multi,
+					Callback = function()
+						local Value = IsArray and Object or Index
+
+						if Dropdown.Multi then
+							Dropdown.Value[Value] = not (Dropdown.Value[Value] or false)
+						else
+							Dropdown.Value = Value
+						end
+
+						if wax.shared.ActorCommunicator then
+							pcall(function()
+								wax.shared.ActorCommunicator:Fire("MainSettingsSync", Idx, Dropdown.Value)
+							end)
+						end
+
+						wax.shared.SaveManager:SetState(Idx, Dropdown.Value)
+
+						UpdateValueLabel()
+
+						if Dropdown.Callback then
+							Dropdown.Callback(Dropdown.Value)
+						end
+					end,
+					TextProperties = function()
+						local Value = IsArray and Object or Index
+
+						if Dropdown.Multi and Dropdown.Value[Value] then
+							return {
+								TextTransparency = 0,
+							}
+						elseif not Dropdown.Multi and Dropdown.Value == Value then
+							return {
+								TextTransparency = 0,
+							}
+						end
+
+						return {
+							TextTransparency = 0.5,
+						}
+					end,
+				}
+
+				if not IsArray then
+					ContextOption.Text = Index
+					ContextOption.Icon = Object
+				end
+
+				table.insert(Options, ContextOption)
+			end
+			return Options
+		end
+
+		local ContextMenu = CreateContextMenu(DropdownDisplay, BuildDropdownContext())
+
+		DropdownUI.MouseButton1Click:Connect(ContextMenu.Toggle)
+		function Dropdown:Reset()
+			if Dropdown.Multi then
+				local Cloned = {}
+				for Key, Value in pairs(Dropdown.Default) do
+					Cloned[Key] = Value
+				end
+				Dropdown:SetValue(Cloned)
+			else
+				Dropdown:SetValue(Dropdown.Default)
+			end
+
+			UpdateValueLabel()
+		end
+
+		function Dropdown:SetValue(NewValue)
+			if wax.shared.ActorCommunicator then
+				pcall(function()
+					wax.shared.ActorCommunicator:Fire("MainSettingsSync", Idx, NewValue)
+				end)
+			end
+
+			wax.shared.SaveManager:SetState(Idx, NewValue)
+
+			ContextMenu:Close()
+
+			for Image, Object in pairs(Dropdown.Values) do
+				local IsArray = typeof(Image) == "number"
+				local Value = IsArray and Object or Image
+
+				if Dropdown.Multi then
+					Dropdown.Value[Value] = NewValue[Value]
+				else
+					Dropdown.Value = NewValue
+				end
+			end
+
+			UpdateValueLabel()
+		end
+
+		if wax.shared.ActorCommunicator then
+			pcall(function()
+				wax.shared.ActorCommunicator:Fire("MainSettingsSync", Idx, Dropdown.Value)
+			end)
 		end
 
 		UpdateValueLabel()
+
+		wax.shared.Settings[Idx] = Dropdown
+		return Dropdown
 	end
 
-	if wax.shared.ActorCommunicator then
-		pcall(function()
-			wax.shared.ActorCommunicator:Fire("MainSettingsSync", Idx, Dropdown.Default)
+	function SectionBuilder:CreateRemoteList(
+		Idx: string,
+		Options: {
+			Text: string,
+			Callback: (any) -> () | nil,
+			NullMessage: string,
+		}
+	)
+		Idx = self.DataSavePrefix .. Idx
+		local RemoteList = {
+			Value = {},
+			InfoMapping = {},
+		}
+
+		local RemoveIgnored
+
+		local RemoteListContainer = Interface.New("Frame", {
+			AutomaticSize = Enum.AutomaticSize.Y,
+			BackgroundTransparency = 1,
+			Size = UDim2.fromScale(1, 0),
+			Parent = self.Parent,
+
+			["UICorner"] = {
+				CornerRadius = UDim.new(0, 8),
+			},
+
+			["UIListLayout"] = {
+				FillDirection = Enum.FillDirection.Vertical,
+				HorizontalAlignment = Enum.HorizontalAlignment.Left,
+				Padding = UDim.new(0, 6),
+			},
+
+			["UIPadding"] = {
+				PaddingLeft = UDim.new(0, 5),
+				PaddingRight = UDim.new(0, 5),
+				PaddingTop = UDim.new(0, 5),
+				PaddingBottom = UDim.new(0, 5),
+			},
+
+			["UIStroke"] = {
+				ApplyStrokeMode = Enum.ApplyStrokeMode.Border,
+				Color = Color3.fromRGB(25, 25, 25),
+				Thickness = 1,
+			},
+		})
+
+		local NoRemotesText = Interface.New("TextLabel", {
+			Size = UDim2.new(1, 0, 0, 100),
+			TextTransparency = 0.5,
+			Text = Options.NullMessage,
+			TextSize = 14,
+			Visible = true,
+			Parent = RemoteListContainer,
+		})
+
+		function RemoteList:Display()
+			for _, Object in pairs(RemoteListContainer:GetChildren()) do
+				if not Object:IsA("Frame") then
+					continue
+				end
+				Object:Destroy()
+			end
+
+			NoRemotesText.Visible = (#self.Value == 0)
+			RemoveIgnored.Visible = (#self.Value > 0)
+
+			for _, remoteData in self.Value do
+				local remote = remoteData.Instance
+				if not remote then
+					continue
+				end
+
+				local ListElement = Interface.New("Frame", {
+					BackgroundColor3 = Color3.fromRGB(0, 0, 0),
+					Size = UDim2.new(1, 0, 0, 32),
+					Parent = RemoteListContainer,
+
+					["UICorner"] = {
+						CornerRadius = UDim.new(0, 4),
+					},
+
+					["UIStroke"] = {
+						Color = Color3.fromRGB(25, 25, 25),
+						Thickness = 1,
+						ApplyStrokeMode = Enum.ApplyStrokeMode.Border,
+					},
+
+					["Frame"] = {
+						Size = UDim2.fromScale(1, 1),
+						BackgroundTransparency = 1,
+
+						["UIListLayout"] = {
+							FillDirection = Enum.FillDirection.Horizontal,
+							HorizontalAlignment = Enum.HorizontalAlignment.Left,
+							VerticalAlignment = Enum.VerticalAlignment.Center,
+							Padding = UDim.new(0, 4),
+						},
+
+						["UIPadding"] = {
+							PaddingLeft = UDim.new(0, 5),
+						},
+
+						["ImageLabel"] = {
+							Size = UDim2.new(1, -8, 1, -8),
+							SizeConstraint = Enum.SizeConstraint.RelativeYY,
+							Image = Images[remote.ClassName],
+							AnchorPoint = Vector2.new(0, 0.5),
+							BackgroundTransparency = 1,
+							LayoutOrder = 1,
+						},
+
+						["TextLabel"] = {
+							Text = `{remote.Name} ({remoteData.Type})`,
+							Size = UDim2.fromScale(1, 1),
+							AutomaticSize = Enum.AutomaticSize.X,
+							TextSize = 16,
+							TextXAlignment = Enum.TextXAlignment.Left,
+							BackgroundTransparency = 1,
+							LayoutOrder = 2,
+						},
+					},
+				})
+
+				local RemoveButton = Interface.New("ImageButton", {
+					BackgroundTransparency = 1,
+					AnchorPoint = Vector2.new(1, 0.5),
+					Position = UDim2.new(1, -8, 0.5, 0),
+					Size = UDim2.new(1, -12, 1, -12),
+					SizeConstraint = Enum.SizeConstraint.RelativeYY,
+					ImageTransparency = 0.5,
+					Parent = ListElement,
+				})
+
+				Icons.SetIcon(RemoveButton, "trash")
+
+				RemoveButton.MouseEnter:Connect(function()
+					wax.shared.TweenService
+						:Create(RemoveButton, DefaultTweenInfo, {
+							ImageTransparency = 0,
+						})
+						:Play()
+				end)
+
+				RemoveButton.MouseLeave:Connect(function()
+					wax.shared.TweenService
+						:Create(RemoveButton, DefaultTweenInfo, {
+							ImageTransparency = 0.5,
+						})
+						:Play()
+				end)
+
+				RemoveButton.MouseButton1Click:Connect(function()
+					self:RemoveFromList(remoteData)
+					if Options.Callback then
+						Options.Callback(remoteData)
+					end
+				end)
+			end
+		end
+
+		function RemoteList:AddToList(remote)
+			table.insert(self.Value, remote)
+
+			self:Display()
+		end
+
+		function RemoteList:RemoveFromList(remote)
+			local index = table.find(self.Value, remote)
+			if not index then
+				return
+			end
+
+			table.remove(self.Value, index)
+
+			self:Display()
+		end
+
+		function RemoteList:SetList(remotes: { SupportedRemoteTypes })
+			self.Value = remotes
+
+			self:Display()
+		end
+
+		RemoveIgnored = self:CreateButton("Remove All", function()
+			if not Options.Callback then
+				return
+			end
+
+			local ToRemove = {}
+			for _, remote in RemoteList.Value do
+				Options.Callback(remote)
+				table.insert(ToRemove, remote)
+			end
+
+			for _, remote in ToRemove do
+				RemoteList:RemoveFromList(remote)
+			end
+			wax.shared.Sonner.success("Removed all remotes")
 		end)
+		RemoveIgnored.Visible = false
+
+		RemoteList:Display()
+
+		wax.shared.Settings[Idx] = RemoteList
+		return RemoteList
 	end
-
-	UpdateValueLabel()
-
-	wax.shared.Settings[Idx] = Dropdown
-	return Dropdown
 end
 
-local function CreateSettingsRemoteList(
-	Idx: string,
-	Options: {
-		Text: string,
-		Callback: (any) -> () | nil,
-		Section: Frame,
-		NullMessage: string,
-	}
-)
-	local RemoteList = {
-		Value = {},
-		InfoMapping = {},
-	}
+local PluginSettings = SettingsBuilder.new(PluginsScrollingFrame)
+wax.shared.PluginSettings = PluginSettings
 
-	local RemoveIgnored
+local PluginsSection = PluginSettings:CreateSection("Plugins")
+do
+	local HeaderLabel = PluginsSection.Parent:FindFirstChildWhichIsA("TextLabel")
+	local SummaryLabel = Interface.New("TextLabel", {
+		Text = `<font transparency="0.5">Waiting for plugins...</font>`,
+		RichText = true,
+		TextSize = 13,
+		AutomaticSize = Enum.AutomaticSize.X,
+		Size = UDim2.new(0, 0, 1, 0),
+		AnchorPoint = Vector2.new(1, 0),
+		Position = UDim2.new(1, 0, 0, 0),
+		TextXAlignment = Enum.TextXAlignment.Right,
+		BackgroundTransparency = 1,
+		Parent = HeaderLabel,
+	})
 
-	local RemoteListContainer = Interface.New("Frame", {
+	-- Container that holds all per-plugin cards
+	local PluginCardsContainer = Interface.New("Frame", {
 		AutomaticSize = Enum.AutomaticSize.Y,
 		BackgroundTransparency = 1,
 		Size = UDim2.fromScale(1, 0),
-		Parent = Options.Section,
-
-		["UICorner"] = {
-			CornerRadius = UDim.new(0, 8),
-		},
+		Parent = PluginsSection.Parent,
 
 		["UIListLayout"] = {
 			FillDirection = Enum.FillDirection.Vertical,
 			HorizontalAlignment = Enum.HorizontalAlignment.Left,
-			Padding = UDim.new(0, 6),
-		},
-
-		["UIPadding"] = {
-			PaddingLeft = UDim.new(0, 5),
-			PaddingRight = UDim.new(0, 5),
-			PaddingTop = UDim.new(0, 5),
-			PaddingBottom = UDim.new(0, 5),
-		},
-
-		["UIStroke"] = {
-			ApplyStrokeMode = Enum.ApplyStrokeMode.Border,
-			Color = Color3.fromRGB(25, 25, 25),
-			Thickness = 1,
+			Padding = UDim.new(0, 5),
 		},
 	})
 
-	local NoRemotesText = Interface.New("TextLabel", {
-		Size = UDim2.new(1, 0, 0, 100),
-		TextTransparency = 0.5,
-		Text = Options.NullMessage,
-		TextSize = 14,
-		Visible = true,
-		Parent = RemoteListContainer,
-	})
+	local function CreatePluginCard(IsError: boolean, Title: string, Meta: string, Body: string)
+		local AccentColor = IsError and Color3.fromRGB(220, 55, 55) or Color3.fromRGB(55, 185, 100)
 
-	function RemoteList:Display()
-		for _, Object in pairs(RemoteListContainer:GetChildren()) do
-			if not Object:IsA("Frame") then
-				continue
-			end
-			Object:Destroy()
-		end
+		local Card = Interface.New("Frame", {
+			AutomaticSize = Enum.AutomaticSize.Y,
+			BackgroundColor3 = Color3.fromRGB(18, 18, 18),
+			Size = UDim2.fromScale(1, 0),
+			Parent = PluginCardsContainer,
 
-		NoRemotesText.Visible = (#self.Value == 0)
-		RemoveIgnored.Visible = (#self.Value > 0)
+			["UICorner"] = {
+				CornerRadius = UDim.new(0, 6),
+			},
 
-		for _, remoteData in self.Value do
-			local remote = remoteData.Instance
-			if not remote then
-				continue
-			end
+			["UIStroke"] = {
+				ApplyStrokeMode = Enum.ApplyStrokeMode.Border,
+				Color = Color3.fromRGB(35, 35, 35),
+				Thickness = 1,
+			},
+		})
 
-			local ListElement = Interface.New("Frame", {
-				BackgroundColor3 = Color3.fromRGB(0, 0, 0),
-				Size = UDim2.new(1, 0, 0, 32),
-				Parent = RemoteListContainer,
+		-- Left accent bar
+		Interface.New("Frame", {
+			AnchorPoint = Vector2.new(0, 0.5),
+			BackgroundColor3 = AccentColor,
+			Position = UDim2.new(0, 0, 0.5, 0),
+			Size = UDim2.new(0, 3, 1, -8),
+			BorderSizePixel = 0,
+			Parent = Card,
+		})
+
+
+		local Content = Interface.New("Frame", {
+			AutomaticSize = Enum.AutomaticSize.Y,
+			BackgroundTransparency = 1,
+			Size = UDim2.fromScale(1, 0),
+			Parent = Card,
+
+			["UIPadding"] = {
+				PaddingLeft  = UDim.new(0, 12),
+				PaddingRight = UDim.new(0, 12),
+				PaddingTop   = UDim.new(0, 7),
+				PaddingBottom = UDim.new(0, 7),
+			},
+
+			["UIListLayout"] = {
+				FillDirection = Enum.FillDirection.Vertical,
+				HorizontalAlignment = Enum.HorizontalAlignment.Left,
+				Padding = UDim.new(0, 2),
+			},
+		})
+
+		-- Title row: name + badge
+		local TitleRow = Interface.New("Frame", {
+			AutomaticSize = Enum.AutomaticSize.Y,
+			BackgroundTransparency = 1,
+			Size = UDim2.fromScale(1, 0),
+			Parent = Content,
+
+			["UIListLayout"] = {
+				FillDirection = Enum.FillDirection.Horizontal,
+				VerticalAlignment = Enum.VerticalAlignment.Center,
+				Padding = UDim.new(0, 6),
+			},
+		})
+
+		Interface.New("TextLabel", {
+			Text = Title,
+			RichText = false,
+			Font = Enum.Font.GothamBold,
+			TextSize = 14,
+			AutomaticSize = Enum.AutomaticSize.XY,
+			BackgroundTransparency = 1,
+			LayoutOrder = 1,
+			Parent = TitleRow,
+		})
+
+		-- Status badge (only shown for errors)
+		if IsError then
+			local Badge = Interface.New("Frame", {
+				AutomaticSize = Enum.AutomaticSize.XY,
+				BackgroundColor3 = AccentColor,
+				BackgroundTransparency = 0.75,
+				LayoutOrder = 2,
+				Parent = TitleRow,
 
 				["UICorner"] = {
-					CornerRadius = UDim.new(0, 4),
+					CornerRadius = UDim.new(1, 0),
 				},
 
-				["UIStroke"] = {
-					Color = Color3.fromRGB(25, 25, 25),
-					Thickness = 1,
-					ApplyStrokeMode = Enum.ApplyStrokeMode.Border,
-				},
-
-				["Frame"] = {
-					Size = UDim2.fromScale(1, 1),
-					BackgroundTransparency = 1,
-
-					["UIListLayout"] = {
-						FillDirection = Enum.FillDirection.Horizontal,
-						HorizontalAlignment = Enum.HorizontalAlignment.Left,
-						VerticalAlignment = Enum.VerticalAlignment.Center,
-						Padding = UDim.new(0, 4),
-					},
-
-					["UIPadding"] = {
-						PaddingLeft = UDim.new(0, 5),
-					},
-
-					["ImageLabel"] = {
-						Size = UDim2.new(1, -8, 1, -8),
-						SizeConstraint = Enum.SizeConstraint.RelativeYY,
-						Image = Images[remote.ClassName],
-						AnchorPoint = Vector2.new(0, 0.5),
-						BackgroundTransparency = 1,
-						LayoutOrder = 1,
-					},
-
-					["TextLabel"] = {
-						Text = `{remote.Name} ({remoteData.Type})`,
-						Size = UDim2.fromScale(1, 1),
-						AutomaticSize = Enum.AutomaticSize.X,
-						TextSize = 16,
-						TextXAlignment = Enum.TextXAlignment.Left,
-						BackgroundTransparency = 1,
-						LayoutOrder = 2,
-					},
+				["UIPadding"] = {
+					PaddingLeft = UDim.new(0, 6),
+					PaddingRight = UDim.new(0, 6),
+					PaddingTop = UDim.new(0, 2),
+					PaddingBottom = UDim.new(0, 2),
 				},
 			})
 
-			local RemoveButton = Interface.New("ImageButton", {
+			Interface.New("TextLabel", {
+				Text = "ERROR",
+				Font = Enum.Font.GothamBold,
+				TextColor3 = AccentColor,
+				TextSize = 10,
+				AutomaticSize = Enum.AutomaticSize.XY,
 				BackgroundTransparency = 1,
-				AnchorPoint = Vector2.new(1, 0.5),
-				Position = UDim2.new(1, -8, 0.5, 0),
-				Size = UDim2.new(1, -12, 1, -12),
-				SizeConstraint = Enum.SizeConstraint.RelativeYY,
-				ImageTransparency = 0.5,
-				Parent = ListElement,
+				Parent = Badge,
 			})
+		end
 
-			Icons.SetIcon(RemoveButton, "trash")
+		-- Meta line (version · author  OR  file path)
+		if Meta ~= "" then
+			Interface.New("TextLabel", {
+				Text = Meta,
+				RichText = false,
+				Font = Enum.Font.Gotham,
+				TextColor3 = Color3.fromRGB(160, 160, 160),
+				TextSize = 12,
+				Size = UDim2.fromScale(1, 0),
+				AutomaticSize = Enum.AutomaticSize.Y,
+				TextXAlignment = Enum.TextXAlignment.Left,
+				BackgroundTransparency = 1,
+				TextWrapped = true,
+				Parent = Content,
+			})
+		end
 
-			RemoveButton.MouseEnter:Connect(function()
-				wax.shared.TweenService
-					:Create(RemoveButton, DefaultTweenInfo, {
-						ImageTransparency = 0,
-					})
-					:Play()
-			end)
-
-			RemoveButton.MouseLeave:Connect(function()
-				wax.shared.TweenService
-					:Create(RemoveButton, DefaultTweenInfo, {
-						ImageTransparency = 0.5,
-					})
-					:Play()
-			end)
-
-			RemoveButton.MouseButton1Click:Connect(function()
-				self:RemoveFromList(remoteData)
-				if Options.Callback then
-					Options.Callback(remoteData)
-				end
-			end)
+		-- Body (description or error message)
+		if Body ~= "" then
+			Interface.New("TextLabel", {
+				Text = Body,
+				RichText = false,
+				Font = Enum.Font.Gotham,
+				TextColor3 = IsError and Color3.fromRGB(210, 120, 120) or Color3.fromRGB(140, 140, 140),
+				TextSize = 12,
+				Size = UDim2.fromScale(1, 0),
+				AutomaticSize = Enum.AutomaticSize.Y,
+				TextXAlignment = Enum.TextXAlignment.Left,
+				BackgroundTransparency = 1,
+				TextWrapped = true,
+				Parent = Content,
+			})
 		end
 	end
 
-	function RemoteList:AddToList(remote)
-		table.insert(self.Value, remote)
-
-		self:Display()
-	end
-
-	function RemoteList:RemoveFromList(remote)
-		local index = table.find(self.Value, remote)
-		if not index then
-			return
+	task.spawn(function()
+		while not wax.shared.CobaltPluginManager or not wax.shared.CobaltPluginManager.Initialized do
+			task.wait()
 		end
 
-		table.remove(self.Value, index)
+		local Registry = wax.shared.CobaltPluginManager.Registry
+		local LoadedCount = #Registry.Plugins
+		local ErrorCount  = #Registry.Errored
 
-		self:Display()
-	end
+		-- Update summary label
+		local SummaryParts = {}
+		if LoadedCount > 0 then
+			table.insert(SummaryParts, `<font color="#37b964"><b>{LoadedCount}</b></font> loaded`)
+		end
+		if ErrorCount > 0 then
+			table.insert(SummaryParts, `<font color="#dc3737"><b>{ErrorCount}</b></font> errored`)
+		end
+		if #SummaryParts == 0 then
+			table.insert(SummaryParts, `<font transparency="0.5">No plugins installed.</font>`)
+		end
+		SummaryLabel.RichText = true
+		SummaryLabel.Text = table.concat(SummaryParts, `<font transparency="0.6"> · </font>`)
 
-	function RemoteList:SetList(remotes: { SupportedRemoteTypes })
-		self.Value = remotes
-
-		self:Display()
-	end
-
-	RemoveIgnored = CreateSettingsButton("Remove All", function()
-		if not Options.Callback then
-			return
+		-- Errored plugins first (most actionable)
+		for _, ErrorInfo in Registry.Errored do
+			local FileName = string.match(ErrorInfo.FilePath, "([^/]+)$") or ErrorInfo.FilePath
+			local Title = ErrorInfo.Name or FileName
+			local Meta = if ErrorInfo.Name
+				then `v{ErrorInfo.Version or "1.0.0"}  ·  by {ErrorInfo.Author or "Unknown"}  ·  {FileName}`
+				else ErrorInfo.FilePath
+			CreatePluginCard(true, Title, Meta, ErrorInfo.Error)
 		end
 
-		local ToRemove = {}
-		for _, remote in RemoteList.Value do
-			Options.Callback(remote)
-			table.insert(ToRemove, remote)
+		-- Loaded plugins
+		for _, PluginInfo in Registry.Plugins do
+			local Data = PluginInfo.PluginData
+			local Name = Data.Name or "Unknown"
+			local Version = Data.Version or "1.0.0"
+			local Author = Data.Author or "Unknown"
+			local Desc = Data.Description or "No description."
+			CreatePluginCard(false, Name, `v{Version}  ·  by {Author}`, Desc)
 		end
-
-		for _, remote in ToRemove do
-			RemoteList:RemoveFromList(remote)
-		end
-		wax.shared.Sonner.success("Removed all remotes")
-	end, Options.Section)
-	RemoveIgnored.Visible = false
-
-	RemoteList:Display()
-
-	wax.shared.Settings[Idx] = RemoteList
-	return RemoteList
+	end)
 end
 
+-- Main Settings
 -- God this warning box code is so ass 🥀
 if #wax.shared.ExecutorSupport.FailedChecks.NonEssential > 0 then
 	local WarningDisplay = Interface.New("Frame", {
@@ -1511,25 +1847,13 @@ if #wax.shared.ExecutorSupport.FailedChecks.NonEssential > 0 then
 	})
 end
 
-local ExecSupportSection = CreateSettingsSection("Support Info")
+local MainSettings = SettingsBuilder.new(SettingsScrollingFrame)
+local ExecSupportSection = MainSettings:CreateSection("Support Info")
 do
-	Interface.New("TextLabel", {
-		Text = table.concat({
-			`Executor: <b>{wax.shared.ExecutorName}</b>`,
-			`Support: {#wax.shared.ExecutorSupport.FailedChecks.Essential == 0 and "<b>Full</b>" or "<b>Partial</b> (" .. #wax.shared.ExecutorSupport.FailedChecks.Essential .. " check(s) failed)"}`,
-		}, "\n"),
-		TextSize = 16,
-		Size = UDim2.fromScale(1, 0),
-		AutomaticSize = Enum.AutomaticSize.Y,
-		TextXAlignment = Enum.TextXAlignment.Left,
-		BackgroundTransparency = 1,
-		Parent = ExecSupportSection,
-		TextWrapped = true,
-
-		["UIPadding"] = {
-			PaddingBottom = UDim.new(0, 2),
-		},
-	})
+	ExecSupportSection:AddLabel(table.concat({
+		`Executor: <b>{wax.shared.ExecutorName}</b>`,
+		`Support: {#wax.shared.ExecutorSupport.FailedChecks.Essential == 0 and "<b>Full</b>" or "<b>Partial</b> (" .. #wax.shared.ExecutorSupport.FailedChecks.Essential .. " check(s) failed)"}`,
+	}, "\n"))
 
 	local PartialSupportText = ""
 	local SupportSuffix = "\n\n"
@@ -1540,22 +1864,13 @@ do
 	PartialSupportText = PartialSupportText:sub(1, (#SupportSuffix * -1) - 1)
 
 	if #wax.shared.ExecutorSupport.FailedChecks.Essential > 0 then
-		Interface.New("TextLabel", {
-			Text = PartialSupportText,
-			TextSize = 16,
-			Size = UDim2.fromScale(1, 0),
-			AutomaticSize = Enum.AutomaticSize.Y,
-			TextXAlignment = Enum.TextXAlignment.Left,
-			BackgroundTransparency = 1,
-			Parent = ExecSupportSection,
-			TextWrapped = true,
-		})
+		ExecSupportSection:AddLabel(PartialSupportText)
 	end
 end
 
-local CodeGenSection = CreateSettingsSection("Code Generation")
+local CodeGenSection = MainSettings:CreateSection("Code Generation")
 
-CreateSettingsDropdown("InstancePathLookupChain", {
+CodeGenSection:CreateDropdown("InstancePathLookupChain", {
 	Text = "Instance Path Lookup Chain",
 	Values = {
 		["Index"] = "file",
@@ -1563,24 +1878,21 @@ CreateSettingsDropdown("InstancePathLookupChain", {
 		["FindFirstChild"] = "file-search",
 	},
 	Default = "Index",
-	Section = CodeGenSection,
 })
 
-CreateSettingsCheckbox("PreferBufferFromString", {
+CodeGenSection:CreateCheckbox("PreferBufferFromString", {
 	Text = "Prefer buffer.fromstring",
 	Default = false,
-	Section = CodeGenSection,
 })
 
-CreateSettingsCheckbox("ShowWatermark", {
+CodeGenSection:CreateCheckbox("ShowWatermark", {
 	Text = "Show Cobalt Watermark",
 	Default = true,
-	Section = CodeGenSection,
 })
 
-local MainSection = CreateSettingsSection("Main")
+local MainSection = MainSettings:CreateSection("Main")
 
-CreateSettingsDropdown("WindowDPIScale", {
+MainSection:CreateDropdown("WindowDPIScale", {
 	Text = "DPI Scale",
 	Values = {
 		"50%",
@@ -1590,16 +1902,14 @@ CreateSettingsDropdown("WindowDPIScale", {
 		"150%"
 	},
 	Default = "100%",
-	Section = MainSection,
 
 	Callback = function(value)
 		ScreenDPIScale.Scale = GetDPIScale()
 	end
 })
 
-CreateSettingsTextBox("MaxItemPerPages", {
+MainSection:CreateTextBox("MaxItemPerPages", {
 	Text = "Logs Per Page",
-	Section = MainSection,
 	Default = 20,
 	NumericOnly = true,
 
@@ -1618,40 +1928,37 @@ CreateSettingsTextBox("MaxItemPerPages", {
 	end,
 })
 
-CreateSettingsCheckbox("ExecuteOnTeleport", {
+MainSection:CreateCheckbox("ExecuteOnTeleport", {
 	Text = "Execute On Teleport",
 	Default = false,
-	Section = MainSection,
 })
 
-CreateSettingsCheckbox("UseAlternativeHooks", {
+MainSection:CreateCheckbox("UseAlternativeHooks", {
 	Text = "Use alternative metamethod hook",
 	Default = false,
-	Section = MainSection,
 })
 
-CreateSettingsCheckbox("AnticheatBypass", {
+MainSection:CreateCheckbox("AnticheatBypass", {
 	Text = "Built-in Anticheat Bypass",
 	Default = true,
-	Section = MainSection,
 })
 
 if AnticheatData.Disabled then
-	Interface.New("TextLabel", {
-		Text = `Anticheat Detected: <b>{AnticheatData.Name}</b>`,
-		TextSize = 16,
-		Size = UDim2.fromScale(1, 0),
-		AutomaticSize = Enum.AutomaticSize.Y,
-		TextXAlignment = Enum.TextXAlignment.Left,
-		BackgroundTransparency = 1,
-		Parent = MainSection,
-		TextWrapped = true,
-	})
+	MainSection:AddLabel(`Anticheat Detected: <b>{AnticheatData.Name}</b>`)
 end
 
-wax.shared.ClearLogs = function()
-	for _, LogCategory in pairs(wax.shared.Logs) do
+wax.shared.ClearLogs = function(FilterInstance: Instance?, FilterType: string?)
+	local ClearedAny = false
+	for Type, LogCategory in pairs(wax.shared.Logs) do
+		if FilterType and Type ~= FilterType then
+			continue
+		end
+
 		for Index, Log in pairs(LogCategory) do
+			if FilterInstance and Log.Instance ~= FilterInstance then
+				continue
+			end
+
 			if Log.Button then
 				Log.Button.Instance:Destroy()
 				Log.Button = nil
@@ -1662,49 +1969,55 @@ wax.shared.ClearLogs = function()
 			table.clear(Log.Calls)
 			table.clear(Log.GameCalls)
 			Log.Index = 0
+			ClearedAny = true
 		end
 	end
 
 	CleanLogsList()
-	CurrentLog = nil
+	if not FilterInstance then
+		CurrentLog = nil
+	elseif CurrentLog and CurrentLog.Instance == FilterInstance then
+		CurrentLog = nil
+	end
 
-	wax.shared.Sonner.success("Successfully Cleared All Logs")
+	if ClearedAny then
+		wax.shared.Sonner.success(`Successfully Cleared {FilterInstance and FilterInstance.Name .. " " or ""}{FilterType or "All"} Logs`)
+	end
 end
 
-CreateSettingsButton("Clear All Logs", wax.shared.ClearLogs, MainSection)
+wax.shared.GetCurrentLog = function()
+	return CurrentLog
+end
 
-local FilterSection = CreateSettingsSection("Filter")
+MainSection:CreateButton("Clear All Logs", wax.shared.ClearLogs)
 
-CreateSettingsDropdown("IgnoredRemotesDropdown", {
+local FilterSection = MainSettings:CreateSection("Filter")
+
+FilterSection:CreateDropdown("IgnoredRemotesDropdown", {
 	Text = "Ignore Remotes",
 	Values = Images,
 	Default = { "BindableEvent", "BindableFunction" },
 	AllowNull = true,
 	Multi = true,
-	Section = FilterSection,
 })
 
-CreateSettingsCheckbox("AutoIgnoreSpammyEvents", {
+FilterSection:CreateCheckbox("AutoIgnoreSpammyEvents", {
 	Text = "Auto Ignore Spammy Events",
 	Default = false,
-	Section = FilterSection,
 })
 
-CreateSettingsCheckbox("LogActors", {
+FilterSection:CreateCheckbox("LogActors", {
 	Text = "Log Events from Actors",
 	Default = true,
-	Section = FilterSection,
 })
 
-CreateSettingsCheckbox("IgnorePlayerModule", {
+FilterSection:CreateCheckbox("IgnorePlayerModule", {
 	Text = "Ignore Player Module Remotes",
 	Default = true,
-	Section = FilterSection,
 })
-CreateSettingsCheckbox("ShowExecutorLogs", {
+FilterSection:CreateCheckbox("ShowExecutorLogs", {
 	Text = `Show {wax.shared.ExecutorName} Remote Logs`,
 	Default = true,
-	Section = FilterSection,
 	Callback = function()
 		if not CurrentLog then
 			return
@@ -1717,44 +2030,41 @@ CreateSettingsCheckbox("ShowExecutorLogs", {
 		ShowLog(CurrentLog)
 	end,
 })
-CreateSettingsButton("Reset Filtering to Default", function()
+FilterSection:CreateButton("Reset Filtering to Default", function()
 	wax.shared.Settings.IgnoredRemotesDropdown:Reset()
 	wax.shared.Settings.IgnoreSpammyRemotes:Reset()
 	wax.shared.Settings.IgnorePlayerModule:Reset()
 	wax.shared.Settings.ShowExecutorLogs:Reset()
 
 	wax.shared.Sonner.success("Successfully reset remote filtering to default")
-end, FilterSection)
+end)
 
-local IgnoredSection = CreateSettingsSection("Ignored")
+local IgnoredSection = MainSettings:CreateSection("Ignored")
 
-CreateSettingsRemoteList("IgnoredRemotes", {
+IgnoredSection:CreateRemoteList("IgnoredRemotes", {
 	Text = "Ignored Remotes",
 	NullMessage = "No remotes have been ignored yet.",
-	Section = IgnoredSection,
 	Callback = function(Remote)
 		Remote.Ignored = false
 	end,
 })
 
-local BlockedSection = CreateSettingsSection("Blocked")
+local BlockedSection = MainSettings:CreateSection("Blocked")
 
-CreateSettingsRemoteList("BlockedRemotes", {
+BlockedSection:CreateRemoteList("BlockedRemotes", {
 	Text = "Blocked Remotes",
 	NullMessage = "No remotes have been blocked yet.",
-	Section = BlockedSection,
 	Callback = function(Remote)
 		Remote.Blocked = false
 	end,
 })
 
-local LoggingSection = CreateSettingsSection("Logging")
+local LoggingSection = MainSettings:CreateSection("Logging")
 local SessionLog
 
-CreateSettingsCheckbox("EnableLogging", {
+LoggingSection:CreateCheckbox("EnableLogging", {
 	Text = `Enable File Logs`,
 	Default = false,
-	Section = LoggingSection,
 	Callback = function(value)
 		if not value then
 			wax.shared.LogConnection:Disconnect()
@@ -1773,61 +2083,16 @@ CreateSettingsCheckbox("EnableLogging", {
 	end,
 })
 
-SessionLog = Interface.New("TextLabel", {
-	Text = `Current Session Log: <b>{wax.shared.Settings.EnableLogging.Value and wax.shared.LogFileName:gsub(
-		"Cobalt/Logs/",
-		""
-	) or "Not Logging"}</b>`,
-	TextSize = 16,
-	Size = UDim2.fromScale(1, 0),
-	AutomaticSize = Enum.AutomaticSize.Y,
-	TextXAlignment = Enum.TextXAlignment.Left,
-	BackgroundTransparency = 1,
-	Parent = LoggingSection,
-	TextWrapped = true,
-})
+SessionLog = LoggingSection:AddLabel(`Current Session Log: <b>{wax.shared.Settings.EnableLogging.Value and wax.shared.LogFileName:gsub(
+	"Cobalt/Logs/",
+	""
+) or "Not Logging"}</b>`)
 
-Interface.New("TextLabel", {
-	Text = `Logs Path: <b>Cobalt/Logs</b>`,
-	TextSize = 16,
-	Size = UDim2.fromScale(1, 0),
-	AutomaticSize = Enum.AutomaticSize.Y,
-	TextXAlignment = Enum.TextXAlignment.Left,
-	BackgroundTransparency = 1,
-	Parent = LoggingSection,
-	TextWrapped = true,
-})
+LoggingSection:AddLabel(`Logs Path: <b>Cobalt/Logs</b>`)
 
-local SessionButtonsContainer = Interface.New("Frame", {
-	BackgroundTransparency = 1,
-	Size = UDim2.fromScale(1, 0),
-	AutomaticSize = Enum.AutomaticSize.Y,
-	Parent = LoggingSection,
+local SessionButtons = LoggingSection:CreateRow()
 
-	["UIListLayout"] = {
-		FillDirection = Enum.FillDirection.Vertical,
-		Padding = UDim.new(0, 8),
-	},
-
-	["UIPadding"] = {
-		PaddingTop = UDim.new(0, 4),
-		PaddingBottom = UDim.new(0, 8),
-	},
-})
-
-local SessionButtons = Interface.New("Frame", {
-	BackgroundTransparency = 1,
-	Size = UDim2.fromScale(1, 0),
-	AutomaticSize = Enum.AutomaticSize.Y,
-	Parent = SessionButtonsContainer,
-
-	["UIListLayout"] = {
-		FillDirection = Enum.FillDirection.Horizontal,
-		HorizontalAlignment = Enum.HorizontalAlignment.Left,
-		Padding = UDim.new(0, 8),
-	},
-})
-local CopySessionName = CreateSettingsButton("Copy Session Name", function()
+local CopySessionName = SessionButtons:CreateButton("Copy Session Name", function()
 	if not wax.shared.Settings.EnableLogging.Value then
 		wax.shared.Sonner.error("File logging is not enabled")
 		return
@@ -1843,10 +2108,10 @@ local CopySessionName = CreateSettingsButton("Copy Session Name", function()
 	end
 
 	wax.shared.Sonner.success("Successfully copied session name to clipboard")
-end, SessionButtons, 14)
+end, 14)
 CopySessionName.Size = UDim2.new(0.5, -4, 0, 24)
 
-local CopyFullSessionPath = CreateSettingsButton("Copy Full Path", function()
+local CopyFullSessionPath = SessionButtons:CreateButton("Copy Full Path", function()
 	if not wax.shared.Settings.EnableLogging.Value then
 		wax.shared.Sonner.error("File logging is not enabled")
 		return
@@ -1861,10 +2126,10 @@ local CopyFullSessionPath = CreateSettingsButton("Copy Full Path", function()
 	end
 
 	wax.shared.Sonner.success("Successfully copied log path to clipboard")
-end, SessionButtons, 14)
+end, 14)
 CopyFullSessionPath.Size = UDim2.new(0.5, -4, 0, 24)
 
-local ExportLogsButton = CreateSettingsButton("Export Logs to HTML", function()
+local ExportLogsButton = SessionButtons:CreateButton("Export Logs to HTML", function()
 	wax.shared.Sonner.promise(function(UpdateProgress)
 		assert(typeof(writefile) == "function", "Exploit does not support writefile")
 		
@@ -1893,11 +2158,11 @@ local ExportLogsButton = CreateSettingsButton("Export Logs to HTML", function()
 		successText = function(fileName) return `Successfully exported trace to {fileName}` end,
 		errorText = function(err) return `Export Failed: {err}` end,
 	})
-end, SessionButtonsContainer, 14)
+end, 14)
 
 ExportLogsButton.Size = UDim2.new(1, 0, 0, 24)
 
-local CreditsSection = CreateSettingsSection("Credits")
+local CreditsSection = MainSettings:CreateSection("Credits")
 
 local Credits = {
 	{
@@ -1926,7 +2191,7 @@ local CreditsWrapper = Interface.New("Frame", {
 	BackgroundTransparency = 1,
 	Size = UDim2.fromScale(1, 0),
 	AutomaticSize = Enum.AutomaticSize.Y,
-	Parent = CreditsSection,
+	Parent = CreditsSection.Parent,
 
 	["UIListLayout"] = {
 		FillDirection = Enum.FillDirection.Vertical,
@@ -1983,20 +2248,473 @@ Resize.new({
 local InfoTitle, InfoIcon = CreateModalTop("...", Images["RemoteEvent"], InfoFrame)
 local InfoModalTab = {}
 
+local InfoTabsScroller = Interface.New("ScrollingFrame", {
+	BackgroundTransparency = 1,
+	Position = UDim2.new(0, 4, 0, 44),
+	Size = UDim2.new(1, -10, 0, 36),
+	CanvasSize = UDim2.fromScale(0, 0),
+	AutomaticCanvasSize = Enum.AutomaticSize.X,
+	ScrollBarThickness = 0,
+	ScrollingDirection = Enum.ScrollingDirection.X,
+	ClipsDescendants = true,
+	Parent = InfoFrame,
+})
+
 local InfoTabs = Interface.New("Frame", {
 	BackgroundTransparency = 1,
-	Position = UDim2.new(0, 6, 0, 44),
-	Size = UDim2.new(1, -12, 0, 36),
-	Parent = InfoFrame,
+	AutomaticSize = Enum.AutomaticSize.X,
+	Size = UDim2.fromScale(0, 1),
+	Parent = InfoTabsScroller,
 
 	["UIListLayout"] = {
 		Padding = UDim.new(0, 6),
 		FillDirection = Enum.FillDirection.Horizontal,
 		VerticalAlignment = Enum.VerticalAlignment.Top,
 	},
+
+	["UIPadding"] = {
+		PaddingRight = UDim.new(0, 20),
+		PaddingTop = UDim.new(0, 2),
+		PaddingLeft = UDim.new(0, 2),
+	},
 })
 
+-- Right gradient (always visible)
+Interface.New("Frame", {
+	AnchorPoint = Vector2.new(1, 0),
+	Position = UDim2.new(1, -6, 0, 44),
+	Size = UDim2.new(0, 30, 0, 36),
+	BackgroundColor3 = Color3.fromRGB(10, 10, 10),
+	BorderSizePixel = 0,
+	ZIndex = 10,
+	Parent = InfoFrame,
+
+	["UIGradient"] = {
+		Transparency = NumberSequence.new({
+			NumberSequenceKeypoint.new(0, 1),
+			NumberSequenceKeypoint.new(1, 0),
+		}),
+	},
+})
+
+-- Left gradient (only visible after scrolling)
+local LeftGradient = Interface.New("Frame", {
+	Position = UDim2.new(0, 4, 0, 44),
+	Size = UDim2.new(0, 30, 0, 36),
+	BackgroundColor3 = Color3.fromRGB(10, 10, 10),
+	BorderSizePixel = 0,
+	ZIndex = 10,
+	Visible = false,
+	Parent = InfoFrame,
+
+	["UIGradient"] = {
+		Transparency = NumberSequence.new({
+			NumberSequenceKeypoint.new(0, 0),
+			NumberSequenceKeypoint.new(1, 1),
+		}),
+	},
+})
+
+InfoTabsScroller:GetPropertyChangedSignal("CanvasPosition"):Connect(function()
+	LeftGradient.Visible = InfoTabsScroller.CanvasPosition.X > 2
+end)
+
+local DefaultFooterButtons = {
+	{
+		Icon = "code",
+		Title = "Code",
+		Options = {
+			{
+				Text = "Calling Code",
+				Icon = "forward",
+				Callback = function()
+					if not CurrentInfo then
+						return
+					end
+
+					local Code = CodeGen:BuildCallCode(CurrentInfo)
+					local Success, Error = pcall(setclipboard, Code)
+
+					if Success then
+						wax.shared.Sonner.success("Copied code to clipboard")
+					else
+						wax.shared.Sonner.error("Failed to copy code to clipboard")
+						warn("Failed to copy code to clipboard", Error)
+					end
+				end,
+			},
+			{
+				Text = "Intercept Code",
+				Icon = "shield-alert",
+				Callback = function()
+					if not CurrentInfo then
+						return
+					end
+
+					local Code = CodeGen:BuildHookCode(CurrentInfo)
+					local Success, Error = pcall(setclipboard, Code)
+
+					if Success then
+						wax.shared.Sonner.success("Copied code to clipboard")
+					else
+						wax.shared.Sonner.error("Failed to copy code to clipboard")
+						warn("Failed to copy code to clipboard", Error)
+					end
+				end,
+			},
+			{
+				Text = "Function Info",
+				Icon = "parentheses",
+				Callback = function()
+					if not CurrentInfo then
+						return
+					end
+
+					local Info = {
+						Function = typeof(CurrentInfo.Function) == "function" and {
+							Name = CurrentInfo.Function and debug.info(CurrentInfo.Function, "n") or "Unknown",
+							Source = CurrentInfo.Source
+								or (CurrentInfo.Function and debug.info(CurrentInfo.Function, "s"))
+								or "Unknown",
+							Type = CurrentInfo.Function
+									and (iscclosure(CurrentInfo.Function) and "C Closure" or "Luau function")
+								or "N/A",
+							Address = tostring(CurrentInfo.Function),
+							Arguments = table.unpack(
+								CurrentInfo.Arguments,
+								1,
+								wax.shared.GetTableLength(CurrentInfo.Arguments)
+							),
+						} or CurrentInfo.Function,
+						Script = CurrentInfo.Origin,
+						Line = CurrentInfo.Line,
+					}
+
+					if typeof(CurrentInfo.Function) == "function" and islclosure(CurrentInfo.Function) then
+						local FunctionInfo = {
+							Constants = debug.getconstants,
+							Upvalues = debug.getupvalues,
+							Protos = debug.getprotos,
+						}
+
+						for Type, Func in pairs(FunctionInfo) do
+							if not Func then
+								continue
+							end
+
+							Info.Function[Type] = Func(CurrentInfo.Function)
+						end
+					end
+
+					local Success, Error = pcall(setclipboard, `local Info = {LuaEncode(Info, { Prettify = true, DisableNilParentHandler = true })}`)
+					if Success then
+						wax.shared.Sonner.success("Copied function info to clipboard")
+					else
+						wax.shared.Sonner.error("Failed to copy function info to clipboard")
+						warn("Failed to copy function info to clipboard", Error)
+					end
+				end,
+			},
+		}
+	},
+	{
+		Icon = "scroll-text",
+		Title = "Origin",
+		Options = {
+			{
+				Text = "Remote Path",
+				Icon = "package-search",
+				Callback = function()
+					if not CurrentInfo then
+						return
+					end
+
+					local Success, Error = pcall(setclipboard, CodeGen.GetFullPath(CurrentInfo.Instance, {
+						VariableName = "Event",
+						DisableNilParentHandler = false
+					}))
+					if Success then
+						wax.shared.Sonner.success("Copied remote path to clipboard")
+					else
+						wax.shared.Sonner.error("Failed to copy remote path to clipboard")
+						warn("Failed to copy remote path to clipboard", Error)
+					end
+				end,
+			},
+			{
+				Text = "Script Path",
+				Icon = "file-search",
+				Condition = function()
+					return CurrentInfo and typeof(CurrentInfo.Origin) == "Instance"
+				end,
+				Callback = function()
+					if not (CurrentInfo and typeof(CurrentInfo.Origin) == "Instance") then
+						return
+					end
+
+					local Success, Error = pcall(setclipboard, CodeGen.GetFullPath(CurrentInfo.Origin))
+					if Success then
+						wax.shared.Sonner.success("Copied script path to clipboard")
+					else
+						wax.shared.Sonner.error("Failed to copy script path to clipboard")
+						warn("Failed to copy script path to clipboard", Error)
+					end
+				end,
+			},
+			{
+				Text = "Decompiled Script",
+				Icon = "file-text",
+				Condition = function()
+					return CurrentInfo and typeof(CurrentInfo.Origin) == "Instance" and typeof(decompile) == "function"
+				end,
+				Callback = function()
+					if not (CurrentInfo and typeof(CurrentInfo.Origin) == "Instance" and typeof(decompile) == "function") then
+						return
+					end
+
+					local Decompiled, Result = pcall(decompile, CurrentInfo.Origin)
+					if Decompiled then
+						local Success, Error = pcall(setclipboard, Result)
+						if Success then
+							wax.shared.Sonner.success("Copied decompiled script to clipboard")
+						else
+							wax.shared.Sonner.error("Failed to copy decompiled script to clipboard")
+							warn("Failed to copy decompield script to clipboard", Error)
+						end
+					else
+						wax.shared.Sonner.error("Failed to decompile script")
+						warn("Failed to decompile script", Result)
+					end
+				end,
+			},
+		}
+	},
+	{
+		Icon = "network",
+		Title = "Event",
+		Options = {
+			{
+				Text = "Replay",
+				Icon = "play",
+				Callback = function()
+					if not CurrentInfo then
+						return
+					end
+
+					wax.shared.Sonner.promise(function()
+						wax.shared.ReplayCallInfo(CurrentInfo, CurrentTab.Name)
+					end, {
+						loadingText = "Replaying event...",
+						successText = "Replayed event successfully!",
+						errorText = "Failed to replay event",
+						time = 4.5,
+					})
+				end,
+			},
+			{
+				Text = function()
+					if not CurrentLog then
+						return "Ignore"
+					end
+
+					return CurrentLog.Ignored and "Unignore" or "Ignore"
+				end,
+				Icon = function()
+					if not CurrentLog then
+						return "eye"
+					end
+
+					return CurrentLog.Ignored and "eye" or "eye-off"
+				end,
+				Callback = function()
+					if not CurrentLog then
+						return
+					end
+
+					CurrentLog:Ignore()
+					wax.shared.Sonner.success(`{CurrentLog.Ignored and "Started" or "Stopped"} ignoring event`)
+				end,
+			},
+			{
+				Text = function()
+					if not CurrentLog then
+						return "Block"
+					end
+
+					return CurrentLog.Blocked and "Unblock" or "Block"
+				end,
+				Icon = function()
+					if not CurrentLog then
+						return "lock"
+					end
+
+					return CurrentLog.Blocked and "lock" or "lock-open"
+				end,
+				Callback = function()
+					if not CurrentLog then
+						return
+					end
+
+					CurrentLog:Block()
+
+					local BlockedRemoteList = wax.shared.Settings["BlockedRemotes"]
+					if BlockedRemoteList then
+						if CurrentLog.Blocked then
+							BlockedRemoteList:AddToList(CurrentLog)
+						else
+							BlockedRemoteList:RemoveFromList(CurrentLog)
+						end
+					end
+
+					wax.shared.Sonner.success(`{CurrentLog.Blocked and "Started" or "Stopped"} blocking event`)
+				end,
+			},
+			{
+				Text = "Clear Logs",
+				Icon = "trash",
+				Callback = function()
+					if not CurrentLog then
+						return
+					end
+
+					CurrentLog.Calls = {}
+					PaginationHelper:Update(#CurrentLog.Calls)
+					PaginationHelper:SetPage(1)
+					CurrentPage[CurrentLog] = 1
+
+					CleanLogsList()
+
+					CurrentLog.Button.Calls.Text = "x" .. #CurrentLog.Calls
+					UpdateLogNameSize(CurrentLog)
+
+					ShowPagination(CurrentLog)
+					ShowCalls(CurrentLog, 1)
+
+					CloseModal()
+
+					wax.shared.Sonner.success("Cleared events for this remote")
+
+					if #CurrentLog.Calls == 0 then
+						CurrentLog.Button.Instance.Parent = nil
+					end
+				end,
+			}
+		}
+	}
+}
+
+InfoButtons = Interface.New("Frame", {
+	AnchorPoint = Vector2.new(0, 1),
+	BackgroundTransparency = 1,
+	Position = UDim2.new(0, 6, 1, -7),
+	Size = UDim2.new(1, -12, 0, 32),
+	Parent = InfoFrame,
+
+	["UIListLayout"] = {
+		FillDirection = Enum.FillDirection.Horizontal,
+		HorizontalAlignment = Enum.HorizontalAlignment.Center,
+		Padding = UDim.new(0, 6),
+	},
+})
+
+local function CreateInfoDropdownButton(Icon: string, Title: string, Options: {})
+	local Button = Interface.New("TextButton", {
+		AutomaticSize = Enum.AutomaticSize.X,
+		BackgroundColor3 = Color3.fromRGB(20, 20, 20),
+		BackgroundTransparency = 1,
+		Size = UDim2.fromScale(0, 1),
+		Text = "",
+
+		["UICorner"] = {
+			CornerRadius = UDim.new(0, 6),
+		},
+
+		["UIPadding"] = {
+			PaddingLeft = UDim.new(0, 8),
+			PaddingRight = UDim.new(0, 8),
+			PaddingTop = UDim.new(0, 6),
+			PaddingBottom = UDim.new(0, 6),
+		},
+
+		["UIStroke"] = {
+			Color = Color3.fromRGB(25, 25, 25),
+			Thickness = 1,
+			ApplyStrokeMode = Enum.ApplyStrokeMode.Border,
+		},
+
+		["TextLabel"] = {
+			Text = Title,
+			TextSize = 15,
+			Size = UDim2.fromScale(0, 1),
+			Position = UDim2.fromOffset(28, 0),
+			AutomaticSize = Enum.AutomaticSize.X,
+		},
+
+		Parent = InfoButtons,
+	})
+
+	Interface.NewIcon(Icon, {
+		Size = UDim2.fromScale(1, 1),
+		SizeConstraint = Enum.SizeConstraint.RelativeYY,
+
+		Parent = Button,
+	})
+
+	local Menu = CreateContextMenu(Button, Options)
+
+	Button.MouseEnter:Connect(function()
+		wax.shared.TweenService
+			:Create(Button, DefaultTweenInfo, {
+				BackgroundTransparency = 0,
+			})
+			:Play()
+	end)
+	Button.MouseLeave:Connect(function()
+		wax.shared.TweenService
+			:Create(Button, DefaultTweenInfo, {
+				BackgroundTransparency = 1,
+			})
+			:Play()
+	end)
+	Button.MouseButton1Click:Connect(Menu.Toggle)
+	return Button
+end
+
 local CurrentInfoTab = nil
+
+local function UpdateFooterButtons()
+	for _, Element in InfoButtons:GetChildren() do
+		if Element:IsA("TextButton") then
+			Element.Parent = nil
+		end
+	end
+
+	local PluginManager = wax.shared.CobaltPluginManager
+	local TabRegistry = PluginManager and PluginManager.Registry.UIHooks.RemoteInfo.Tabs[CurrentInfoTab] or nil
+
+	if not (TabRegistry and TabRegistry.DisableDefaults) then
+		for _, ButtonDef in DefaultFooterButtons do
+			if not ButtonDef.Instance then
+				ButtonDef.Instance = CreateInfoDropdownButton(ButtonDef.Icon, ButtonDef.Title, ButtonDef.Options)
+			end
+			ButtonDef.Instance.Parent = InfoButtons
+		end
+	end
+
+	if TabRegistry and TabRegistry.Buttons then
+		for _, ButtonDef in TabRegistry.Buttons do
+			if not ButtonDef.Instance then
+				ButtonDef.Instance = CreateInfoDropdownButton(ButtonDef.Icon, ButtonDef.Title, ButtonDef.Options)
+			end
+			ButtonDef.Instance.Parent = InfoButtons
+		end
+	end
+end
+
+if wax.shared.CobaltPluginManager then
+	wax.shared.CobaltPluginManager.UI.RemoteInfo.UpdateFooterButtons = UpdateFooterButtons
+end
+
 local function CreateInfoTab(Icon: string, Title: string, TabContents: Frame?)
 	if not CurrentInfoTab then
 		CurrentInfoTab = Title
@@ -2087,6 +2805,7 @@ local function CreateInfoTab(Icon: string, Title: string, TabContents: Frame?)
 		OldTabContents.Visible = false
 
 		CurrentInfoTab = Title
+		UpdateFooterButtons()
 
 		TabButton.BackgroundColor3 = Color3.fromRGB(25, 25, 25)
 		TabButton.Frame.BackgroundColor3 = Color3.fromRGB(25, 25, 25)
@@ -2133,6 +2852,14 @@ local function CreateTabContent()
 			Parent = Container,
 		})
 end
+
+wax.shared.CreateRemoteInfoTab = CreateInfoTab
+wax.shared.CreateTabContent = CreateTabContent
+wax.shared.OpenModal = OpenModal
+wax.shared.CloseModal = CloseModal
+wax.shared.CreateModalTop = CreateModalTop
+wax.shared.CreateInfoDropdownButton = CreateInfoDropdownButton
+wax.shared.ModalBackground = ModalBackground
 
 local ArgumentInfoUI, ArgumentScrollingFrame = CreateTabContent()
 CreateInfoTab("ellipsis", "Arguments", ArgumentInfoUI)
@@ -2227,355 +2954,6 @@ local FunctionInfoText = Interface.New("TextLabel", {
 	BackgroundTransparency = 1,
 	Text = "",
 	Parent = FunctionScrollingFrame,
-})
-
-local InfoButtons = Interface.New("Frame", {
-	AnchorPoint = Vector2.new(0, 1),
-	BackgroundTransparency = 1,
-	Position = UDim2.new(0, 6, 1, -7),
-	Size = UDim2.new(1, -12, 0, 32),
-	Parent = InfoFrame,
-
-	["UIListLayout"] = {
-		FillDirection = Enum.FillDirection.Horizontal,
-		HorizontalAlignment = Enum.HorizontalAlignment.Center,
-		Padding = UDim.new(0, 6),
-	},
-})
-
-local function CreateInfoDropdownButton(Icon: string, Title: string, Options: {})
-	local Button = Interface.New("TextButton", {
-		AutomaticSize = Enum.AutomaticSize.X,
-		BackgroundColor3 = Color3.fromRGB(20, 20, 20),
-		BackgroundTransparency = 1,
-		Size = UDim2.fromScale(0, 1),
-		Text = "",
-
-		["UICorner"] = {
-			CornerRadius = UDim.new(0, 6),
-		},
-
-		["UIPadding"] = {
-			PaddingLeft = UDim.new(0, 8),
-			PaddingRight = UDim.new(0, 8),
-			PaddingTop = UDim.new(0, 6),
-			PaddingBottom = UDim.new(0, 6),
-		},
-
-		["UIStroke"] = {
-			Color = Color3.fromRGB(25, 25, 25),
-			Thickness = 1,
-			ApplyStrokeMode = Enum.ApplyStrokeMode.Border,
-		},
-
-		["TextLabel"] = {
-			Text = Title,
-			TextSize = 15,
-			Size = UDim2.fromScale(0, 1),
-			Position = UDim2.fromOffset(28, 0),
-			AutomaticSize = Enum.AutomaticSize.X,
-		},
-
-		Parent = InfoButtons,
-	})
-
-	Interface.NewIcon(Icon, {
-		Size = UDim2.fromScale(1, 1),
-		SizeConstraint = Enum.SizeConstraint.RelativeYY,
-
-		Parent = Button,
-	})
-
-	local Menu = CreateContextMenu(Button, Options)
-
-	Button.MouseEnter:Connect(function()
-		wax.shared.TweenService
-			:Create(Button, DefaultTweenInfo, {
-				BackgroundTransparency = 0,
-			})
-			:Play()
-	end)
-	Button.MouseLeave:Connect(function()
-		wax.shared.TweenService
-			:Create(Button, DefaultTweenInfo, {
-				BackgroundTransparency = 1,
-			})
-			:Play()
-	end)
-	Button.MouseButton1Click:Connect(Menu.Toggle)
-	return Menu
-end
-
-CreateInfoDropdownButton("code", "Code", {
-	{
-		Text = "Calling Code",
-		Icon = "forward",
-		Callback = function()
-			if not CurrentInfo then
-				return
-			end
-
-			local Code = CodeGen:BuildCallCode(CurrentInfo)
-			local Success, Error = pcall(setclipboard, Code)
-
-			if Success then
-				wax.shared.Sonner.success("Copied code to clipboard")
-			else
-				wax.shared.Sonner.error("Failed to copy code to clipboard")
-				warn("Failed to copy code to clipboard", Error)
-			end
-		end,
-	},
-	{
-		Text = "Intercept Code",
-		Icon = "shield-alert",
-		Callback = function()
-			if not CurrentInfo then
-				return
-			end
-
-			local Code = CodeGen:BuildHookCode(CurrentInfo)
-			local Success, Error = pcall(setclipboard, Code)
-
-			if Success then
-				wax.shared.Sonner.success("Copied code to clipboard")
-			else
-				wax.shared.Sonner.error("Failed to copy code to clipboard")
-				warn("Failed to copy code to clipboard", Error)
-			end
-		end,
-	},
-	{
-		Text = "Function Info",
-		Icon = "parentheses",
-		Callback = function()
-			if not CurrentInfo then
-				return
-			end
-
-			local Info = {
-				Function = typeof(CurrentInfo.Function) == "function" and {
-					Name = CurrentInfo.Function and debug.info(CurrentInfo.Function, "n") or "Unknown",
-					Source = CurrentInfo.Source
-						or (CurrentInfo.Function and debug.info(CurrentInfo.Function, "s"))
-						or "Unknown",
-					Type = CurrentInfo.Function
-							and (iscclosure(CurrentInfo.Function) and "C Closure" or "Luau function")
-						or "N/A",
-					Address = tostring(CurrentInfo.Function),
-					Arguments = table.unpack(
-						CurrentInfo.Arguments,
-						1,
-						wax.shared.GetTableLength(CurrentInfo.Arguments)
-					),
-				} or CurrentInfo.Function,
-				Script = CurrentInfo.Origin,
-				Line = CurrentInfo.Line,
-			}
-
-			if typeof(CurrentInfo.Function) == "function" and islclosure(CurrentInfo.Function) then
-				local FunctionInfo = {
-					Constants = debug.getconstants,
-					Upvalues = debug.getupvalues,
-					Protos = debug.getprotos,
-				}
-
-				for Type, Func in pairs(FunctionInfo) do
-					if not Func then
-						continue
-					end
-
-					Info.Function[Type] = Func(CurrentInfo.Function)
-				end
-			end
-
-			local Success, Error = pcall(setclipboard, `local Info = {LuaEncode(Info, { Prettify = true, DisableNilParentHandler = true })}`)
-			if Success then
-				wax.shared.Sonner.success("Copied function info to clipboard")
-			else
-				wax.shared.Sonner.error("Failed to copy function info to clipboard")
-				warn("Failed to copy function info to clipboard", Error)
-			end
-		end,
-	},
-})
-
-CreateInfoDropdownButton("scroll-text", "Origin", {
-	{
-		Text = "Remote Path",
-		Icon = "package-search",
-		Callback = function()
-			if not CurrentInfo then
-				return
-			end
-
-			local Success, Error = pcall(setclipboard, CodeGen.GetFullPath(CurrentInfo.Instance, {
-				VariableName = "Event",
-				DisableNilParentHandler = false
-			}))
-			if Success then
-				wax.shared.Sonner.success("Copied remote path to clipboard")
-			else
-				wax.shared.Sonner.error("Failed to copy remote path to clipboard")
-				warn("Failed to copy remote path to clipboard", Error)
-			end
-		end,
-	},
-	{
-		Text = "Script Path",
-		Icon = "file-search",
-		Condition = function()
-			return CurrentInfo and typeof(CurrentInfo.Origin) == "Instance"
-		end,
-		Callback = function()
-			if not (CurrentInfo and typeof(CurrentInfo.Origin) == "Instance") then
-				return
-			end
-
-			local Success, Error = pcall(setclipboard, CodeGen.GetFullPath(CurrentInfo.Origin))
-			if Success then
-				wax.shared.Sonner.success("Copied script path to clipboard")
-			else
-				wax.shared.Sonner.error("Failed to copy script path to clipboard")
-				warn("Failed to copy script path to clipboard", Error)
-			end
-		end,
-	},
-	{
-		Text = "Decompiled Script",
-		Icon = "file-text",
-		Condition = function()
-			return CurrentInfo and typeof(CurrentInfo.Origin) == "Instance" and typeof(decompile) == "function"
-		end,
-		Callback = function()
-			if not (CurrentInfo and typeof(CurrentInfo.Origin) == "Instance" and typeof(decompile) == "function") then
-				return
-			end
-
-			local Decompiled, Result = pcall(decompile, CurrentInfo.Origin)
-			if Decompiled then
-				local Success, Error = pcall(setclipboard, Result)
-				if Success then
-					wax.shared.Sonner.success("Copied decompiled script to clipboard")
-				else
-					wax.shared.Sonner.error("Failed to copy decompiled script to clipboard")
-					warn("Failed to copy decompield script to clipboard", Error)
-				end
-			else
-				wax.shared.Sonner.error("Failed to decompile script")
-				warn("Failed to decompile script", Result)
-			end
-		end,
-	},
-})
-
-CreateInfoDropdownButton("network", "Event", {
-	{
-		Text = "Replay",
-		Icon = "play",
-		Callback = function()
-			if not CurrentInfo then
-				return
-			end
-
-			wax.shared.Sonner.promise(function()
-				wax.shared.ReplayCallInfo(CurrentInfo, CurrentTab.Name)
-			end, {
-				loadingText = "Replaying event...",
-				successText = "Replayed event successfully!",
-				errorText = "Failed to replay event",
-				time = 4.5,
-			})
-		end,
-	},
-	{
-		Text = function()
-			if not CurrentLog then
-				return "Ignore"
-			end
-
-			return CurrentLog.Ignored and "Unignore" or "Ignore"
-		end,
-		Icon = function()
-			if not CurrentLog then
-				return "eye"
-			end
-
-			return CurrentLog.Ignored and "eye" or "eye-off"
-		end,
-		Callback = function()
-			if not CurrentLog then
-				return
-			end
-
-			CurrentLog:Ignore()
-			wax.shared.Sonner.success(`{CurrentLog.Ignored and "Started" or "Stopped"} ignoring event`)
-		end,
-	},
-	{
-		Text = function()
-			if not CurrentLog then
-				return "Block"
-			end
-
-			return CurrentLog.Blocked and "Unblock" or "Block"
-		end,
-		Icon = function()
-			if not CurrentLog then
-				return "lock"
-			end
-
-			return CurrentLog.Blocked and "lock" or "lock-open"
-		end,
-		Callback = function()
-			if not CurrentLog then
-				return
-			end
-
-			CurrentLog:Block()
-
-			local BlockedRemoteList = wax.shared.Settings["BlockedRemotes"]
-			if BlockedRemoteList then
-				if CurrentLog.Blocked then
-					BlockedRemoteList:AddToList(CurrentLog)
-				else
-					BlockedRemoteList:RemoveFromList(CurrentLog)
-				end
-			end
-
-			wax.shared.Sonner.success(`{CurrentLog.Blocked and "Started" or "Stopped"} blocking event`)
-		end,
-	},
-	{
-		Text = "Clear Logs",
-		Icon = "trash",
-		Callback = function()
-			if not CurrentLog then
-				return
-			end
-
-			CurrentLog.Calls = {}
-			PaginationHelper:Update(#CurrentLog.Calls)
-			PaginationHelper:SetPage(1)
-			CurrentPage[CurrentLog] = 1
-
-			CleanLogsList()
-
-			CurrentLog.Button.Calls.Text = "x" .. #CurrentLog.Calls
-			UpdateLogNameSize(CurrentLog)
-
-			ShowPagination(CurrentLog)
-			ShowCalls(CurrentLog, 1)
-
-			CloseModal()
-
-			wax.shared.Sonner.success("Cleared logs for event successfully!")
-
-			if #CurrentLog.Calls == 0 then
-				CurrentLog.Button.Instance.Parent = nil
-			end
-		end,
-	},
 })
 
 -- Search
@@ -2985,14 +3363,17 @@ local function CreateTopSeperator(Order: number)
 	})
 end
 
-CreateTopButton("x", 4, wax.shared.Unload)
-CreateTopButton("minus", 3, function()
+CreateTopButton("x", 5, wax.shared.Unload)
+CreateTopButton("minus", 4, function()
 	MainFrame.Visible = false
 	ShowButton.Visible = true
 end)
-CreateTopSeperator(2)
-CreateTopButton("settings", 1, function()
+CreateTopSeperator(3)
+CreateTopButton("settings", 2, function()
 	OpenModal(SettingsFrame)
+end)
+CreateTopButton("blocks", 1, function()
+	OpenModal(PluginsFrame)
 end)
 CreateTopButton("search", 0, function()
 	OpenSearch()
@@ -3527,7 +3908,7 @@ function CreateLogButton(Log): (TextButton, TextLabel, TextLabel)
 		ShowLog(Log)
 	end)
 
-	local LogContextMenu = CreateContextMenu(Button, {
+	local ContextMenuOptions = {
 		{
 			Text = function()
 				if not Log then
@@ -3602,14 +3983,29 @@ function CreateLogButton(Log): (TextButton, TextLabel, TextLabel)
 					ShowCalls(Log, 1)
 				end
 
-				wax.shared.Sonner.success("Cleared logs for event successfully!")
+				wax.shared.Sonner.success("Cleared events for this remote")
 
 				if #Log.Calls == 0 then
 					Log.Button.Instance.Parent = nil
 				end
 			end,
 		},
-	}, true)
+	}
+
+	local PluginManager = wax.shared.CobaltPluginManager
+	if PluginManager and PluginManager.Registry.UIHooks.ContextMenus.RemoteList then
+		for _, Option in PluginManager.Registry.UIHooks.ContextMenus.RemoteList do
+			table.insert(ContextMenuOptions, {
+				Text = Option.Text,
+				Icon = Option.Icon,
+				Callback = function()
+					task.spawn(Option.Callback, Log)
+				end
+			})
+		end
+	end
+
+	local LogContextMenu = CreateContextMenu(Button, ContextMenuOptions, true)
 
 	Button.MouseButton2Click:Connect(LogContextMenu.Toggle)
 
@@ -3715,7 +4111,7 @@ function CreateCallFrame(CallInfo)
 		Parent = CallFrame,
 	})
 	do
-		local CallFrameContextMenu = CreateContextMenu(CallFrame, {
+		local ContextMenuOptions = {
 			{
 				Text = "Copy Calling Code",
 				Icon = "forward",
@@ -3726,7 +4122,7 @@ function CreateCallFrame(CallInfo)
 					if Success then
 						wax.shared.Sonner.success("Copied code to clipboard")
 					else
-						wax.shared.Sonner.error("Failed to copy code to clipboard")
+						wax.shared.Sonner.error("Failed to copy code to clipboard", Error)
 						warn("Failed to copy code to clipboard", Error)
 					end
 				end,
@@ -3741,7 +4137,7 @@ function CreateCallFrame(CallInfo)
 					if Success then
 						wax.shared.Sonner.success("Copied code to clipboard")
 					else
-						wax.shared.Sonner.error("Failed to copy code to clipboard")
+						wax.shared.Sonner.error("Failed to copy code to clipboard", Error)
 						warn("Failed to copy code to clipboard", Error)
 					end
 				end,
@@ -3805,7 +4201,22 @@ function CreateCallFrame(CallInfo)
 					})
 				end,
 			},
-		}, true)
+		}
+
+		local PluginManager = wax.shared.CobaltPluginManager
+		if PluginManager and PluginManager.Registry.UIHooks.ContextMenus.CallList then
+			for _, Option in PluginManager.Registry.UIHooks.ContextMenus.CallList do
+				table.insert(ContextMenuOptions, {
+					Text = Option.Text,
+					Icon = Option.Icon,
+					Callback = function()
+						task.spawn(Option.Callback, CallInfo)
+					end
+				})
+			end
+		end
+
+		local CallFrameContextMenu = CreateContextMenu(CallFrame, ContextMenuOptions, true)
 
 		CallFrame.MouseEnter:Connect(function()
 			wax.shared.TweenService
@@ -3999,6 +4410,16 @@ SearchBox:GetPropertyChangedSignal("Text"):Connect(UpdateSearch)
 
 -- Call Functions
 function OpenInfo(CallInfo)
+	if wax.shared.CobaltPluginManager and wax.shared.CobaltPluginManager.Initialized then
+		for _, Interceptor in wax.shared.CobaltPluginManager.Registry.UIHooks.RemoteInfo.Intercept do
+			local Success, Result = pcall(Interceptor, CallInfo)
+			
+			if Success and Result == false then
+				return
+			end
+		end
+	end
+
 	InfoTitle.Text = CallInfo.Instance.Name
 	InfoIcon.Image = Images[CallInfo.Instance.ClassName]
 
@@ -4032,14 +4453,19 @@ function OpenInfo(CallInfo)
 		end
 	end
 
-	for _, tab in pairs({ "Function Info", "Code" }) do
-		local OldTab = InfoModalTab[tab]
-		if not OldTab then
+	if wax.shared.CobaltPluginManager and wax.shared.CobaltPluginManager.Initialized then
+		for _, Plugin in wax.shared.CobaltPluginManager.Registry.UIHooks.RemoteInfo.Open do
+			task.spawn(Plugin, CallInfo)
+		end
+	end
+
+	for TabName, Tab in InfoModalTab do
+		if TabName == "Arguments" then
 			continue
 		end
 
-		local OldTabButton = OldTab.TabButton
-		local OldTabContent = OldTab.TabContents
+		local OldTabButton = Tab.TabButton
+		local OldTabContent = Tab.TabContents
 
 		OldTabButton.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
 		OldTabButton.Frame.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
@@ -4048,6 +4474,8 @@ function OpenInfo(CallInfo)
 	end
 
 	CurrentInfoTab = "Arguments"
+	UpdateFooterButtons()
+	
 	if InfoModalTab["Arguments"] then
 		local TabButton = InfoModalTab["Arguments"].TabButton
 		local TabContent = InfoModalTab["Arguments"].TabContents

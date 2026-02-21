@@ -254,6 +254,20 @@ local function WrapCodeInActor(Code: string, ShouldWrap: boolean)
 end
 
 function CodeGen:BuildHookCode(CallInfo: CallInfo)
+	local PluginManager = wax.shared.CobaltPluginManager
+	if PluginManager and PluginManager.HasCodeGenInterceptors then
+		local Interceptors = PluginManager.Registry.UIHooks.CodeGen.Hook
+		
+		for _, Interceptor in Interceptors or {} do
+			local Success, InterceptedCode = pcall(Interceptor, CallInfo)
+			if Success and type(InterceptedCode) == "string" then
+				return InterceptedCode
+			elseif not Success then
+				warn("Error in Cobalt Plugin (CodeGen Interceptor (Hook)):", InterceptedCode)
+			end
+		end
+	end
+
 	local Type = CallInfo.Type
 	local Path = self.GetFullPath(CallInfo.Instance, {
 		VariableName = "Event",
@@ -441,6 +455,21 @@ function CreateArgsString(SerializedArgs: string, Args: { [number]: any, n: numb
 end
 
 function CodeGen:BuildCallCode(CallInfo: CallInfo)
+	local PluginManager = wax.shared.CobaltPluginManager
+	if PluginManager and PluginManager.HasCodeGenInterceptors then
+		local Interceptors = PluginManager.Registry.UIHooks.CodeGen.Call
+		if Interceptors then
+			for _, Interceptor in Interceptors do
+				local Success, InterceptedCode = pcall(Interceptor, CallInfo)
+				if Success and type(InterceptedCode) == "string" then
+					return InterceptedCode
+				elseif not Success then
+					warn("Error in CodeGen Interceptor (Call):", InterceptedCode)
+				end
+			end
+		end
+	end
+
 	local Type = CallInfo.Type
 
 	local Path = self.GetFullPath(CallInfo.Instance, {

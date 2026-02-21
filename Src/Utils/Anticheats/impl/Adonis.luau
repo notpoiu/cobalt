@@ -64,7 +64,7 @@ function Adonis.Bypass()
 			wax.shared.Hooks[DetectionFunc] = wax.shared.Hooking.HookFunction(
 				DetectionFunc,
 				function(action, info, nocrash)
-					coroutine.yield(coroutine.running())
+					coroutine.yield()
 					return task.wait(9e9)
 				end
 			)

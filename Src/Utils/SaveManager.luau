@@ -1,17 +1,14 @@
-if not isfolder("Cobalt") then
-	makefolder("Cobalt")
-end
-
-if not isfile("Cobalt/Settings.json") then
-	writefile("Cobalt/Settings.json", "{}")
-end
+local FileHelperUtil = require(script.Parent.FileHelper)
 
 local SaveManager = {
 	State = {},
 }
 
+local FileHelper = FileHelperUtil.new("Cobalt")
+FileHelper:EnsureFile("Settings.json", "{}")
+
 local Success, Error = pcall(function()
-	SaveManager.State = wax.shared.HttpService:JSONDecode(readfile("Cobalt/Settings.json"))
+	SaveManager.State = wax.shared.HttpService:JSONDecode(FileHelper:ReadFile("Settings.json"))
 end)
 
 if not Success then
@@ -20,7 +17,7 @@ end
 
 function SaveManager:SetState(Idx, Value)
 	SaveManager.State[Idx] = Value
-	pcall(writefile, "Cobalt/Settings.json", wax.shared.HttpService:JSONEncode(SaveManager.State))
+	pcall(FileHelper.WriteFile, FileHelper, "Settings.json", wax.shared.HttpService:JSONEncode(SaveManager.State))
 end
 
 function SaveManager:GetState(Idx, Default)
