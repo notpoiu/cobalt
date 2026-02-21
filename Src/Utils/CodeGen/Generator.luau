@@ -81,11 +81,13 @@ end
 function CodeGen.GetFullPath(Object, options: {
 	DisableNilParentHandler: boolean?,
 	VariableName: string?,
-	OmitNilFunctionGetterCodeGeneration: boolean?
+	OmitNilFunctionGetterCodeGeneration: boolean?,
+	IgnorePlugins: boolean?
 }?)
 	local DisableNilParentHandler = options and options.DisableNilParentHandler
 	local OmitNilFunctionGetterCodeGeneration = options and options.OmitNilFunctionGetterCodeGeneration
 	local VariableName = options and options.VariableName
+	local IgnorePlugins = options and options.IgnorePlugins
 	do
 		if DisableNilParentHandler == nil then
 			DisableNilParentHandler = true
@@ -96,11 +98,11 @@ function CodeGen.GetFullPath(Object, options: {
 		end
 	end
 
-	local PluginManager = wax.shared.CobaltPluginManager
-	if PluginManager and PluginManager.HasCodeGenInterceptors then
-		local Interceptors = PluginManager.Registry.UIHooks.CodeGen.InstancePath
-		if Interceptors then
-			for _, Interceptor in Interceptors do
+	if not IgnorePlugins then
+		local PluginManager = wax.shared.CobaltPluginManager
+		if PluginManager and PluginManager.HasCodeGenInterceptors then
+			local Interceptors = PluginManager.Registry.UIHooks.CodeGen.InstancePath
+			for _, Interceptor in Interceptors or {} do
 				local Success, InterceptedCode = pcall(Interceptor, Object, options)
 				if Success and type(InterceptedCode) == "string" then
 					return InterceptedCode, false

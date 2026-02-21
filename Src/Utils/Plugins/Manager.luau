@@ -96,6 +96,10 @@ local function PluginErrored(FilePath, Error)
 
     if PluginIndex then
         local PluginData = table.remove(Manager.Registry.Plugins, PluginIndex)
+        for _, Callback in PluginData.UnloadCallbacks or {} do
+            task.spawn(pcall, Callback)
+        end
+
         table.insert(Manager.Registry.Errored, {
             FilePath = PluginData.FilePath,
             Name = PluginData.Name,
@@ -126,6 +130,7 @@ local function CreatePluginEnvironement(FilePath: string, PluginCallback: (...an
         UI = { RemoteInfo = {}, ContextMenu = {} },
         Spy = {},
         CodeGen = {},
+        ExecutorSupport = wax.shared.ExecutorSupport
     }
     
     -- Settings Proxy
@@ -140,6 +145,19 @@ local function CreatePluginEnvironement(FilePath: string, PluginCallback: (...an
 
     local CurrentPluginData = nil
     local CurrentPluginSettings = nil
+    --[[
+        Binds a callback to fire when this plugin is unloaded.
+
+        @param Callback: The function to call on unload.
+    ]]
+    function Cobalt:BindToUnload(Callback: () -> ())
+        for _, Plugin in Manager.Registry.Plugins do
+            if Plugin.PluginData == CurrentPluginData then
+                table.insert(Plugin.UnloadCallbacks, Callback)
+                return
+            end
+        end
+    end
 
     -- UI Functions
     --[[
@@ -693,7 +711,11 @@ local function CreatePluginEnvironement(FilePath: string, PluginCallback: (...an
     function Cobalt.Spy:AppendLog(Instance: Instance, Type: "Incoming" | "Outgoing", Data: {})
         local Method = wax.shared.FunctionForClasses[Type][Instance.ClassName]
         local Log = wax.shared.Logs[Type][Instance] or wax.shared.NewLog(Instance, Type, Method, nil)
-        
+
+        if Log.Blocked or Log.Ignored then
+            return
+        end
+
         Log:Call(Data)
         wax.shared.Communicator:Fire(Instance, Type, #Log.Calls)
     end
@@ -806,6 +828,7 @@ local function CreatePluginEnvironement(FilePath: string, PluginCallback: (...an
                     FilePath = FilePath,
                     PluginData = PluginData,
                     PluginThread = PluginThread,
+                    UnloadCallbacks = {},
                 })
 
                 CurrentPluginData = PluginData

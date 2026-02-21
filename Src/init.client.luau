@@ -163,6 +163,19 @@ end
 
 wax.shared.Unloaded = false
 wax.shared.Unload = function()
+	local PluginManager = wax.shared.CobaltPluginManager
+	if PluginManager then
+		for _, Plugin in PluginManager.Registry.Plugins do
+			if not Plugin.UnloadCallbacks then
+				continue
+			end
+			
+			for _, Callback in Plugin.UnloadCallbacks or {} do
+				task.spawn(pcall, Callback)
+			end
+		end
+	end
+
 	for _, Connection in pairs(wax.shared.Connections) do
 		wax.shared.Disconnect(Connection)
 	end
