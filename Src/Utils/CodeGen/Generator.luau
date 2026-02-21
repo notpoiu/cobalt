@@ -96,6 +96,21 @@ function CodeGen.GetFullPath(Object, options: {
 		end
 	end
 
+	local PluginManager = wax.shared.CobaltPluginManager
+	if PluginManager and PluginManager.HasCodeGenInterceptors then
+		local Interceptors = PluginManager.Registry.UIHooks.CodeGen.InstancePath
+		if Interceptors then
+			for _, Interceptor in Interceptors do
+				local Success, InterceptedCode = pcall(Interceptor, Object, options)
+				if Success and type(InterceptedCode) == "string" then
+					return InterceptedCode, false
+				elseif not Success then
+					warn("Error in CodeGen Interceptor (InstancePath):", InterceptedCode)
+				end
+			end
+		end
+	end
+
 	local ChildLookupMode = wax.shared.SaveManager:GetState("InstancePathLookupChain", "Index")
 
 	local function BuildDynamicAccessor(Expression: string): string

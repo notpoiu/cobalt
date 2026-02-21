@@ -20,7 +20,7 @@ local Manager = {
                 RemoteList = {},
                 CallList = {},
             },
-            CodeGen = { Call = {}, Hook = {} },
+            CodeGen = { Call = {}, Hook = {}, InstancePath = {} },
         },
     },
     HasInterceptors = false,
@@ -716,7 +716,7 @@ local function CreatePluginEnvironement(FilePath: string, PluginCallback: (...an
         @param Callback: The callback to execute when code generation is intercepted. If callback returns a string, it will be used as the generated code instead of the default generated code. If callback returns nil, the default generated code will be used.
         @return: A function to remove the interceptor.
     ]]
-    function Cobalt.CodeGen:InterceptGeneration(Type: "Call" | "Hook", Callback: (CallInfo: CodeGen.CallInfo) -> (...any))
+    function Cobalt.CodeGen:InterceptGeneration(Type: "Call" | "Hook" | "InstancePath", Callback: (Info: any, ...any) -> (...any))
         Manager.HasCodeGenInterceptors = true
         
         local Interceptors = Manager.Registry.UIHooks.CodeGen[Type]
