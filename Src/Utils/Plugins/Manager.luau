@@ -771,6 +771,17 @@ local function CreatePluginEnvironement(FilePath: string, PluginCallback: (...an
         return UIHelper.QuickSerializeArgument(data)      
     end
 
+    --[[
+        Indents code.
+
+        @param str: The code to indent.
+        @param indent: The amount of indentation to add.
+        @return: The indented code.
+    ]]
+    function Cobalt.CodeGen.Indent(str: string, indent: number)
+        return CodeGen:IndentCode(str, indent)
+    end
+
     -- Handle Cobalt.PluginData assignment
     setmetatable(Cobalt, {
         __newindex = function(_, Key, Value)
