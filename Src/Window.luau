@@ -2129,7 +2129,7 @@ local CopyFullSessionPath = SessionButtons:CreateButton("Copy Full Path", functi
 end, 14)
 CopyFullSessionPath.Size = UDim2.new(0.5, -4, 0, 24)
 
-local ExportLogsButton = SessionButtons:CreateButton("Export Logs to HTML", function()
+LoggingSection:CreateButton("Export Logs to HTML", function()
 	wax.shared.Sonner.promise(function(UpdateProgress)
 		assert(typeof(writefile) == "function", "Exploit does not support writefile")
 		
@@ -2159,8 +2159,6 @@ local ExportLogsButton = SessionButtons:CreateButton("Export Logs to HTML", func
 		errorText = function(err) return `Export Failed: {err}` end,
 	})
 end, 14)
-
-ExportLogsButton.Size = UDim2.new(1, 0, 0, 24)
 
 local CreditsSection = MainSettings:CreateSection("Credits")
 
