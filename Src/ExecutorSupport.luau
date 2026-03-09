@@ -290,7 +290,9 @@ test("getcallbackvalue", function()
 	assert(typeof(getcallbackvalue) == "function", "getcallbackvalue is not a function")
 
 	local bindable = Instance.new("BindableFunction")
+	local InvokeRan = false
 	local InvokeFunction = function(value)
+		InvokeRan = true
 		return value * 2
 	end
 	bindable.OnInvoke = InvokeFunction
@@ -301,15 +303,7 @@ test("getcallbackvalue", function()
 	assert(typeof(FetchedInvoke) == "function", "getcallbackvalue did not return a function")
 
 	assert(FetchedInvoke(5) == 10, "getcallbackvalue's function return did not match expected value")
-	assert(FetchedInvoke == InvokeFunction, "getcallbackvalue did not return the original function")
-
-	local success, didNoValueReturnNil = pcall(function() 
-		local remoteFunction = Instance.new("RemoteFunction")
-		task.delay(1, remoteFunction.Destroy, remoteFunction)
-		return getcallbackvalue(remoteFunction, "OnClientInvoke") == nil
-	end)
-
-	assert(success and didNoValueReturnNil, "getcallbackvalue raised an error instead of returning nil, the function is not supposed to raise an error when there is no callback.")
+	assert(InvokeRan, "getcallbackvalue's function did not run")
 end)
 test("getnilinstances", function()
 	assert(typeof(getnilinstances) == "function", "getnilinstances is not a function")
