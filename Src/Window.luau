@@ -15,7 +15,7 @@ local UIUtils = script.Parent.Utils.UI
 
 local SyntaxHighlighter = require(UIUtils.Highlighter)
 
-local ImageFetcher = require(UIUtils.ImageFetch)
+local AssetManager = require(UIUtils.AssetManager)
 local Icons = require(UIUtils.Icons)
 
 local Interface = require(UIUtils.Interface)
@@ -69,9 +69,9 @@ end
 wax.shared.GetDPIScale = GetDPIScale
 
 -- ContentProvider PreloadAsync bypass
-Images = ImageFetcher.GetRemoteImages(Images)
+Images = AssetManager.GetRemoteImages(Images)
 
-local CobaltLogo = ImageFetcher.GetImage("Logo")
+local CobaltLogo = AssetManager.GetImage("Logo")
 
 local ScreenGui = Interface.New("ScreenGui", {
 	Name = "Cobalt",
