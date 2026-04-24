@@ -276,6 +276,7 @@ wax.shared.SetupLoggingConnection = function()
 			local logParts = {
 				("Instance: %s (%s)"):format(instanceName, instanceClassName),
 				("Path: %s"):format(instancePath),
+				("Status: %s"):format(CallDataFromHook and CallDataFromHook.Blocked and "Blocked" or "Allowed"),
 				("Call Order In Log: %s"):format(CallOrderInLog or "N/A"),
 				"-------------------- Event Data --------------------",
 				serializedEventData,

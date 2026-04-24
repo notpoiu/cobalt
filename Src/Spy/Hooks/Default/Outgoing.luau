@@ -108,17 +108,23 @@ wax.shared.NamecallHook = wax.shared.Hooking.HookMetaMethod(game, "__namecall", 
 			Log = wax.shared.NewLog(self, "Outgoing", Method, getcallingscript())
 		end
 
+		local Info = {
+			Arguments = table.pack(select(2, ...)),
+			Origin = getcallingscript(),
+			Function = getcallingfunction(),
+			Line = getcallingline(),
+			Source = getcallingsource(),
+			IsExecutor = checkcaller(),
+		}
+
 		if Log.Blocked then
+			if wax.shared.SaveManager:GetState("LogBlockedRemotes", false) then
+				Info.Blocked = true
+				Log:Call(Info)
+			end
+
 			return
 		elseif not Log.Ignored then
-			local Info = {
-				Arguments = table.pack(select(2, ...)),
-				Origin = getcallingscript(),
-				Function = getcallingfunction(),
-				Line = getcallingline(),
-				Source = getcallingsource(),
-				IsExecutor = checkcaller(),
-			}
 			Log:Call(Info)
 			-- For RemoteFunction return value (ex: local result = RemoteFunction:InvokeServer())
 			if self.ClassName == "RemoteFunction" and (Method == "InvokeServer" or Method == "invokeServer") then
@@ -128,6 +134,19 @@ wax.shared.NamecallHook = wax.shared.Hooking.HookMetaMethod(game, "__namecall", 
 				end
 
 				if Log.Blocked then
+					if wax.shared.SaveManager:GetState("LogBlockedRemotes", false) then
+						Log:Call({
+							Arguments = table.pack(),
+							Origin = getcallingscript(),
+							Function = getcallingfunction(),
+							Line = getcallingline(),
+							Source = getcallingsource(),
+							IsExecutor = checkcaller(),
+							OriginalInvokeArgs = table.pack(select(2, ...)),
+							Blocked = true,
+						})
+					end
+
 					return
 				end
 
@@ -197,17 +216,23 @@ for _, Function in next, FunctionsToHook do
 				Log = wax.shared.NewLog(self, "Outgoing", Method, getcallingscript())
 			end
 
+			local Info = {
+				Arguments = table.pack(select(2, ...)),
+				Origin = getcallingscript(),
+				Function = getcallingfunction(),
+				Line = getcallingline(),
+				Source = getcallingsource(),
+				IsExecutor = checkcaller(),
+			}
+
 			if Log.Blocked then
+				if wax.shared.SaveManager:GetState("LogBlockedRemotes", false) then
+					Info.Blocked = true
+					Log:Call(Info)
+				end
+
 				return
 			elseif not Log.Ignored then
-				local Info = {
-					Arguments = table.pack(select(2, ...)),
-					Origin = getcallingscript(),
-					Function = getcallingfunction(),
-					Line = getcallingline(),
-					Source = getcallingsource(),
-					IsExecutor = checkcaller(),
-				}
 				Log:Call(Info)
 				-- For RemoteFunction return value (ex: local result = RemoteFunction:InvokeServer())
 				if self.ClassName == "RemoteFunction" and (Method == "InvokeServer" or Method == "invokeServer") then
@@ -217,6 +242,19 @@ for _, Function in next, FunctionsToHook do
 					end
 
 					if Log.Blocked then
+						if wax.shared.SaveManager:GetState("LogBlockedRemotes", false) then
+							Log:Call({
+								Arguments = table.pack(),
+								Origin = getcallingscript(),
+								Function = getcallingfunction(),
+								Line = getcallingline(),
+								Source = getcallingsource(),
+								IsExecutor = checkcaller(),
+								OriginalInvokeArgs = table.pack(select(2, ...)),
+								Blocked = true,
+							})
+						end
+
 						return
 					end
 

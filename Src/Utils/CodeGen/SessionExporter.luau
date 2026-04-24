@@ -175,7 +175,8 @@ function SessionExporter:ProcessCalls(AllCalls, SessionData, UpdateProgress)
             StringMapper:GetId(FunctionHash),
             StringMapper:GetId(FunctionUpvalues),
             StringMapper:GetId(FunctionProtos),
-            StringMapper:GetId(FunctionConstants)
+            StringMapper:GetId(FunctionConstants),
+            Call.Blocked and 1 or 0
         })
     end
 

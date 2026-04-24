@@ -2030,11 +2030,16 @@ FilterSection:CreateCheckbox("ShowExecutorLogs", {
 		ShowLog(CurrentLog)
 	end,
 })
+FilterSection:CreateCheckbox("LogBlockedRemotes", {
+	Text = "Log Blocked Remotes",
+	Default = true,
+})
 FilterSection:CreateButton("Reset Filtering to Default", function()
 	wax.shared.Settings.IgnoredRemotesDropdown:Reset()
 	wax.shared.Settings.IgnoreSpammyRemotes:Reset()
 	wax.shared.Settings.IgnorePlayerModule:Reset()
 	wax.shared.Settings.ShowExecutorLogs:Reset()
+	wax.shared.Settings.LogBlockedRemotes:Reset()
 
 	wax.shared.Sonner.success("Successfully reset remote filtering to default")
 end)
@@ -2056,6 +2061,7 @@ BlockedSection:CreateRemoteList("BlockedRemotes", {
 	NullMessage = "No remotes have been blocked yet.",
 	Callback = function(Remote)
 		Remote.Blocked = false
+		Remote:SetConnectionsEnabled(true)
 	end,
 })
 
@@ -3520,7 +3526,7 @@ LogsList = Interface.New("ScrollingFrame", {
 
 	["UIPadding"] = {
 		PaddingLeft = UDim.new(0, 2),
-		PaddingRight = UDim.new(0, 2),
+		PaddingRight = UDim.new(0, 6),
 		PaddingTop = UDim.new(0, 2),
 		PaddingBottom = UDim.new(0, 2),
 	},
@@ -4010,9 +4016,9 @@ function CreateLogButton(Log): (TextButton, TextLabel, TextLabel)
 	return Button, Text, Amount
 end
 
-function CreateArgHolder(Index: number, Value: any, Parent: GuiObject)
+function CreateArgHolder(Index: number, Value: any, Parent: GuiObject, IsBlockedCall: boolean?)
 	local Holder = Interface.New("Frame", {
-		BackgroundColor3 = Color3.fromRGB(25, 25, 25),
+		BackgroundColor3 = if IsBlockedCall then Color3.fromRGB(58, 24, 24) else Color3.fromRGB(25, 25, 25),
 		LayoutOrder = Index,
 		Size = UDim2.new(1, 0, 0, 27),
 
@@ -4033,6 +4039,7 @@ function CreateArgHolder(Index: number, Value: any, Parent: GuiObject)
 	Interface.New("TextLabel", {
 		Size = UDim2.fromScale(1, 1),
 		Text = Index,
+		TextColor3 = if IsBlockedCall then Color3.fromRGB(255, 190, 190) else Color3.new(1, 1, 1),
 		TextSize = 15,
 		TextTransparency = 0.5,
 		TextXAlignment = Enum.TextXAlignment.Left,
@@ -4044,6 +4051,7 @@ function CreateArgHolder(Index: number, Value: any, Parent: GuiObject)
 	local TypeLabel = Interface.New("TextLabel", {
 		Size = UDim2.fromScale(1, 1),
 		Text = typeof(Value),
+		TextColor3 = if IsBlockedCall then Color3.fromRGB(255, 190, 190) else Color3.new(1, 1, 1),
 		TextSize = 15,
 		TextTransparency = 0.5,
 		TextXAlignment = Enum.TextXAlignment.Right,
@@ -4056,7 +4064,9 @@ function CreateArgHolder(Index: number, Value: any, Parent: GuiObject)
 	local TextLabel = Interface.New("TextLabel", {
 		Position = UDim2.fromOffset(18, 0),
 		Size = UDim2.new(1, -(TypeX + 22), 1, 0),
-		TextColor3 = Color3.fromHex(SyntaxHighlighter.GetArgumentColor(Value)),
+		TextColor3 = if IsBlockedCall
+			then Color3.fromRGB(255, 190, 190)
+			else Color3.fromHex(SyntaxHighlighter.GetArgumentColor(Value)),
 		Text = tostring(Helper.QuickSerializeArgument(Value)):gsub("<", "&lt;"):gsub(">", "&gt;"),
 		RichText = true,
 		TextSize = 15,
@@ -4077,9 +4087,10 @@ function CreateCallFrame(CallInfo)
 		return
 	end
 
+	local IsBlockedCall = CallInfo.Blocked == true
 	local CallFrame = Interface.New("TextButton", {
 		AutomaticSize = Enum.AutomaticSize.Y,
-		BackgroundColor3 = Color3.fromRGB(25, 25, 25),
+		BackgroundColor3 = if IsBlockedCall then Color3.fromRGB(34, 18, 18) else Color3.fromRGB(25, 25, 25),
 		LayoutOrder = CallInfo.Order,
 		Size = UDim2.fromScale(1, 0),
 		Text = "",
@@ -4102,9 +4113,9 @@ function CreateCallFrame(CallInfo)
 
 	local HighlightStroke = Interface.New("UIStroke", {
 		ApplyStrokeMode = Enum.ApplyStrokeMode.Border,
-		Color = Color3.fromRGB(75, 75, 75),
+		Color = if IsBlockedCall then Color3.fromRGB(222, 82, 82) else Color3.fromRGB(75, 75, 75),
 		Thickness = 2,
-		Transparency = 1,
+		Transparency = if IsBlockedCall then 0.5 else 1,
 
 		Parent = CallFrame,
 	})
@@ -4226,7 +4237,7 @@ function CreateCallFrame(CallInfo)
 		CallFrame.MouseLeave:Connect(function()
 			wax.shared.TweenService
 				:Create(HighlightStroke, DefaultTweenInfo, {
-					Transparency = 1,
+					Transparency = if IsBlockedCall then 0.5 else 1,
 				})
 				:Play()
 		end)
@@ -4238,7 +4249,7 @@ function CreateCallFrame(CallInfo)
 
 	local ArgumentsFrame = Interface.New("Frame", {
 		AutomaticSize = Enum.AutomaticSize.Y,
-		BackgroundColor3 = Color3.fromRGB(15, 15, 15),
+		BackgroundColor3 = if IsBlockedCall then Color3.fromRGB(24, 13, 13) else Color3.fromRGB(15, 15, 15),
 		Size = UDim2.fromScale(1, 0),
 		Visible = wax.shared.GetTableLength(CallInfo.Arguments) > 0,
 
@@ -4264,16 +4275,21 @@ function CreateCallFrame(CallInfo)
 			end
 
 			local Value = CallInfo.Arguments[Index]
-			CreateArgHolder(Index, Value, ArgumentsFrame)
+			CreateArgHolder(Index, Value, ArgumentsFrame, IsBlockedCall)
 		end
 	end
+
+	local OriginText = CallInfo.IsExecutor and wax.shared.ExecutorName
+		or CallInfo.Origin and CallInfo.Origin.Name
+		or "Unknown"
 
 	Interface.New("Frame", {
 		BackgroundTransparency = 1,
 		Size = UDim2.new(1, 0, 0, 22),
 
-		Interface.NewIcon(CallInfo.IsExecutor and "terminal" or "gamepad-2", {
+		Interface.NewIcon(IsBlockedCall and "ban" or CallInfo.IsExecutor and "terminal" or "gamepad-2", {
 			AnchorPoint = Vector2.yAxis,
+			ImageColor3 = if IsBlockedCall then Color3.fromRGB(255, 151, 151) else Color3.new(1, 1, 1),
 			ImageTransparency = 0.5,
 			Position = UDim2.new(0, 2, 1, 0),
 			Size = UDim2.fromOffset(22, 22),
@@ -4285,9 +4301,8 @@ function CreateCallFrame(CallInfo)
 			Position = UDim2.new(0, 30, 1, 0),
 			Size = UDim2.new(0.5, -24, 0, 22),
 			BackgroundTransparency = 1,
-			Text = CallInfo.IsExecutor and wax.shared.ExecutorName
-				or CallInfo.Origin and CallInfo.Origin.Name
-				or "Unknown",
+			Text = if IsBlockedCall then `{OriginText} (Blocked)` else OriginText,
+			TextColor3 = if IsBlockedCall then Color3.fromRGB(255, 190, 190) else Color3.new(1, 1, 1),
 			TextSize = 16,
 			TextXAlignment = Enum.TextXAlignment.Left,
 			TextTransparency = 0.5,
@@ -4299,6 +4314,7 @@ function CreateCallFrame(CallInfo)
 			Size = UDim2.new(0.5, -2, 0, 22),
 			BackgroundTransparency = 1,
 			Text = "Time: " .. os.date("%X", CallInfo.CreationTime),
+			TextColor3 = if IsBlockedCall then Color3.fromRGB(255, 190, 190) else Color3.new(1, 1, 1),
 			TextSize = 16,
 			TextTransparency = 0.5,
 			TextXAlignment = Enum.TextXAlignment.Right,
@@ -4418,7 +4434,7 @@ function OpenInfo(CallInfo)
 		end
 	end
 
-	InfoTitle.Text = CallInfo.Instance.Name
+	InfoTitle.Text = if CallInfo.Blocked then `{CallInfo.Instance.Name} (Blocked)` else CallInfo.Instance.Name
 	InfoIcon.Image = Images[CallInfo.Instance.ClassName]
 
 	CurrentInfo = CallInfo

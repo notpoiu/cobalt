@@ -30,6 +30,7 @@ if wax.shared.ActorsEnabled then
 	local AlternativeEnabled = wax.shared.SaveManager:GetState("UseAlternativeHooks", false)
 
 	local IgnorePlayerModule = wax.shared.SaveManager:GetState("IgnorePlayerModule", true)
+	local LogBlockedRemotes = wax.shared.SaveManager:GetState("LogBlockedRemotes", false)
 	local IngoredRemotesDropdown = wax.shared.SaveManager:GetState("IgnoredRemotesDropdown", {
 		["BindableEvent"] = true,
 		["BindableFunction"] = true,
@@ -39,6 +40,7 @@ if wax.shared.ActorsEnabled then
 		Token = wax.shared.CobaltVerificationToken,
 
 		IgnorePlayerModule = IgnorePlayerModule,
+		LogBlockedRemotes = LogBlockedRemotes,
 		IgnoredRemotesDropdown = IngoredRemotesDropdown,
 		UseAlternativeHooks = AlternativeEnabled,
 
@@ -109,7 +111,22 @@ if wax.shared.ActorsEnabled then
 		end
 
 		if Log.Blocked then
-			return
+			if not wax.shared.SaveManager:GetState("LogBlockedRemotes", false) then
+				return
+			end
+
+			local ReconstructedInfo = ReconstructTable(RawInfo, CyclicRefs)
+			ReconstructedInfo.Blocked = true
+			ReconstructedInfo.IsActor = true
+
+			--// Reconstruct Packed Arguments (BindableEvents omit ["n"] for unknown reason) \\--
+			local Packed = ReconstructedInfo.Arguments
+			local PackedN, PackedData = Packed.n, Packed.Data
+			ReconstructedInfo.Arguments = PackedData
+			ReconstructedInfo.Arguments.n = PackedN
+
+			Log:Call(ReconstructedInfo)
+			wax.shared.Communicator:Fire(Log.Instance, Type, #Log.Calls)
 		elseif not Log.Ignored then
 			local ReconstructedInfo = ReconstructTable(RawInfo, CyclicRefs)
 			ReconstructedInfo.IsActor = true

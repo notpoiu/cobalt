@@ -14,6 +14,7 @@ type ActorData = {
 	Token: string,
 
 	IgnorePlayerModule: boolean,
+	LogBlockedRemotes: boolean,
 	UseAlternativeHooks: boolean,
 	IgnoredRemotesDropdown: { [string]: boolean },
 
@@ -169,6 +170,7 @@ wax.shared.Hooking = Hooking
 wax.shared.Hooks = {}
 wax.shared.Settings = {
 	IgnorePlayerModule = { Value = Data.IgnorePlayerModule },
+	LogBlockedRemotes = { Value = Data.LogBlockedRemotes },
 	IgnoredRemotesDropdown = { Value = Data.IgnoredRemotesDropdown },
 }
 
@@ -412,7 +414,12 @@ do
 			return
 		end
 
+		local LoggingFunctions = wax.shared.IncomingLogConnectionFunctions
 		for _, Connection in getconnections(self.Instance[ConnectionName]) do
+			if LoggingFunctions and LoggingFunctions[Connection.Function] then
+				continue
+			end
+
 			if enabled then
 				Connection:Enable()
 			else

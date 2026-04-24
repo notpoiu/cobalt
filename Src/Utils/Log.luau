@@ -166,7 +166,12 @@ function Log:SetConnectionsEnabled(enabled: boolean)
 		return
 	end
 
+	local LoggingFunctions = wax.shared.IncomingLogConnectionFunctions
 	for _, Connection in pairs(getconnections(self.Instance[ConnectionName])) do
+		if LoggingFunctions and LoggingFunctions[Connection.Function] then
+			continue
+		end
+
 		if enabled then
 			Connection:Enable()
 		else

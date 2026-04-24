@@ -11,6 +11,7 @@ type MethodsToHook = "OnClientEvent" | "OnClientInvoke" | "Event" | "OnInvoke"
 
 local LogConnectionFunctions = {}
 local SignalMapping = setmetatable({}, { __mode = "kv" })
+wax.shared.IncomingLogConnectionFunctions = LogConnectionFunctions
 
 local function CreateLookupTable(table)
 	local LookupTable = {}
@@ -50,6 +51,11 @@ local function LogRemote(
 		end
 
 		if Log.Blocked then
+			if wax.shared.SaveManager:GetState("LogBlockedRemotes", false) then
+				Info.Blocked = true
+				Log:Call(Info)
+			end
+
 			return true
 		elseif not Log.Ignored then
 			Log:Call(Info)

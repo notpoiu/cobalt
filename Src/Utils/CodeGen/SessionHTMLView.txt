@@ -786,6 +786,11 @@
         );
       }
 
+      .badge-pill.blocked {
+        color: var(--accent-red);
+        border-color: var(--accent-red);
+      }
+
       .details-path-row {
         color: var(--text-secondary);
         font-size: 12px;
@@ -1492,7 +1497,8 @@
         funcHash: dictionary[e[13]],
         upvalues: dictionary[e[14]],
         protos: dictionary[e[15]],
-        constants: dictionary[e[16]]
+        constants: dictionary[e[16]],
+        isBlocked: e[17] === 1
       }));
 
       if (allEvents.length > 0) {
@@ -2029,6 +2035,9 @@
         }
         if (evt.isActor) {
           flagsHtml += `<div class="badge-pill actor">Actor</div>`;
+        }
+        if (evt.isBlocked) {
+          flagsHtml += `<div class="badge-pill blocked">Blocked</div>`;
         }
         if (!flagsHtml) flagsHtml = '<span style="color:var(--text-secondary); font-size:11px;">None</span>';
 
