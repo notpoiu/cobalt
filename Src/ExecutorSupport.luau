@@ -232,16 +232,30 @@ test("oth", function()
 	assert(typeof(getrawmetatable) == "function", "getrawmetatable is required to validate oth __namecall returns")
 	assert(typeof(getnamecallmethod) == "function", "getnamecallmethod is required to validate oth __namecall returns")
 
-	local function AssertInvokeResult(Result, Context)
-		assert(Result.n == 4, `{Context}: returned {Result.n} values instead of 4`)
-		assert(Result[1] == "expected", `{Context}: did not preserve the first return value`)
-		assert(Result[2] == 123, `{Context}: did not preserve the second return value`)
-		assert(Result[3] == nil, `{Context}: did not preserve the nil return value`)
-		assert(Result[4] == "tail", `{Context}: did not preserve the tail return value`)
+	local function CheckInvokeResult(Result, Context)
+		if Result.n ~= 4 then
+			return false, `{Context}: returned {Result.n} values instead of 4`
+		end
+		if Result[1] ~= "expected" then
+			return false, `{Context}: did not preserve the first return value`
+		end
+		if Result[2] ~= 123 then
+			return false, `{Context}: did not preserve the second return value`
+		end
+		if Result[3] ~= nil then
+			return false, `{Context}: did not preserve the nil return value`
+		end
+		if Result[4] ~= "tail" then
+			return false, `{Context}: did not preserve the tail return value`
+		end
+
+		return true
 	end
 
 	local Bindable = Instance.new("BindableFunction")
 	Bindable.OnInvoke = function() return "expected", 123, nil, "tail" end
+
+	local SuccededInsideHook, InsideError = false, nil
 
 	local OldNamecall
 	OldNamecall = oth.hook(getrawmetatable(game).__namecall, function(...)
@@ -252,7 +266,8 @@ test("oth", function()
 			pcall(function() end)
 			
 			local Result = table.pack(OldNamecall(...))
-			AssertInvokeResult(
+
+			SuccededInsideHook, InsideError = CheckInvokeResult(
 				Result,
 				"Result corruption in __namecall oth hook"
 			)
@@ -267,10 +282,11 @@ test("oth", function()
 	pcall(oth.unhook, getrawmetatable(game).__namecall)
 	Bindable:Destroy()
 
-	AssertInvokeResult(
+	assert(SuccededInsideHook, InsideError)
+	assert(CheckInvokeResult(
 		Result,
 		"Result corruption post oth hook and pcall"
-	)
+	))
 end, false, false)
 
 -- Metamethod
