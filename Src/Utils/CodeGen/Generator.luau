@@ -25,6 +25,7 @@ export type CallInfo = {
 	Order: number,
 	Type: "Incoming" | "Outgoing",
 	OriginalInvokeArgs: { [number]: any, n: number }?,
+	IsCallbackReturn: boolean?,
 	IsActor: boolean?,
 }
 
@@ -300,8 +301,47 @@ function CodeGen:BuildHookCode(CallInfo: CallInfo)
 
 	if Type == "Incoming" then
 		if DoesUseCallbackValue(CallInfo.Instance) then
-			-- :InvokeServer -> Returned value
+			-- Callback/Invoke returned value
 			if CallInfo.OriginalInvokeArgs then
+				if CallInfo.IsCallbackReturn then
+					return CodeGenHeader
+						.. WrapCodeInActor(
+							string.format(
+								[[%s
+local Callback = getcallbackvalue(Event, "%s")
+Event.%s = function(...)
+	local Args = table.pack(...)
+
+	local Result = table.pack(
+		Callback(table.unpack(Args, 1, Args.n))
+	)
+
+	return table.unpack(Result, 1, Result.n)
+end
+
+local mtHook; mtHook = hookmetamethod(game, "__newindex", function(...)
+	local self, key, value = ...
+	
+	if (
+		rawequal(self, Event) and
+		rawequal(key, "%s") and
+		typeof(value) == "function" and
+		not checkcaller()
+	) then
+		Callback = value
+	end
+
+	return mtHook(...)
+end)]],
+								Path,
+								Method,
+								Method,
+								Method
+							),
+							IsFromActor
+						)
+				end
+
 				Method = wax.shared.FunctionForClasses.Outgoing[CallInfo.Instance.ClassName]
 
 				return CodeGenHeader
@@ -517,6 +557,28 @@ function CodeGen:BuildCallCode(CallInfo: CallInfo)
 					{ Prettify = true, InsertCycles = true, IsArray = true }
 				)
 
+				if CallInfo.IsCallbackReturn then
+					return CodeGenHeader
+						.. string.format(
+							[[%s%s
+local Callback = getcallbackvalue(Event, "%s")
+local Result = table.pack(Callback(%s))
+
+local ExpectedResult = table.unpack(%s)
+
+]],
+							(
+								(InsertedNilFunction or DidInsertNilFunction or DidInsertNilFunctionInExpectation)
+									and GetNilCode .. "\n\n"
+								or ""
+							),
+							Path,
+							Method,
+							CreateArgsString(PrettifiedOutput, CallInfo.OriginalInvokeArgs),
+							PrettifiedExpectedResult
+						)
+				end
+
 				Method = wax.shared.FunctionForClasses.Outgoing[CallInfo.Instance.ClassName]
 
 				return CodeGenHeader
@@ -637,6 +699,17 @@ wax.shared.ReplayCallInfo = function(CallInfo: CallInfo)
 	if Type == "Incoming" then
 		if DoesUseCallbackValue(CallInfo.Instance) then
 			if CallInfo.OriginalInvokeArgs then
+				if CallInfo.IsCallbackReturn then
+					local Callback = getcallbackvalue(CallInfo.Instance, Method)
+
+					if not Callback then
+						return
+					end
+
+					Callback(table.unpack(CallInfo.OriginalInvokeArgs, 1, CallInfo.OriginalInvokeArgs.n))
+					return
+				end
+
 				Method = wax.shared.FunctionForClasses.Outgoing[CallInfo.Instance.ClassName]
 
 				CallInfo.Instance[Method](

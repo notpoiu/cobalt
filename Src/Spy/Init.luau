@@ -87,6 +87,16 @@ if wax.shared.ActorsEnabled then
 		return Reconstructed
 	end
 
+	local function ReconstructPacked(Packed)
+		if not Packed or not Packed.Data then
+			return Packed
+		end
+
+		local PackedN, PackedData = Packed.n, Packed.Data
+		PackedData.n = PackedN
+		return PackedData
+	end
+
 	wax.shared.Connect(Channel.Event:Connect(function(EventType, ...)
 		local ShouldLogActors = wax.shared.SaveManager:GetState("LogActors", true)
 
@@ -120,10 +130,8 @@ if wax.shared.ActorsEnabled then
 			ReconstructedInfo.IsActor = true
 
 			--// Reconstruct Packed Arguments (BindableEvents omit ["n"] for unknown reason) \\--
-			local Packed = ReconstructedInfo.Arguments
-			local PackedN, PackedData = Packed.n, Packed.Data
-			ReconstructedInfo.Arguments = PackedData
-			ReconstructedInfo.Arguments.n = PackedN
+			ReconstructedInfo.Arguments = ReconstructPacked(ReconstructedInfo.Arguments)
+			ReconstructedInfo.OriginalInvokeArgs = ReconstructPacked(ReconstructedInfo.OriginalInvokeArgs)
 
 			Log:Call(ReconstructedInfo)
 			wax.shared.Communicator:Fire(Log.Instance, Type, #Log.Calls)
@@ -132,10 +140,8 @@ if wax.shared.ActorsEnabled then
 			ReconstructedInfo.IsActor = true
 
 			--// Reconstruct Packed Arguments (BindableEvents omit ["n"] for unknown reason) \\--
-			local Packed = ReconstructedInfo.Arguments
-			local PackedN, PackedData = Packed.n, Packed.Data
-			ReconstructedInfo.Arguments = PackedData
-			ReconstructedInfo.Arguments.n = PackedN
+			ReconstructedInfo.Arguments = ReconstructPacked(ReconstructedInfo.Arguments)
+			ReconstructedInfo.OriginalInvokeArgs = ReconstructPacked(ReconstructedInfo.OriginalInvokeArgs)
 
 			Log:Call(ReconstructedInfo)
 			wax.shared.Communicator:Fire(Log.Instance, Type, #Log.Calls)
@@ -161,7 +167,7 @@ if wax.shared.ActorsEnabled then
 
 	-- Actual Hooking Logic
 	-- The hooking code wont run again if cobalt is already initialized in that Actor (to address deleted actors aka LuaStateProxy stuff)
-	
+
 	-- `HookActor` is to address Volcano returning non initialized actors inside their `getactors` function.
 	-- God this code is so ass 🥹
 	local function HookActor(TargetActor: Actor)

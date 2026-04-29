@@ -441,6 +441,14 @@ do
 			n = OldArguments.n or rawlen(OldArguments),
 		}
 
+		if Info.OriginalInvokeArgs then
+			local OldOriginalInvokeArgs = Info.OriginalInvokeArgs
+			Info.OriginalInvokeArgs = {
+				Data = OldOriginalInvokeArgs,
+				n = OldOriginalInvokeArgs.n or rawlen(OldOriginalInvokeArgs),
+			}
+		end
+
 		-- Seliware puts their actor BindableEvents in CoreGui
 		local identity = getthreadidentity()
 		setthreadidentity(8)

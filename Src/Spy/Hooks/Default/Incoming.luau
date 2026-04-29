@@ -22,6 +22,19 @@ local function CreateLookupTable(table)
 end
 
 
+local function GetLog(Instance: InstancesToHook, Method: MethodsToHook, Function: (...any) -> ...any)
+	if wax.shared.ShouldIgnore(Instance, getcallingscript()) or LogConnectionFunctions[Function] then
+		return nil
+	end
+
+	local Log = wax.shared.Logs.Incoming[Instance]
+	if not Log then
+		Log = wax.shared.NewLog(Instance, "Incoming", Method, getcallingscript())
+	end
+
+	return Log
+end
+
 --[[
 	Individually logs an incoming remote call.
 
@@ -30,7 +43,7 @@ end
 	@param Function The function that was called, if applicable.
 	@param Info The information about the call, including arguments and origin. Can be nil.
 	@param ... The arguments passed from the server to the client.
-	@return boolean Returns true if the call was blocked, false otherwise.
+	@return boolean, Log? Returns true if the call was blocked, plus the log when one was used.
 ]]
 local function LogRemote(
 	Instance: InstancesToHook,
@@ -45,25 +58,24 @@ local function LogRemote(
 		Blocked: boolean?,
 	}
 )
-	if not wax.shared.ShouldIgnore(Instance, getcallingscript()) and not LogConnectionFunctions[Function] then
-		local Log = wax.shared.Logs.Incoming[Instance]
-		if not Log then
-			Log = wax.shared.NewLog(Instance, "Incoming", Method, getcallingscript())
-		end
-
-		if Log.Blocked then
-			if wax.shared.SaveManager:GetState("LogBlockedRemotes", false) then
-				Info.Blocked = true
-				Log:Call(Info)
-			end
-
-			return true
-		elseif not Log.Ignored then
-			Log:Call(Info)
-		end
+	local Log = GetLog(Instance, Method, Function)
+	if not Log then
+		return false, nil
 	end
 
-	return false
+	if Log.Blocked then
+		if wax.shared.SaveManager:GetState("LogBlockedRemotes", false) then
+			Info.Blocked = true
+			Log:Call(Info)
+		end
+
+		return true, Log
+	elseif not Log.Ignored then
+		Log:Call(Info)
+		return false, Log
+	end
+
+	return false, Log
 end
 
 --[[
@@ -143,20 +155,42 @@ local function CreateCallbackDetour(Instance: InstancesToHook, Method: MethodsTo
 			then isexecutorclosure(FunctionCaller)
 			else isexecutorclosure(Callback)
 
-		if
-			LogRemote(Instance, Method, Callback, {
-				Arguments = table.pack(...),
+		local OriginalInvokeArgs = table.pack(...)
+		local Log = GetLog(Instance, Method, Callback)
+
+		if Log and Log.Blocked then
+			if wax.shared.SaveManager:GetState("LogBlockedRemotes", false) then
+				Log:Call({
+					Arguments = OriginalInvokeArgs,
+					Origin = Origin,
+					Function = Callback,
+					Line = nil,
+					IsExecutor = IsExecutor,
+					Blocked = true,
+				})
+			end
+
+			return
+		end
+
+		local old = getthreadidentity()
+		setthreadidentity(2)
+		local Result = table.pack(Callback(table.unpack(OriginalInvokeArgs, 1, OriginalInvokeArgs.n)))
+		setthreadidentity(old)
+
+		if Log and not Log.Ignored then
+			Log:Call({
+				Arguments = Result,
 				Origin = Origin,
 				Function = Callback,
 				Line = nil,
 				IsExecutor = IsExecutor,
+				OriginalInvokeArgs = OriginalInvokeArgs,
+				IsCallbackReturn = true,
 			})
-		then
-			return
 		end
 
-		setthreadidentity(2)
-		return Callback(...)
+		return table.unpack(Result, 1, Result.n)
 	end
 
 	if wax.shared.ExecutorSupport["setstackhidden"].IsWorking then
