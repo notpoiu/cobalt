@@ -42,6 +42,7 @@ local function LogRemote(
 		Function: (...any) -> ...any,
 		Line: number,
 		IsExecutor: boolean,
+		Blocked: boolean?,
 	}
 )
 	if not wax.shared.ShouldIgnore(Instance, getcallingscript()) and not LogConnectionFunctions[Function] then
