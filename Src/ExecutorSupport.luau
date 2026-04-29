@@ -263,13 +263,14 @@ test("oth", function()
 		return OldNamecall(...)
 	end)
 
-	AssertInvokeResult(
-		table.pack(Bindable:Invoke()),
-		"Result corruption post oth hook and pcall"
-	)
-
+	local Result = table.pack(Bindable:Invoke())
 	pcall(oth.unhook, getrawmetatable(game).__namecall)
 	Bindable:Destroy()
+
+	AssertInvokeResult(
+		Result,
+		"Result corruption post oth hook and pcall"
+	)
 end, false, false)
 
 -- Metamethod
