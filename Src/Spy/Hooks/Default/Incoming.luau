@@ -155,6 +155,7 @@ local function CreateCallbackDetour(Instance: InstancesToHook, Method: MethodsTo
 			return
 		end
 
+		setthreadidentity(2)
 		return Callback(...)
 	end
 
