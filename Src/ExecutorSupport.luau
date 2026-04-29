@@ -228,6 +228,48 @@ test("oth", function()
 
 	assert(Working, "oth.hook is not running on a seperate thread")
 	assert(Success, "oth.unhook failed: " .. tostring(Error))
+
+	assert(typeof(getrawmetatable) == "function", "getrawmetatable is required to validate oth __namecall returns")
+	assert(typeof(getnamecallmethod) == "function", "getnamecallmethod is required to validate oth __namecall returns")
+
+	local function AssertInvokeResult(Result, Context)
+		assert(Result.n == 4, `{Context}: returned {Result.n} values instead of 4`)
+		assert(Result[1] == "expected", `{Context}: did not preserve the first return value`)
+		assert(Result[2] == 123, `{Context}: did not preserve the second return value`)
+		assert(Result[3] == nil, `{Context}: did not preserve the nil return value`)
+		assert(Result[4] == "tail", `{Context}: did not preserve the tail return value`)
+	end
+
+	local Bindable = Instance.new("BindableFunction")
+	Bindable.OnInvoke = function() return "expected", 123, nil, "tail" end
+
+	local OldNamecall
+	OldNamecall = oth.hook(getrawmetatable(game).__namecall, function(...)
+		local self = ...
+		local Method = getnamecallmethod()
+
+		if self == Bindable and Method == "Invoke" then
+			pcall(function() end)
+			
+			local Result = table.pack(OldNamecall(...))
+			AssertInvokeResult(
+				Result,
+				"Result corruption in __namecall oth hook"
+			)
+
+			return table.unpack(Result, 1, Result.n)
+		end
+
+		return OldNamecall(...)
+	end)
+
+	AssertInvokeResult(
+		table.pack(Bindable:Invoke()),
+		"Result corruption post oth hook and pcall"
+	)
+
+	pcall(oth.unhook, getrawmetatable(game).__namecall)
+	Bindable:Destroy()
 end, false, false)
 
 -- Metamethod
