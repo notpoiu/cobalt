@@ -28,7 +28,7 @@ loadstring(game:HttpGet("https://github.com/notpoiu/cobalt/releases/latest/downl
 - File Logs
 - Plugin System (https://docs.mspaint.cc/cobalt/plugins/overview)
 
-> \*Actors are supported even on executors that lack the `run_on_actor` function. As long as the `setfflag` and `getfflag` functions are available in the executor's environement
+> \*Actors are supported even on executors that lack the `run_on_actor` function. As long as the `setfflag` and `getfflag` functions are available in the executor's environment
 
 ## Video Demo
 
