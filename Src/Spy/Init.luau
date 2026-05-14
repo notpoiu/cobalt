@@ -172,23 +172,37 @@ if wax.shared.ActorsEnabled then
 	-- God this code is so ass 🥹
 	local function HookActor(TargetActor: Actor)
 		local Hooked = false
+		local Attempts = 0
+
 		repeat
 			Hooked, _ = pcall(run_on_actor, TargetActor, CodeToRun, CommunicationChannelID)
+			Attempts += 1
 			task.wait(0.25)
-		until Hooked
+		until Hooked or Attempts > 10
 	end
 
-	for _, TargetActor in getactors() do
-		task.spawn(HookActor, TargetActor)
+	for _, Category in {getactors(), getdeletedactors and getdeletedactors() or {} } do
+		for _, TargetActor in Category do
+			task.spawn(HookActor, TargetActor)
+		end
 	end
 
-	wax.shared.Connect(game.DescendantAdded:Connect(function(actor)
-		if not actor:IsA("Actor") then
+	local ActorHookConnection
+	local function HandleInstance(Instance)
+		if typeof(Instance) == "Instance" and not Instance:IsA("Actor") then
 			return
 		end
 
-		HookActor(actor)
-	end))
+		HookActor(Instance)
+	end
+
+	if on_actor_state_created then
+		ActorHookConnection = on_actor_state_created:Connect(HandleInstance)
+	else
+		ActorHookConnection = game.DescendantAdded:Connect(HandleInstance)
+	end
+
+	wax.shared.Connect(ActorHookConnection)
 end
 
 return {}

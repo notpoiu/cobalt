@@ -45,7 +45,20 @@ if not wax.shared.Players.LocalPlayer then
 	wax.shared.Players.PlayerAdded:Wait()
 end
 wax.shared.LocalPlayer = wax.shared.Players.LocalPlayer
-wax.shared.PlayerScripts = cloneref(wax.shared.LocalPlayer:WaitForChild("PlayerScripts"))
+local ContendingPlayerScripts = cloneref(wax.shared.LocalPlayer:QueryDescendants("PlayerScripts")[1] or wax.shared.LocalPlayer)
+if ContendingPlayerScripts:IsA("PlayerScripts") then
+	wax.shared.PlayerScripts = ContendingPlayerScripts
+else
+	wax.shared.PlayerScripts = nil
+
+	local ChildAddedConnection
+	ChildAddedConnection = wax.shared.Connect(wax.shared.LocalPlayer.ChildAdded:Connect(function(Child)
+		if Child:IsA("PlayerScripts") then
+			wax.shared.PlayerScripts = cloneref(Child)
+			wax.shared.Disconnect(ChildAddedConnection)
+		end
+	end))
+end
 
 -- Functions
 wax.shared.gethui = gethui or function()
@@ -119,7 +132,11 @@ wax.shared.IsPlayerModule = function(Origin: LocalScript | ModuleScript, Instanc
 		return true
 	end
 
-	return compareinstances(PlayerModule.Parent, wax.shared.PlayerScripts)
+	if wax.shared.PlayerScripts then
+		return compareinstances(PlayerModule.Parent, wax.shared.PlayerScripts)
+	end
+
+	return false
 end
 wax.shared.ShouldIgnore = function(Instance, Origin)
 	return wax.shared.Settings.IgnoredRemotesDropdown.Value[Instance.ClassName] == true
