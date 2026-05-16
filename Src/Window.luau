@@ -1940,7 +1940,7 @@ MainSection:CreateCheckbox("UseAlternativeHooks", {
 
 MainSection:CreateCheckbox("AnticheatBypass", {
 	Text = "Built-in Anticheat Bypass",
-	Default = true,
+	Default = false,
 })
 
 if AnticheatData.Disabled then
