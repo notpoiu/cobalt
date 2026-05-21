@@ -87,6 +87,7 @@ end
 ]]
 local function CreateConnectionFunction(Instance: InstancesToHook, Method: MethodsToHook)
 	local ConnectionFunction = function(...)
+		local HasLoggedRegular = false
 		for _, Connection in getconnections((Instance :: any)[Method]) do
 			if Connection.ForeignState then
 				continue
@@ -111,12 +112,26 @@ local function CreateConnectionFunction(Instance: InstancesToHook, Method: Metho
 				end
 			end
 
+			if not HasLoggedRegular and not LogConnectionFunctions[Function] then
+				HasLoggedRegular = true
+			end
+
 			LogRemote(Instance, Method, Function, {
 				Arguments = table.pack(...),
 				Origin = Origin,
 				Function = Function,
 				Line = nil,
 				IsExecutor = Function and isexecutorclosure(Function) or false,
+			})
+		end
+
+		if not HasLoggedRegular then
+			LogRemote(Instance, Method, nil, {
+				Arguments = table.pack(...),
+				Origin = nil,
+				Function = nil,
+				Line = nil,
+				IsExecutor = false,
 			})
 		end
 	end
