@@ -717,7 +717,7 @@ local function CreatePluginEnvironement(FilePath: string, PluginCallback: (...an
         end
 
         Log:Call(Data)
-        wax.shared.Communicator:Fire(Instance, Type, #Log.Calls)
+        wax.shared.Communicator.Fire(wax.shared.Communicator, Instance, Type, #Log.Calls)
     end
 
     --[[
