@@ -111,7 +111,7 @@ function SessionExporter:ProcessCalls(AllCalls, SessionData, UpdateProgress)
         local FunctionName, FunctionLine, FunctionSource, FunctionHash = "Unknown", Call.Line or -1, Call.Source or "Unknown", "N/A"
         local FunctionUpvalues, FunctionProtos, FunctionConstants = "{}", "{}", "{}"
         do
-            if type(Call.Function) == "table" and Call.IsActor then
+            if type(Call.Function) == "table" and Call.Actor ~= nil then
                 FunctionName = Call.Function.Name ~= "" and Call.Function.Name or "Anonymous"
                 FunctionSource = Call.Function.Source or "N/A"
                 FunctionLine = Call.Function.Line or -1
@@ -170,7 +170,7 @@ function SessionExporter:ProcessCalls(AllCalls, SessionData, UpdateProgress)
             FunctionLine,
             StringMapper:GetId(FunctionSource),
             Call.IsExecutor and 1 or 0,
-            Call.IsActor and 1 or 0,
+            Call.Actor ~= nil and 1 or 0,
 
             StringMapper:GetId(FunctionHash),
             StringMapper:GetId(FunctionUpvalues),

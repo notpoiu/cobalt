@@ -1880,8 +1880,22 @@ CodeGenSection:CreateDropdown("InstancePathLookupChain", {
 	Default = "Index",
 })
 
+CodeGenSection:CreateDropdown("EventReferenceStrategy", {
+	Text = "Fallback Event Ref Strategy",
+	Values = {
+		["GetNil"] = "bug",
+		["Upvalue Lookup"] = "circle-fading-arrow-up",
+	},
+	Default = "GetNil",
+})
+
 CodeGenSection:CreateCheckbox("PreferBufferFromString", {
 	Text = "Prefer buffer.fromstring",
+	Default = false,
+})
+
+CodeGenSection:CreateCheckbox("CacheInstancePaths", {
+	Text = "Cache Event Instance Paths",
 	Default = false,
 })
 

@@ -18,6 +18,7 @@ export type CallInfo = {
 		Constants: { any }?,
 		Upvalues: { any }?,
 		Protos: { any }?,
+		FunctionHash: string?,
 	},
 	Line: number?,
 	Source: string?,
@@ -26,7 +27,9 @@ export type CallInfo = {
 	Type: "Incoming" | "Outgoing",
 	OriginalInvokeArgs: { [number]: any, n: number }?,
 	IsCallbackReturn: boolean?,
-	IsActor: boolean?,
+	IsExecutor: boolean?,
+	Path: string?,
+	Actor: Actor?,
 }
 
 wax.shared.FunctionForClasses = {
@@ -55,6 +58,44 @@ local GetNilCode = [[local function GetNil(Name, DebugId)
 	end
 end]]
 
+local GetEventReferenceCode = [[local function GetEventReference(options)
+	local Hash, Index, ExcludeExecutor, Path = options.Hash, options.Index, options.ExcludeExecutor, options.Path
+	local Retrieved = nil
+
+	if filtergc then
+		Retrieved = filtergc("function", {
+			Hash = Hash,
+			IgnoreExecutor = ExcludeExecutor
+		}, true)
+	else
+		for _, Func in getgc() do
+			if typeof(Func) ~= "function" then
+				continue
+			end
+
+			if ExcludeExecutor and isexecutorclosure(Func) then
+				continue
+			end
+			
+			if getfunctionhash(Func) == Hash then
+				Retrieved = Func
+				break
+			end
+		end
+	end
+
+	assert(Retrieved, "Could not find function with hash " .. tostring(Hash))
+	local Value = debug.getupvalue(Retrieved, Index)
+
+	if Path then
+		for _, Key in next, Path do
+			Value = Value[Key]
+		end
+	end
+
+	return Value
+end]]
+
 --// Pasted from Dex (maximum detection)
 for i = 0, 31 do
 	CodeGen.CleanTable[string.char(i)] = "\\" .. string.format("%03d", i)
@@ -65,6 +106,31 @@ end
 
 function CodeGen.FormatLuaString(str)
 	return string.gsub(str, '["\\\0-\31\127-\255]', CodeGen.CleanTable)
+end
+
+local function FormatLuaLiteral(Value): string?
+	local ValueType = type(Value)
+	if ValueType == "string" then
+		return `"{CodeGen.FormatLuaString(Value)}"`
+	elseif ValueType == "number" or ValueType == "boolean" then
+		return tostring(Value)
+	end
+
+	return nil
+end
+
+local function FormatLuaArray(Values: { any }): string
+	local Serialized = {}
+	for _, Value in Values do
+		local Literal = FormatLuaLiteral(Value)
+		if not Literal then
+			return "{}"
+		end
+
+		table.insert(Serialized, Literal)
+	end
+
+	return "{ " .. table.concat(Serialized, ", ") .. " }"
 end
 
 local function IsEqualToInstance(Object, ToCompareTo)
@@ -83,12 +149,19 @@ function CodeGen.GetFullPath(Object, options: {
 	DisableNilParentHandler: boolean?,
 	VariableName: string?,
 	OmitNilFunctionGetterCodeGeneration: boolean?,
-	IgnorePlugins: boolean?
+	IgnorePlugins: boolean?,
+	EventReference: {
+		Hash: string,
+		Index: number,
+		ExcludeExecutor: boolean?,
+		Path: { any }?,
+	}?,
 }?)
 	local DisableNilParentHandler = options and options.DisableNilParentHandler
 	local OmitNilFunctionGetterCodeGeneration = options and options.OmitNilFunctionGetterCodeGeneration
 	local VariableName = options and options.VariableName
 	local IgnorePlugins = options and options.IgnorePlugins
+	local EventReference = options and options.EventReference
 	do
 		if DisableNilParentHandler == nil then
 			DisableNilParentHandler = true
@@ -115,7 +188,8 @@ function CodeGen.GetFullPath(Object, options: {
 	end
 
 	local ChildLookupMode = wax.shared.SaveManager:GetState("InstancePathLookupChain", "Index")
-
+	local NilEventReferenceStrategy = wax.shared.SaveManager:GetState("EventReferenceStrategy", "GetNil")
+	
 	local function BuildDynamicAccessor(Expression: string): string
 		if ChildLookupMode == "WaitForChild" then
 			return ":WaitForChild(" .. Expression .. ")"
@@ -217,13 +291,32 @@ function CodeGen.GetFullPath(Object, options: {
 						CurrentObject:GetDebugId()
 					)}")`
 					DidInsertNilFunction = true
+					local GetterCode = GetNilCode
+
+					if NilEventReferenceStrategy == "Upvalue Lookup" and EventReference then
+						local EventReferenceCall = {
+							"GetEventReference({",
+							CodeGen:IndentCode(`Hash = "{CodeGen.FormatLuaString(EventReference.Hash)}",`, 1),
+							CodeGen:IndentCode(`ExcludeExecutor = {EventReference.ExcludeExecutor == true and "true" or "false"},`, 1),
+							CodeGen:IndentCode(`Index = {tostring(EventReference.Index)},`, 1),
+						}
+
+						if EventReference.Path and #EventReference.Path > 0 then
+							table.insert(EventReferenceCall, CodeGen:IndentCode(`Path = {FormatLuaArray(EventReference.Path)},`, 1))
+						end
+
+						table.insert(EventReferenceCall, "})\n")
+						Base = table.concat(EventReferenceCall, "\n")
+						GetterCode = GetEventReferenceCode
+						DidInsertNilFunction = false
+					end
 					
 					if OmitNilFunctionGetterCodeGeneration then
 						Path = Base
 						break
 					end
 
-					Path = GetNilCode .. `\n\n{VariableName and `local {VariableName} = ` or ""}` .. Base
+					Path = GetterCode .. `\n\n{VariableName and `local {VariableName} = ` or ""}` .. Base
 					break
 				end
 			end
@@ -271,6 +364,76 @@ local function WrapCodeInActor(Code: string, ShouldWrap: boolean)
 	return string.format(WrapperActorCode, CodeGen:IndentCode(Code, 2))
 end
 
+local function FindEventReferenceInTable(Table: { [any]: any }, Instance: Instance, Visited: { [any]: boolean }?): { any }?
+	local Seen = Visited or {}
+	if Seen[Table] then
+		return nil
+	end
+
+	Seen[Table] = true
+
+	for Key, Value in next, Table do
+		if typeof(Value) == "Instance" and IsEqualToInstance(Value, Instance) and FormatLuaLiteral(Key) then
+			return { Key }
+		end
+
+		if type(Value) == "table" and FormatLuaLiteral(Key) then
+			local ChildPath = FindEventReferenceInTable(Value, Instance, Seen)
+			if ChildPath then
+				table.insert(ChildPath, 1, Key)
+				return ChildPath
+			end
+		end
+	end
+
+	return nil
+end
+
+local function ResolveEventReference(CallInfo: CallInfo): { Hash: string, Index: number, ExcludeExecutor: boolean?, Path: { any }? }?
+	if wax.shared.SaveManager:GetState("EventReferenceStrategy", "GetNil") ~= "Upvalue Lookup" then
+		return nil
+	end
+
+	if CallInfo.Actor and typeof(CallInfo.Function) == "table" then
+		local FunctionHash = CallInfo.Function.FunctionHash
+		local Upvalues = CallInfo.Function.Upvalues
+
+		if FunctionHash and type(Upvalues) == "table" then
+			local UpvaluePath = FindEventReferenceInTable(Upvalues, CallInfo.Instance)
+			if not UpvaluePath then
+				return nil
+			end
+
+			local UpvalueIndex = table.remove(UpvaluePath, 1)
+			return {
+				Hash = FunctionHash,
+				Index = UpvalueIndex,
+				Path = UpvaluePath,
+				ExcludeExecutor = true,
+			}
+		end
+
+		return nil
+	end
+
+	if typeof(CallInfo.Function) ~= "function" or not islclosure(CallInfo.Function) or not getfunctionhash then
+		return nil
+	end
+
+	local UpvaluePath = FindEventReferenceInTable(debug.getupvalues(CallInfo.Function), CallInfo.Instance)
+	if not UpvaluePath then
+		return nil
+	end
+
+	local UpvalueIndex = table.remove(UpvaluePath, 1)
+	return {
+		Hash = getfunctionhash(CallInfo.Function),
+		Index = UpvalueIndex,
+		Path = UpvaluePath,
+		ExcludeExecutor = CallInfo.IsExecutor ~= true,
+	}
+end
+
 function CodeGen:BuildHookCode(CallInfo: CallInfo)
 	local PluginManager = wax.shared.CobaltPluginManager
 	if PluginManager and PluginManager.HasCodeGenInterceptors then
@@ -290,8 +453,16 @@ function CodeGen:BuildHookCode(CallInfo: CallInfo)
 	local Path = self.GetFullPath(CallInfo.Instance, {
 		VariableName = "Event",
 		DisableNilParentHandler = false,
+		EventReference = ResolveEventReference(CallInfo),
 	})
-	local IsFromActor = CallInfo.IsActor or false
+	if wax.shared.SaveManager:GetState("CacheInstancePaths", false) then
+		local Log = wax.shared.Logs[Type][CallInfo.Instance]
+		if Log then
+			Path = "-- Cached Event Path: " .. (CallInfo.Path or "N/A") .. "\n" .. Path
+		end
+	end
+
+	local IsFromActor = CallInfo.Actor ~= nil
 	local Method = wax.shared.FunctionForClasses[Type][CallInfo.Instance.ClassName]
 
 	local CodeGenHeader = CodeGenHeaderTemplate
@@ -532,7 +703,15 @@ function CodeGen:BuildCallCode(CallInfo: CallInfo)
 	local Path = self.GetFullPath(CallInfo.Instance, {
 		VariableName = "Event",
 		DisableNilParentHandler = false,
+		EventReference = ResolveEventReference(CallInfo),
 	})
+	if wax.shared.SaveManager:GetState("CacheInstancePaths", false) then
+		local Log = wax.shared.Logs[Type][CallInfo.Instance]
+		if Log then
+			Path = "-- Cached Event Path: " .. (CallInfo.Path or "N/A") .. "\n" .. Path
+		end
+	end
+
 	local Method = wax.shared.FunctionForClasses[Type][CallInfo.Instance.ClassName]
 	local SerializedArgs, DidInsertNilFunction = wax.shared.LuaEncode(
 		CallInfo.Arguments,
@@ -642,21 +821,21 @@ Event:%s(%s)]],
 end
 
 function CodeGen:BuildFunctionInfo(CallInfo: CallInfo)
-	if CallInfo.IsActor and typeof(CallInfo.Function) == "table" then
+	if CallInfo.Actor and typeof(CallInfo.Function) == "table" then
 		return string.format(
 			[[<b>Function Address:</b> %s
 <b>Name:</b> %s
 <b>Script Path:</b> %s
 <b>Source:</b> %s
 <b>Calling Line:</b> %s
-<b>From Actor:</b> true
+<b>Origin Actor:</b> %s
 %s]],
 			CallInfo.Function.Address:match("0x%x+") or tostring(CallInfo.Function),
 			CallInfo.Function.Name ~= "" and CallInfo.Function.Name or "Anonymous",
 			CallInfo.Origin and self.GetFullPath(CallInfo.Origin, { DisableNilParentHandler = true }) or wax.shared.ExecutorName,
 			CallInfo.Function.Source or "N/A",
 			tostring(CallInfo.Line),
-
+			self.GetFullPath(CallInfo.Actor, { DisableNilParentHandler = true }) or "N/A",
 			CallInfo.Function.IsC and "<b>Closure Type</b>: C closure"
 				or string.format(
 					"<b>Closure Type</b>: Luau closure\n<b>Constants:</b> %s\n<b>Upvalues:</b> %s\n<b>Protos:</b> %s",

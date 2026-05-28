@@ -127,7 +127,6 @@ if wax.shared.ActorsEnabled then
 
 			local ReconstructedInfo = ReconstructTable(RawInfo, CyclicRefs)
 			ReconstructedInfo.Blocked = true
-			ReconstructedInfo.IsActor = true
 
 			--// Reconstruct Packed Arguments (BindableEvents omit ["n"] for unknown reason) \\--
 			ReconstructedInfo.Arguments = ReconstructPacked(ReconstructedInfo.Arguments)
@@ -137,7 +136,6 @@ if wax.shared.ActorsEnabled then
 			wax.shared.Communicator:Fire(Log.Instance, Type, #Log.Calls)
 		elseif not Log.Ignored then
 			local ReconstructedInfo = ReconstructTable(RawInfo, CyclicRefs)
-			ReconstructedInfo.IsActor = true
 
 			--// Reconstruct Packed Arguments (BindableEvents omit ["n"] for unknown reason) \\--
 			ReconstructedInfo.Arguments = ReconstructPacked(ReconstructedInfo.Arguments)
@@ -175,7 +173,13 @@ if wax.shared.ActorsEnabled then
 		local Attempts = 0
 
 		repeat
-			Hooked, _ = pcall(run_on_actor, TargetActor, CodeToRun, CommunicationChannelID)
+			Hooked, _ = pcall(run_on_actor,
+				TargetActor,
+				CodeToRun,
+				CommunicationChannelID,
+				TargetActor
+			)
+
 			Attempts += 1
 			task.wait(0.25)
 		until Hooked or Attempts > 10

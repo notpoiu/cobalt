@@ -92,17 +92,26 @@ local function RunInterceptors(Interceptors: { (...any) -> (...any) }, Info: any
 end
 
 function Log:Call(RawInfo)
+	--// Instance Path Caching \\--
+	if
+		wax.shared.SaveManager:GetState("CacheInstancePaths", false)
+		and self.Instance.IsDescendantOf(self.Instance, game)
+	then
+		RawInfo.Path = self.Instance.GetFullName(self.Instance)
+	end
+
+	--// Ratelimiting \\--
 	local Success, Data = pcall(function()
 		return self:IsOverSpamThreshold()
 	end)
 
-	if Success and Data then
-		return
-	end
+	if Success and Data then return end
 
+	--// Info stuff \\--
 	local Info = DeepClone(RawInfo)
 	Info.CreationTime = tick()
 
+	--// Plugin Interceptors \\--
 	local PluginManager = wax.shared.CobaltPluginManager
 	if PluginManager and PluginManager.HasInterceptors then
 		-- Run Instance-specific interceptors (both exact type and "All")
@@ -119,7 +128,8 @@ function Log:Call(RawInfo)
 		local GlobalAll = PluginManager.Registry.Interceptors.Global["All"]
 		if GlobalAll and RunInterceptors(GlobalAll, Info, self) then return end
 	end
-
+	
+	--// Update Log \\--
 	local Index = #self.Calls + 1
 	self.Calls[Index] = Info
 	if not Info.IsExecutor then

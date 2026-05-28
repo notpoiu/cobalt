@@ -23,7 +23,8 @@ type ActorData = {
 
 local Data: ActorData = COBALT_ACTOR_DATA
 
-local RelayChannel = get_comm_channel(...)
+local ChannelId, CurrentActor = ...
+local RelayChannel = get_comm_channel(ChannelId)
 
 local wax = { shared = {} }
 
@@ -298,24 +299,44 @@ do
 		return GenerateUUID(wax.shared.HttpService, false)
 	end
 
-	local function FixTable(Table, Refs)
+	local function CreateTraversalState(Refs)
+		return {
+			CyclicRefs = Refs or {},
+			TableIds = setmetatable({}, { __mode = "k" }),
+			Functions = setmetatable({}, { __mode = "k" }),
+		}
+	end
+
+	local function FixTable(Table, State)
 		if not Table then
 			return nil
 		end
 
-		local CyclicRefs = Refs or {}
-		local Visited = {}
+		if not State or not State.CyclicRefs then
+			State = CreateTraversalState(State)
+		end
+
+		local CyclicRefs = State.CyclicRefs
+		local TableId = State.TableIds[Table]
+		if not TableId then
+			TableId = GenerateId()
+			State.TableIds[Table] = TableId
+		end
+
 		local OutputTable = {}
+		CyclicRefs[TableId] = OutputTable
+
 		local ContainsCyclicRef = false
 
 		for Key, Value in Table do
 			if type(Value) == "table" then
-				if Visited[Value] then
+				local ExistingId = State.TableIds[Value]
+				if ExistingId then
 					ContainsCyclicRef = true
 
 					OutputTable[Key] = {
 						__CyclicRef = true,
-						__Id = CyclicRefs[Value],
+						__Id = ExistingId,
 					}
 					continue
 				end
@@ -323,36 +344,18 @@ do
 				if getmetatable(Value) then
 					OutputTable[Key] =
 						"Cobalt: Impossible to bridge table with metatable from actor Environment to main Environment"
+					continue
 				end
 
-				local Result, CycleMetadata, ContainsCyclic = FixTable(Value, CyclicRefs)
+				local Result, _, ContainsCyclic = FixTable(Value, State)
 				if not Result then
 					continue
 				end
 
-				if not ContainsCyclic then
-					OutputTable[Key] = Result
-					continue
-				end
-
-				-- Merge the cycle metadata
-				for k, v in CycleMetadata do
-					OutputTable[k] = v
-				end
-
-				-- Create a new cyclic reference
-				local CycleId = GenerateId()
-
-				OutputTable[Key] = {
-					__CyclicRef = true,
-					__Id = CycleId,
-				}
-
-				CyclicRefs[CycleId] = Value
-
-				Visited[Value] = true
+				OutputTable[Key] = Result
+				ContainsCyclicRef = ContainsCyclicRef or ContainsCyclic
 			elseif type(Value) == "function" then
-				OutputTable[Key] = FunctionToMetatadata(Value)
+				OutputTable[Key] = FunctionToMetatadata(Value, State)
 			else
 				OutputTable[Key] = Value
 			end
@@ -361,9 +364,13 @@ do
 		return OutputTable, CyclicRefs, ContainsCyclicRef
 	end
 
-	FunctionToMetatadata = function(Function)
+	FunctionToMetatadata = function(Function, State)
 		if not Function then
 			return nil
+		end
+
+		if not State or not State.CyclicRefs then
+			State = CreateTraversalState()
 		end
 
 		local Metadata = {
@@ -373,10 +380,20 @@ do
 			IsC = iscclosure(Function),
 		}
 
+		if State.Functions[Function] then
+			Metadata["Recursive"] = true
+			Metadata["Validation"] = Data.Token
+			Metadata["__Function"] = true
+
+			return Metadata
+		end
+
+		State.Functions[Function] = true
+
 		if not iscclosure(Function) then
-			Metadata["Upvalues"] = debug.getupvalues(Function)
-			Metadata["Constants"] = debug.getconstants(Function)
-			Metadata["Protos"] = debug.getprotos(Function)
+			Metadata["Upvalues"] = FixTable(debug.getupvalues(Function), State)
+			Metadata["Constants"] = FixTable(debug.getconstants(Function), State)
+			Metadata["Protos"] = FixTable(debug.getprotos(Function), State)
 			
 			if getfunctionhash then
 				Metadata["FunctionHash"] = getfunctionhash(Function)
@@ -455,8 +472,10 @@ do
 			return
 		end
 
-		RawInfo["IsActor"] = true
+		RawInfo["Actor"] = CurrentActor
 		local Info = DeepClone(RawInfo)
+
+		--// Fix Arguments \\--
 		local OldArguments = Info.Arguments
 		Info.Arguments = {
 			Data = OldArguments,
