@@ -9,6 +9,8 @@ local ClassesToHook = {
 type InstancesToHook = RemoteEvent | UnreliableRemoteEvent | RemoteFunction | BindableEvent | BindableFunction
 type MethodsToHook = "OnClientEvent" | "OnClientInvoke" | "Event" | "OnInvoke"
 
+local setfenv = setfenv
+
 local LogConnectionFunctions = {}
 local SignalMapping = setmetatable({}, { __mode = "kv" })
 wax.shared.IncomingLogConnectionFunctions = LogConnectionFunctions
@@ -124,7 +126,7 @@ local function CreateConnectionFunction(Instance: InstancesToHook, Method: Metho
 			})
 		end
 
-		if not HasLoggedRegular then
+		if not HasLoggedRegular and not IS_ACTOR then
 			LogRemote(Instance, Method, nil, {
 				Arguments = wax.shared.SafePack.Pack(...),
 				Origin = nil,
@@ -139,7 +141,6 @@ local function CreateConnectionFunction(Instance: InstancesToHook, Method: Metho
 	return ConnectionFunction
 end
 
-local setfenv = setfenv
 --[[
 	Handles logging for a callback.
 

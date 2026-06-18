@@ -118,6 +118,7 @@ wax.shared.newcclosure = wax.shared.ExecutorName == "AWP"
 		end
 	or newcclosure
 --#endregion
+
 wax.shared.queue_on_teleport = queue_on_teleport or queueonteleport or function(...) end
 wax.shared.SafePack = require(script.Utils.SafePack)
 

@@ -25,6 +25,8 @@ local InputUtils = require(UIUtils.Window.Input.Input)
 
 local Resize = require(UIUtils.Window.Input.Resize)
 local Drag = require(UIUtils.Window.Input.Drag)
+local ContextMenuController = require(UIUtils.Window.ContextMenu)
+local ModalController = require(UIUtils.Window.Modal)
 
 local PaginationHelper = Pagination.new({
 	ItemsPerPage = wax.shared.SaveManager:GetState("MaxItemPerPages", 20),
@@ -145,237 +147,13 @@ Resize.new({
 })
 
 -- Context Menus
-local CurrentContext
-local ContextMenu = Interface.New("Frame", {
-	AutomaticSize = Enum.AutomaticSize.XY,
-	BackgroundColor3 = Color3.fromRGB(10, 10, 10),
-	Size = UDim2.fromScale(0, 0),
-	ZIndex = 10000,
-	Visible = false,
-
-	["UICorner"] = {
-		CornerRadius = UDim.new(0, 6),
-	},
-
-	["UIListLayout"] = {
-		FillDirection = Enum.FillDirection.Vertical,
-		HorizontalAlignment = Enum.HorizontalAlignment.Left,
-		Padding = UDim.new(0, 0),
-	},
-
-	["UIPadding"] = {
-		PaddingLeft = UDim.new(0, 4),
-		PaddingRight = UDim.new(0, 4),
-		PaddingTop = UDim.new(0, 4),
-		PaddingBottom = UDim.new(0, 4),
-	},
-
-	["UIStroke"] = {
-		ApplyStrokeMode = Enum.ApplyStrokeMode.Border,
-		Color = Color3.fromRGB(25, 25, 25),
-		Thickness = 1,
-	},
-
-	Parent = ScreenGui,
+local ContextMenus = ContextMenuController.new(ScreenGui, {
+	GetDPIScale = GetDPIScale,
+	TweenInfo = DefaultTweenInfo,
 })
 
 local function CreateContextMenu(Parent: GuiObject, Options: {}, MouseOnCursorPosition: boolean?)
-	local ContextData = {
-		Parent = Parent,
-		Options = {},
-	}
-
-	local function BuildContextMenu(Options: {})
-		for Order, Data in pairs(Options) do
-			local TextButton = Interface.New("TextButton", {
-				BackgroundColor3 = Color3.fromRGB(25, 25, 25),
-				BackgroundTransparency = 1,
-				LayoutOrder = Order,
-				Size = UDim2.new(1, 0, 0, 30),
-				Text = "",
-
-				["UICorner"] = {
-					CornerRadius = UDim.new(0, 6),
-				},
-
-				["UIPadding"] = {
-					PaddingBottom = UDim.new(0, 6),
-					PaddingLeft = UDim.new(0, 6),
-					PaddingRight = UDim.new(0, 6),
-					PaddingTop = UDim.new(0, 6),
-				},
-			})
-
-			local IconToSet = Data.Icon
-			if typeof(IconToSet) == "function" then
-				IconToSet = IconToSet()
-			end
-
-			local ItemIcon
-			if tostring(IconToSet):match("rbxasset") then
-				ItemIcon = Interface.New("ImageLabel", {
-					Image = IconToSet,
-					Size = UDim2.fromScale(1, 1),
-					SizeConstraint = Enum.SizeConstraint.RelativeYY,
-
-					Parent = TextButton,
-				})
-			else
-				ItemIcon = Interface.NewIcon(IconToSet, {
-					Size = UDim2.fromScale(1, 1),
-					SizeConstraint = Enum.SizeConstraint.RelativeYY,
-
-					Parent = TextButton,
-				})
-			end
-
-			local TextToSet = Data.Text
-			if typeof(TextToSet) == "function" then
-				TextToSet = TextToSet()
-			end
-
-			local ItemText = Interface.New("TextLabel", {
-				AutomaticSize = Enum.AutomaticSize.X,
-				Position = UDim2.fromOffset(Data.Icon == nil and 0 or 26, 0),
-				Size = UDim2.fromScale(0, 1),
-				Text = TextToSet,
-				TextSize = 16,
-				TextXAlignment = Enum.TextXAlignment.Left,
-
-				Parent = TextButton,
-			})
-
-			if Data.TextProperties then
-				local Properties = typeof(Data.TextProperties) == "function" and Data.TextProperties()
-					or Data.TextProperties
-				for Property, Value in pairs(Properties) do
-					ItemText[Property] = Value
-				end
-			end
-
-			TextButton.MouseEnter:Connect(function()
-				wax.shared.TweenService
-					:Create(TextButton, DefaultTweenInfo, {
-						BackgroundTransparency = 0,
-					})
-					:Play()
-			end)
-			TextButton.MouseLeave:Connect(function()
-				wax.shared.TweenService
-					:Create(TextButton, DefaultTweenInfo, {
-						BackgroundTransparency = 1,
-					})
-					:Play()
-			end)
-			TextButton.MouseButton1Click:Connect(function()
-				TextButton.BackgroundTransparency = 1
-
-				if Data.Callback then
-					Data.Callback()
-				end
-
-				if Data.CloseOnClick ~= false then
-					ContextData:Close()
-				else
-					for _, Option in pairs(ContextData.Options) do
-						Option:Display()
-					end
-				end
-			end)
-
-			function Data:Display()
-				if typeof(Data.Text) == "function" then
-					ItemText.Text = Data.Text()
-				end
-
-				if typeof(Data.Icon) == "function" then
-					IconToSet = Data.Icon()
-
-					if tostring(IconToSet):match("rbxasset") then
-						ItemIcon.ImageRectOffset = Vector2.new(0, 0)
-						ItemIcon.ImageRectSize = Vector2.new(0, 0)
-						ItemIcon.Image = IconToSet
-					else
-						Icons.SetIcon(ItemIcon, IconToSet)
-					end
-				end
-
-				if Data.TextProperties then
-					local Properties = typeof(Data.TextProperties) == "function" and Data.TextProperties()
-						or Data.TextProperties
-					for Property, Value in pairs(Properties) do
-						ItemText[Property] = Value
-					end
-				end
-			end
-
-			ContextData.Options[TextButton] = Data
-		end
-	end
-
-	function ContextData:Open()
-		if CurrentContext == ContextData then
-			return
-		end
-
-		if CurrentContext then
-			CurrentContext:Close()
-		end
-
-		CurrentContext = ContextData
-		for Object, Data in pairs(ContextData.Options) do
-			if Data.Condition and not Data.Condition() then
-				continue
-			end
-			Object.Parent = ContextMenu
-			Data:Display()
-		end
-
-		if MouseOnCursorPosition then
-			ContextMenu.Position = UDim2.fromOffset(
-				wax.shared.UserInputService:GetMouseLocation().X,
-				wax.shared.UserInputService:GetMouseLocation().Y - (45 / GetDPIScale())
-			)
-		else
-			ContextMenu.Position = UDim2.fromOffset(
-				Parent.AbsolutePosition.X / GetDPIScale(),
-				(Parent.AbsolutePosition.Y + Parent.AbsoluteSize.Y) / GetDPIScale()
-			)
-		end
-		ContextMenu.Visible = true
-	end
-
-	function ContextData:Toggle()
-		if CurrentContext == ContextData then
-			ContextData:Close()
-			return
-		end
-
-		ContextData:Open()
-	end
-
-	function ContextData:Close()
-		if CurrentContext ~= ContextData then
-			return
-		end
-
-		ContextMenu.Visible = false
-		for Object, _ in pairs(ContextData.Options) do
-			Object.Parent = nil
-		end
-		CurrentContext = nil
-	end
-
-	function ContextData:SetContextMenu(Options: { any })
-		for Object, Data in pairs(ContextData.Options) do
-			Object:Destroy()
-		end
-		ContextData.Options = {}
-		BuildContextMenu(Options)
-	end
-
-	BuildContextMenu(Options)
-	return ContextData
+	return ContextMenus:Create(Parent, Options, MouseOnCursorPosition)
 end
 
 -- Sonner toast
@@ -395,128 +173,21 @@ local SonnerUI = Interface.New("ScrollingFrame", {
 wax.shared.Sonner.init(SonnerUI)
 
 -- Modal
-local OpenedModal
-local ModalBackground = Interface.New("TextButton", {
-	BackgroundColor3 = Color3.fromRGB(0, 0, 0),
-	BackgroundTransparency = 0.5,
-	Size = UDim2.fromScale(1, 1),
-	Text = "",
-	Visible = false,
-	ZIndex = 2,
-
-	MainUICorner,
-	Parent = MainFrame,
+local Modals = ModalController.new(MainFrame, {
+	TweenInfo = DefaultTweenInfo,
 })
+local ModalBackground = Modals.Background
 
 local function OpenModal(Parent)
-	OpenedModal = Parent
-
-	OpenedModal.Visible = true
-	ModalBackground.Visible = true
+	return Modals:Open(Parent)
 end
 
 local function CloseModal()
-	if OpenedModal then
-		OpenedModal.Visible = false
-		OpenedModal = nil
-	end
-
-	ModalBackground.Visible = false
-end
-
-ModalBackground.MouseButton1Click:Connect(CloseModal)
-
-local function ConnectCloseButton(Button, Image, Parent)
-	Button.MouseEnter:Connect(function()
-		wax.shared.TweenService
-			:Create(Image, DefaultTweenInfo, {
-				ImageTransparency = 0.25,
-			})
-			:Play()
-	end)
-	Button.MouseLeave:Connect(function()
-		wax.shared.TweenService
-			:Create(Image, DefaultTweenInfo, {
-				ImageTransparency = 0.5,
-			})
-			:Play()
-	end)
-	Button.MouseButton1Click:Connect(CloseModal)
+	return Modals:Close()
 end
 
 local function CreateModalTop(Title: string, Icon: string, Parent: GuiObject)
-	local ModalTop = Interface.New("Frame", {
-		BackgroundTransparency = 1,
-		Size = UDim2.new(1, 0, 0, 36),
-		Parent = Parent,
-
-		["UIPadding"] = {
-			PaddingLeft = UDim.new(0, 6),
-			PaddingRight = UDim.new(0, 6),
-			PaddingTop = UDim.new(0, 6),
-			PaddingBottom = UDim.new(0, 6),
-		},
-	})
-
-	local ModalTitle = Interface.New("TextLabel", {
-		Text = Title,
-		TextSize = 17,
-		TextTruncate = Enum.TextTruncate.AtEnd,
-		Size = UDim2.new(1, -60, 1, 0),
-		Position = UDim2.fromScale(0.5, 0.5),
-		AnchorPoint = Vector2.new(0.5, 0.5),
-		Parent = ModalTop,
-	})
-
-	local ModalIcon
-
-	if Icon:match("rbxasset") then
-		ModalIcon = Interface.New("ImageLabel", {
-			Image = Icon,
-			Size = UDim2.fromScale(1, 1),
-			Position = UDim2.fromOffset(4, 0),
-			SizeConstraint = Enum.SizeConstraint.RelativeYY,
-
-			Parent = ModalTop,
-		})
-	else
-		ModalIcon = Interface.NewIcon(Icon, {
-			ImageTransparency = 0.5,
-			Size = UDim2.fromScale(1, 1),
-			Position = UDim2.fromOffset(4, 0),
-			SizeConstraint = Enum.SizeConstraint.RelativeYY,
-
-			Parent = ModalTop,
-		})
-	end
-
-	local CloseButton = Interface.New("ImageButton", {
-		Size = UDim2.fromScale(1, 1),
-		SizeConstraint = Enum.SizeConstraint.RelativeYY,
-		AnchorPoint = Vector2.new(1, 0),
-		Position = UDim2.fromScale(1, 0),
-		Parent = ModalTop,
-	})
-	local CloseImage = Interface.NewIcon("x", {
-		ImageTransparency = 0.5,
-		Size = UDim2.fromOffset(22, 22),
-		AnchorPoint = Vector2.new(0.5, 0.5),
-		Position = UDim2.fromScale(0.5, 0.5),
-		SizeConstraint = Enum.SizeConstraint.RelativeYY,
-
-		Parent = CloseButton,
-	})
-
-	ConnectCloseButton(CloseButton, CloseImage, Parent)
-
-	Interface.New("Frame", {
-		Parent = Parent,
-		BackgroundColor3 = Color3.fromRGB(25, 25, 25),
-		Size = UDim2.new(1, 0, 0, 1),
-		Position = UDim2.fromOffset(0, 36),
-	})
-
-	return ModalTitle, ModalIcon
+	return Modals:CreateTop(Title, Icon, Parent)
 end
 
 -- Settings
@@ -2283,6 +1954,7 @@ local InfoTabs = Interface.New("Frame", {
 	["UIListLayout"] = {
 		Padding = UDim.new(0, 6),
 		FillDirection = Enum.FillDirection.Horizontal,
+		SortOrder = Enum.SortOrder.LayoutOrder,
 		VerticalAlignment = Enum.VerticalAlignment.Top,
 	},
 
@@ -2760,6 +2432,7 @@ local function CreateInfoTab(Icon: string, Title: string, TabContents: Frame?)
 		BackgroundColor3 = ButtonColor,
 		Size = UDim2.fromScale(0, 1),
 		AutomaticSize = Enum.AutomaticSize.X,
+		LayoutOrder = #InfoModalTab,
 		Text = "",
 		Parent = InfoTabs,
 
@@ -2781,11 +2454,6 @@ local function CreateInfoTab(Icon: string, Title: string, TabContents: Frame?)
 		},
 	})
 
-	InfoModalTab[Title] = {
-		TabButton = TabButton,
-		TabContents = TabContents,
-	}
-
 	local TextWrapper = Interface.New("Frame", {
 		BackgroundTransparency = 1,
 		AutomaticSize = Enum.AutomaticSize.X,
@@ -2804,14 +2472,17 @@ local function CreateInfoTab(Icon: string, Title: string, TabContents: Frame?)
 			PaddingLeft = UDim.new(0, 8),
 		},
 
-		["TextLabel"] = {
-			Text = Title,
-			TextSize = 15,
-			Size = UDim2.fromScale(0, 1),
-			AutomaticSize = Enum.AutomaticSize.X,
-			LayoutOrder = 2,
-			ZIndex = 2,
-		},
+	})
+
+	local TabLabel = Interface.New("TextLabel", {
+		Text = Title,
+		TextSize = 15,
+		Size = UDim2.fromScale(0, 1),
+		AutomaticSize = Enum.AutomaticSize.X,
+		LayoutOrder = 2,
+		ZIndex = 2,
+
+		Parent = TextWrapper,
 	})
 
 	Interface.NewIcon(Icon, {
@@ -2822,6 +2493,13 @@ local function CreateInfoTab(Icon: string, Title: string, TabContents: Frame?)
 
 		Parent = TextWrapper,
 	})
+
+	InfoModalTab[Title] = {
+		TabButton = TabButton,
+		TabContents = TabContents,
+		TextLabel = TabLabel,
+	}
+	table.insert(InfoModalTab, Title)
 
 	wax.shared.Connect(TabButton.MouseButton1Click:Connect(function()
 		local OldTab = InfoModalTab[CurrentInfoTab]
@@ -2842,6 +2520,18 @@ local function CreateInfoTab(Icon: string, Title: string, TabContents: Frame?)
 			TabContents.Visible = true
 		end
 	end))
+end
+
+local function SetInfoTabMounted(Title: string, Mounted: boolean)
+	local Tab = InfoModalTab[Title]
+	if not Tab then
+		return
+	end
+
+	Tab.TabButton.Parent = if Mounted then InfoTabs else nil
+	if not Mounted and Tab.TabContents then
+		Tab.TabContents.Visible = false
+	end
 end
 
 local function CreateTabContent()
@@ -2889,6 +2579,7 @@ wax.shared.CreateModalTop = CreateModalTop
 wax.shared.CreateInfoDropdownButton = CreateInfoDropdownButton
 wax.shared.ModalBackground = ModalBackground
 
+--// Outgoing \\--
 local ArgumentInfoUI, ArgumentScrollingFrame = CreateTabContent()
 CreateInfoTab("ellipsis", "Arguments", ArgumentInfoUI)
 ArgumentScrollingFrame.AutomaticCanvasSize = Enum.AutomaticSize.Y
@@ -2907,6 +2598,27 @@ local ArgumentsInfoFrame = Interface.New("Frame", {
 	Parent = ArgumentScrollingFrame,
 })
 
+--// Incoming \\--
+local OriginalArgsInfoUI, OriginalArgsScrollingFrame = CreateTabContent()
+CreateInfoTab("list", "Args", OriginalArgsInfoUI)
+OriginalArgsScrollingFrame.AutomaticCanvasSize = Enum.AutomaticSize.Y
+SetInfoTabMounted("Args", false)
+
+local OriginalArgsInfoFrame = Interface.New("Frame", {
+	AutomaticSize = Enum.AutomaticSize.Y,
+	BackgroundTransparency = 1,
+	Size = UDim2.fromScale(1, 0),
+
+	["UIListLayout"] = {
+		Padding = UDim.new(0, 6),
+	},
+
+	MainUICorner,
+
+	Parent = OriginalArgsScrollingFrame,
+})
+
+--// Shared \\--
 local CodeInfoUI, CodeScrollingFrame = CreateTabContent()
 CreateInfoTab("code", "Code", CodeInfoUI)
 CodeScrollingFrame.ScrollBarThickness = 3
@@ -3050,7 +2762,7 @@ local SearchCloseImage = Interface.NewIcon("x", {
 	Parent = SearchCloseButton,
 })
 
-ConnectCloseButton(SearchCloseButton, SearchCloseImage, SearchFrame)
+Modals:ConnectCloseButton(SearchCloseButton, SearchCloseImage)
 
 Interface.New("Frame", {
 	BackgroundColor3 = Color3.fromRGB(25, 25, 25),
@@ -4274,11 +3986,20 @@ function CreateCallFrame(CallInfo)
 		CallFrame.MouseButton2Click:Connect(CallFrameContextMenu.Open)
 	end
 
+	local InitialDataView = (
+		CallInfo.Type == "Incoming" and CallInfo.InvokeResult and
+			"InvokeResult"
+		or
+			"Arguments"
+	)
+	local CallInfoValues = CallInfo[InitialDataView]
+	local CallInfoValueCount = wax.shared.GetTableLength(CallInfoValues)
+
 	local ArgumentsFrame = Interface.New("Frame", {
 		AutomaticSize = Enum.AutomaticSize.Y,
 		BackgroundColor3 = if IsBlockedCall then Color3.fromRGB(24, 13, 13) else Color3.fromRGB(15, 15, 15),
 		Size = UDim2.fromScale(1, 0),
-		Visible = wax.shared.GetTableLength(CallInfo.Arguments) > 0,
+		Visible = CallInfoValueCount > 0,
 
 		["UIListLayout"] = {
 			Padding = UDim.new(0, 6),
@@ -4296,12 +4017,12 @@ function CreateCallFrame(CallInfo)
 		Parent = CallFrame,
 	})
 	do
-		for Index = 1, wax.shared.GetTableLength(CallInfo.Arguments) do
-			if Index % 15 == 0 then
+		for Index = 1, CallInfoValueCount do
+			if Index % 25 == 0 then
 				task.wait()
 			end
 
-			local Value = CallInfo.Arguments[Index]
+			local Value = CallInfoValues[Index]
 			CreateArgHolder(Index, Value, ArgumentsFrame, IsBlockedCall)
 		end
 	end
@@ -4449,6 +4170,26 @@ end
 
 SearchBox:GetPropertyChangedSignal("Text"):Connect(UpdateSearch)
 
+local function ClearArgFrame(Frame)
+	for _, Object in pairs(Frame:GetChildren()) do
+		if Object.ClassName ~= "Frame" then
+			continue
+		end
+		Object:Destroy()
+	end
+end
+
+local function PopulateArgFrame(Frame, Values)
+	for Index = 1, wax.shared.GetTableLength(Values) do
+		if Index % 25 == 0 then
+			task.wait()
+		end
+
+		local Value = Values[Index]
+		CreateArgHolder(Index, Value, Frame)
+	end
+end
+
 -- Call Functions
 function OpenInfo(CallInfo)
 	if wax.shared.CobaltPluginManager and wax.shared.CobaltPluginManager.Initialized then
@@ -4477,20 +4218,41 @@ function OpenInfo(CallInfo)
 			)})\n\nError: {Error}`
 	end)
 	do
-		for _, Object in pairs(ArgumentsInfoFrame:GetChildren()) do
-			if Object.ClassName ~= "Frame" then
-				continue
-			end
-			Object:Destroy()
+		--// Get Initial Data View \\--
+		local InitialDataView = (
+			CallInfo.Type == "Incoming" and CallInfo.InvokeResult and
+				"InvokeResult"
+			or
+				"Arguments"
+		)
+
+		--// Set Initial Tab Label \\--
+		local FirstTab = InfoModalTab[InfoModalTab[1]]
+		if FirstTab and FirstTab.TextLabel then
+			FirstTab.TextLabel.Text = (
+				if InitialDataView == "InvokeResult" then
+					"Return Data"
+				else
+					"Arguments"
+			)
 		end
 
-		for Index = 1, wax.shared.GetTableLength(CallInfo.Arguments) do
-			if Index % 25 == 0 then
-				task.wait()
-			end
+		--// Cleanup \\--
+		ClearArgFrame(ArgumentsInfoFrame)
+		ClearArgFrame(OriginalArgsInfoFrame)
+		
+		--// Populate Initial Tab \\--
+		PopulateArgFrame(ArgumentsInfoFrame, CallInfo[InitialDataView])
 
-			local Value = CallInfo.Arguments[Index]
-			CreateArgHolder(Index, Value, ArgumentsInfoFrame)
+		--// Show Original Args Tab if needed \\--
+		local ShouldShowOriginalArgs = (
+			InitialDataView == "InvokeResult" and
+			wax.shared.GetTableLength(CallInfo.Arguments) > 0
+		)
+
+		SetInfoTabMounted("Args", ShouldShowOriginalArgs)
+		if ShouldShowOriginalArgs then
+			PopulateArgFrame(OriginalArgsInfoFrame, CallInfo.Arguments)
 		end
 	end
 
@@ -4500,8 +4262,9 @@ function OpenInfo(CallInfo)
 		end
 	end
 
+	local FirstTab = InfoModalTab[1]
 	for TabName, Tab in InfoModalTab do
-		if TabName == "Arguments" then
+		if TabName == FirstTab or typeof(TabName) ~= "string" then
 			continue
 		end
 
@@ -4526,8 +4289,8 @@ function OpenInfo(CallInfo)
 		TabContent.Visible = true
 	end
 
-	if CurrentContext then
-		CurrentContext:Close()
+	if ContextMenus.CurrentContext then
+		ContextMenus.CurrentContext:Close()
 	end
 
 	OpenModal(InfoFrame)
@@ -4606,18 +4369,19 @@ end))
 
 wax.shared.Connect(wax.shared.UserInputService.InputBegan:Connect(function(Input: InputObject)
 	if InputUtils.IsClickInput(Input) then
-		if
-			CurrentContext
-			and not (
-				InputUtils.IsMouseOverFrame(ContextMenu, Input.Position)
-				or InputUtils.IsMouseOverFrame(CurrentContext.Parent, Input.Position)
-			)
-		then
-			CurrentContext:Close()
-		end
-	elseif Input.KeyCode == Enum.KeyCode.K and wax.shared.UserInputService:IsKeyDown(Enum.KeyCode.LeftControl) then
-		OpenSearch()
-	elseif OpenedModal == SearchFrame then
+			local CurrentContext = ContextMenus.CurrentContext
+			if
+				CurrentContext
+				and not (
+					InputUtils.IsMouseOverFrame(ContextMenus.Frame, Input.Position)
+					or InputUtils.IsMouseOverFrame(CurrentContext.Parent, Input.Position)
+				)
+			then
+				CurrentContext:Close()
+			end
+		elseif Input.KeyCode == Enum.KeyCode.K and wax.shared.UserInputService:IsKeyDown(Enum.KeyCode.LeftControl) then
+			OpenSearch()
+		elseif Modals.OpenedModal == SearchFrame then
 		if Input.KeyCode == Enum.KeyCode.Escape then
 			CloseModal()
 		elseif Input.KeyCode == Enum.KeyCode.Return then
