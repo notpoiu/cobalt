@@ -8,6 +8,7 @@ local LuaEncode = require(script.Parent.Utils.CodeGen.Serializer.LuaEncode)
 local Utils = script.Parent.Utils
 
 local Pagination = require(Utils.Pagination)
+local Ratelimiter = require(Utils.Ratelimiter)
 local CodeGen = require(Utils.CodeGen.Generator)
 local InstanceSerializer = require(Utils.CodeGen.Serializer.Instance)
 local Session = require(Utils.CodeGen.Serializer.Session)
@@ -37,7 +38,7 @@ local Tabs = {}
 local CurrentPage = {}
 local CurrentInfo, CurrentTab, CurrentLog, InfoButtons
 
-local LogsList
+local LogsList, RemoteList
 local ShowPagination, ShowCalls, CreateCallFrame, ShowLog, CreateLogButton, CleanLogsList, UpdateSearch, SelectResult, EnterResult, OpenSearch
 
 local DefaultTweenInfo = TweenInfo.new(0.2, Enum.EasingStyle.Exponential)
@@ -64,6 +65,50 @@ local function UpdateLogNameSize(Log)
 	local TextSizeX, _TextSizeY =
 		wax.shared.GetTextBounds("x" .. #Log.Calls, Log.Button.Calls.FontFace, Log.Button.Calls.TextSize)
 	Log.Button.Name.Size = UDim2.new(1, -(TextSizeX + 24), 1, 0)
+end
+
+local PendingLogButtonUpdates = {}
+local IsLogButtonUpdateQueued = false
+
+local function FlushLogButtonUpdates()
+	IsLogButtonUpdateQueued = false
+
+	for Log in PendingLogButtonUpdates do
+		PendingLogButtonUpdates[Log] = nil
+
+		if not (Log.Button and CurrentTab and CurrentTab.Logs[Log.Instance] == Log) then
+			continue
+		end
+
+		Log.Button.Name.Text = Log.Instance.Name
+		Log.Button.Calls.Text = "x" .. #Log.Calls
+		UpdateLogNameSize(Log)
+
+		if #Log.Calls == 0 then
+			Log.Button.Instance.Parent = nil
+		else
+			Log.Button.Instance.Parent = RemoteList
+		end
+	end
+end
+
+local LogButtonUpdateLimiter = Ratelimiter.new({
+	Burst = {
+		Time = 0.1,
+		Max = 1,
+	},
+	MainCallback = FlushLogButtonUpdates,
+})
+
+local function QueueLogButtonUpdate(Log)
+	PendingLogButtonUpdates[Log] = true
+
+	if IsLogButtonUpdateQueued then
+		return
+	end
+
+	IsLogButtonUpdateQueued = true
+	LogButtonUpdateLimiter:QueueOperation()
 end
 
 local function GetDPIScale()
@@ -2067,11 +2112,13 @@ local DefaultFooterButtons = {
 											and (iscclosure(CurrentInfo.Function) and "C Closure" or "Luau function")
 										or "N/A",
 									Address = tostring(CurrentInfo.Function),
-									Arguments = { wax.shared.SafePack.Unpack(
+									Arguments = {
+										wax.shared.SafePack.Unpack(
 											CurrentInfo.Arguments,
 											1,
 											wax.shared.GetTableLength(CurrentInfo.Arguments)
-										) },
+										),
+									},
 								}
 							or CurrentInfo.Function,
 						Script = CurrentInfo.Origin,
@@ -2471,7 +2518,6 @@ local function CreateInfoTab(Icon: string, Title: string, TabContents: Frame?)
 			PaddingRight = UDim.new(0, 8),
 			PaddingLeft = UDim.new(0, 8),
 		},
-
 	})
 
 	local TabLabel = Interface.New("TextLabel", {
@@ -3174,7 +3220,7 @@ local RemoteListWrapper = Interface.New("Frame", {
 	},
 })
 
-local RemoteList = Interface.New("ScrollingFrame", {
+RemoteList = Interface.New("ScrollingFrame", {
 	BackgroundTransparency = 1,
 	Size = UDim2.fromScale(1, 1),
 	AutomaticCanvasSize = Enum.AutomaticSize.Y,
@@ -4240,7 +4286,7 @@ function OpenInfo(CallInfo)
 		--// Cleanup \\--
 		ClearArgFrame(ArgumentsInfoFrame)
 		ClearArgFrame(OriginalArgsInfoFrame)
-		
+
 		--// Populate Initial Tab \\--
 		PopulateArgFrame(ArgumentsInfoFrame, CallInfo[InitialDataView])
 
@@ -4334,10 +4380,7 @@ wax.shared.Connect(wax.shared.Communicator.Event:Connect(function(Instance, Type
 		Log:SetButton(Button, Name, Calls)
 	end
 
-	Log.Button.Name.Text = Log.Instance.Name
-	UpdateLogNameSize(Log)
-	Log.Button.Calls.Text = "x" .. #Log.Calls
-	Log.Button.Instance.Parent = RemoteList
+	QueueLogButtonUpdate(Log)
 
 	if CurrentLog == Log then
 		PaginationHelper:Update(#Log.Calls)
@@ -4369,19 +4412,19 @@ end))
 
 wax.shared.Connect(wax.shared.UserInputService.InputBegan:Connect(function(Input: InputObject)
 	if InputUtils.IsClickInput(Input) then
-			local CurrentContext = ContextMenus.CurrentContext
-			if
-				CurrentContext
-				and not (
-					InputUtils.IsMouseOverFrame(ContextMenus.Frame, Input.Position)
-					or InputUtils.IsMouseOverFrame(CurrentContext.Parent, Input.Position)
-				)
-			then
-				CurrentContext:Close()
-			end
-		elseif Input.KeyCode == Enum.KeyCode.K and wax.shared.UserInputService:IsKeyDown(Enum.KeyCode.LeftControl) then
-			OpenSearch()
-		elseif Modals.OpenedModal == SearchFrame then
+		local CurrentContext = ContextMenus.CurrentContext
+		if
+			CurrentContext
+			and not (
+				InputUtils.IsMouseOverFrame(ContextMenus.Frame, Input.Position)
+				or InputUtils.IsMouseOverFrame(CurrentContext.Parent, Input.Position)
+			)
+		then
+			CurrentContext:Close()
+		end
+	elseif Input.KeyCode == Enum.KeyCode.K and wax.shared.UserInputService:IsKeyDown(Enum.KeyCode.LeftControl) then
+		OpenSearch()
+	elseif Modals.OpenedModal == SearchFrame then
 		if Input.KeyCode == Enum.KeyCode.Escape then
 			CloseModal()
 		elseif Input.KeyCode == Enum.KeyCode.Return then
