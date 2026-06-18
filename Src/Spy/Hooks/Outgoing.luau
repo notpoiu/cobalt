@@ -132,8 +132,9 @@ end
 	@param Method: The method that was called (e.g., "OnClientEvent").
 	@param ... The arguments passed from the server to the client.
 ]]
-local function HandleLogging(TargetInstance: Instance, Method: string, Arguments: { [number]: any, n: number }, OldFunction: (...any) -> ...any, ...)
+local function HandleLogging(TargetInstance: Instance, Method: string, OldFunction: (...any) -> ...any, ...)
 	local Log = GetLog(TargetInstance, "Outgoing", Method)
+	local Arguments = wax.shared.SafePack.Pack(select(2, ...))
 
 	local Info = {
 		Arguments = Arguments,
@@ -157,10 +158,17 @@ local function HandleLogging(TargetInstance: Instance, Method: string, Arguments
 		--// Outgoing Log \\--
 		Log:Call(Info)
 
-		if
+		local IsRemoteFunctionInvoke = (
 			TargetInstance.ClassName == "RemoteFunction" and
 			(Method == "InvokeServer" or Method == "invokeServer")
-		then
+		)
+
+		local IsBindableFunctionInvoke = (
+			TargetInstance.ClassName == "BindableFunction" and
+			(Method == "Invoke" or Method == "invoke")
+		)
+
+		if IsRemoteFunctionInvoke or IsBindableFunctionInvoke then
 			--// Handle Incoming Log \\--
 			Log = GetLog(TargetInstance, "Incoming", Method)
 	
@@ -210,8 +218,7 @@ wax.shared.NamecallHook = wax.shared.Hooking.HookMetaMethod(game, "__namecall", 
 		and NamecallMethods[Method]
 		and not wax.shared.ShouldIgnore(self, getcallingscript())
 	then
-		local Arguments = wax.shared.SafePack.Pack(select(2, ...))
-		return HandleLogging(self, Method, Arguments, wax.shared.NamecallHook, ...)
+		return HandleLogging(self, Method, wax.shared.NamecallHook, ...)
 	end
 
 	return wax.shared.NamecallHook(...)
@@ -256,8 +263,7 @@ for _, Function in next, FunctionsToHook do
 			and not rawequal(self, wax.shared.Communicator)
 			and not wax.shared.ShouldIgnore(self, getcallingscript())
 		then
-			local Arguments = wax.shared.SafePack.Pack(select(2, ...))
-			return HandleLogging(self, Method, Arguments, wax.shared.Hooks[Function], ...)
+			return HandleLogging(self, Method, wax.shared.Hooks[Function], ...)
 		end
 
 		return wax.shared.Hooks[Function](...)
