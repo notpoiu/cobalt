@@ -8,7 +8,7 @@ local Drag = {
 	Callback = nil,
 }
 
-local Helper = require(script.Parent.Helper)
+local InputUtils = require(script.Parent.Input)
 
 local function DefaultCallback(_, Input: InputObject)
 	local Delta = Input.Position - Drag.StartPosition
@@ -30,7 +30,7 @@ function Drag.Setup(Frame: GuiObject, DragFrame: GuiObject, Callback: (Info: {},
 	Callback = Callback or DefaultCallback
 
 	DragFrame.InputBegan:Connect(function(Input: InputObject)
-		if not Helper.IsClickInput(Input) then
+		if not InputUtils.IsClickInput(Input) then
 			return
 		end
 
@@ -59,7 +59,7 @@ function Drag.Setup(Frame: GuiObject, DragFrame: GuiObject, Callback: (Info: {},
 end
 
 wax.shared.Connect(wax.shared.UserInputService.InputChanged:Connect(function(Input: InputObject)
-	if Drag.Dragging and Drag.Callback and Helper.IsMoveInput(Input) then
+	if Drag.Dragging and Drag.Callback and InputUtils.IsMoveInput(Input) then
 		Drag.Callback(Drag, Input)
 	end
 end))

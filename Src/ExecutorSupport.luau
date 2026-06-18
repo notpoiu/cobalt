@@ -206,10 +206,11 @@ test("oth", function()
 	local VIM = Instance.new("VirtualInputManager")
 	local Origin = coroutine.running()
 
-	local Working = nil
+	local Working, AttributeChangedCalled = nil, false
+	local AttributeChangedConnect = VIM.AttributeChanged.Connect
 
 	local Old
-	Old = oth.hook(VIM.SendGravityEvent, function(...)
+	Old = oth.hook(AttributeChangedConnect, function(...)
 		if Working == nil then
 			Working = (Origin ~= coroutine.running() and oth.is_hook_thread() and oth.get_original_thread() == Origin)
 			return
@@ -217,18 +218,23 @@ test("oth", function()
 
 		return Old(...)
 	end)
+	
+	AttributeChangedConnect(VIM.AttributeChanged, function(name)
+		if name ~= "cobalt" then
+			return
+		end
 
-	pcall(VIM.SendGravityEvent, VIM, 0, 0, 0)
+		AttributeChangedCalled = true 
+		coroutine.resume(Origin)
+	end)
 
-	repeat
-		task.wait()
-	until Working ~= nil
-	local Success, Error = pcall(oth.unhook, VIM.SendGravityEvent, Old)
-
-	VIM:Destroy()
-
+	VIM:SetAttribute("cobalt", true)
+	repeat task.wait() until Working ~= nil or AttributeChangedCalled
 	assert(Working, "oth.hook is not running on a seperate thread")
+
+	local Success, Error = pcall(oth.unhook, AttributeChangedConnect, Old)
 	assert(Success, "oth.unhook failed: " .. tostring(Error))
+	VIM:Destroy()
 
 	assert(typeof(getrawmetatable) == "function", "getrawmetatable is required to validate oth __namecall returns")
 	assert(typeof(getnamecallmethod) == "function", "getnamecallmethod is required to validate oth __namecall returns")

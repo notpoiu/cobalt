@@ -32,20 +32,23 @@ require(script.Utils.Connect)
 wax.shared.Hooking = require(script.Utils.Hooking)
 
 -- UI
-wax.shared.Sonner = require(script.Utils.UI.Sonner)
+wax.shared.Sonner = require(script.Utils.UI.Window.Sonner)
 
 -- Code Generation
-local LuaEncode = require(script.Utils.Serializer.LuaEncode)
+local LuaEncode = require(script.Utils.CodeGen.Serializer.LuaEncode)
 wax.shared.LuaEncode = LuaEncode
 
 local CodeGen = require(script.Utils.CodeGen.Generator)
+local InstanceSerializer = require(script.Utils.CodeGen.Serializer.Instance)
 
 -- Variables
 if not wax.shared.Players.LocalPlayer then
 	wax.shared.Players.PlayerAdded:Wait()
 end
+--#region @export "PlayerScripts"
 wax.shared.LocalPlayer = wax.shared.Players.LocalPlayer
-local ContendingPlayerScripts = cloneref(wax.shared.LocalPlayer:QueryDescendants("PlayerScripts")[1] or wax.shared.LocalPlayer)
+local ContendingPlayerScripts =
+	cloneref(wax.shared.LocalPlayer:QueryDescendants("PlayerScripts")[1] or wax.shared.LocalPlayer)
 if ContendingPlayerScripts:IsA("PlayerScripts") then
 	wax.shared.PlayerScripts = ContendingPlayerScripts
 else
@@ -59,6 +62,7 @@ else
 		end
 	end))
 end
+--#endregion
 
 -- Functions
 wax.shared.gethui = gethui or function()
@@ -67,6 +71,7 @@ end
 wax.shared.checkcaller = checkcaller or function()
 	return nil
 end
+--#region @export "ExecutorHelpers"
 wax.shared.restorefunction = function(Function: (...any) -> ...any, Silent: boolean?)
 	local Original = wax.shared.Hooks[Function]
 
@@ -112,8 +117,11 @@ wax.shared.newcclosure = wax.shared.ExecutorName == "AWP"
 			return newcclosure(nf, name)
 		end
 	or newcclosure
+--#endregion
 wax.shared.queue_on_teleport = queue_on_teleport or queueonteleport or function(...) end
+wax.shared.SafePack = require(script.Utils.SafePack)
 
+--#region @export "IsPlayerModule"
 wax.shared.IsPlayerModule = function(Origin: LocalScript | ModuleScript, Instance: Instance): boolean
 	if Instance and Instance.ClassName ~= "BindableEvent" then
 		return false
@@ -142,6 +150,7 @@ wax.shared.ShouldIgnore = function(Instance, Origin)
 	return wax.shared.Settings.IgnoredRemotesDropdown.Value[Instance.ClassName] == true
 		or (wax.shared.Settings.IgnorePlayerModule.Value and wax.shared.IsPlayerModule(Origin, Instance))
 end
+--#endregion
 
 wax.shared.GetTableLength = function(Table)
 	if Table["n"] then
@@ -174,7 +183,7 @@ wax.shared.GetTextBounds = function(Text: string, Font: Font, Size: number, Widt
 
 	local Bounds = wax.shared.TextService:GetTextBoundsAsync(Params)
 	Params:Destroy()
-	
+
 	return Bounds.X, Bounds.Y
 end
 
@@ -186,7 +195,7 @@ wax.shared.Unload = function()
 			if not Plugin.UnloadCallbacks then
 				continue
 			end
-			
+
 			for _, Callback in Plugin.UnloadCallbacks or {} do
 				task.spawn(pcall, Callback)
 			end
@@ -270,7 +279,7 @@ wax.shared.SetupLoggingConnection = function()
 				RemoteInstanceInfo = {
 					Name = RemoteInstance and RemoteInstance.Name,
 					ClassName = RemoteInstance and RemoteInstance.ClassName,
-					Path = RemoteInstance and CodeGen.GetFullPath(RemoteInstance, {
+					Path = RemoteInstance and InstanceSerializer.Serialize(RemoteInstance, {
 						DisableNilParentHandler = true,
 					}),
 				},
@@ -286,9 +295,11 @@ wax.shared.SetupLoggingConnection = function()
 
 			local instanceName = RemoteInstance and RemoteInstance.Name or "UnknownInstance"
 			local instanceClassName = RemoteInstance and RemoteInstance.ClassName or "UnknownClass"
-			local instancePath = RemoteInstance and CodeGen.GetFullPath(RemoteInstance, {
-				DisableNilParentHandler = true
-			}) or "UnknownPath"
+			local instancePath = RemoteInstance
+					and InstanceSerializer.Serialize(RemoteInstance, {
+						DisableNilParentHandler = true,
+					})
+				or "UnknownPath"
 
 			local logParts = {
 				("Instance: %s (%s)"):format(instanceName, instanceClassName),

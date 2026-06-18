@@ -8,7 +8,7 @@
 local table, string, next, pcall, game, workspace, tostring, tonumber, getmetatable =
     table, string, next, pcall, game, workspace, tostring, tonumber, getmetatable
 
-local GetFullPath = require(script.Parent.Parent.CodeGen.Generator).GetFullPath
+local SerializeInstance = require(script.Parent.Instance).Serialize
 
 local string_pack = string.pack
 local string_byte = string.byte
@@ -510,7 +510,7 @@ local function LuaEncode(inputTable, options)
         -- nil or some DataModel not under `game`, it'll just return nil
         TypeCases["Instance"] = function(value)
 			if UseInstancePaths then
-				local InstancePath, NilFunctionInserted = GetFullPath(value, {
+				local InstancePath, NilFunctionInserted = SerializeInstance(value, {
 					DisableNilParentHandler = DisableNilParentHandler,
 					OmitNilFunctionGetterCodeGeneration = true
 				})

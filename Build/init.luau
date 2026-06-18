@@ -35,6 +35,7 @@ local process = require("@lune/process")
 
 local LuneUtils = require("Lib/Libraries/LuneUtils")
 local BundleModel = require("Lib/BundleModel")
+local CobaltActorEnvironment = require("Lib/CobaltActorEnvironment")
 
 local Version = require("Lib/Data/Version")
 local DefaultDarkluaConfig = require("Lib/Data/DefaultDarkluaConfig")
@@ -412,6 +413,11 @@ elseif Subcommand == "bundle" then
 
         ModelRoot = roblox.deserializeModel(fs.readFile(ModelOutputFileName))
         RemoveFile(ModelOutputFileName) -- Remove temporary rbxm
+    end
+
+    local PreprocessSuccess, PreprocessError = pcall(CobaltActorEnvironment.ProcessModel, ModelRoot)
+    if not PreprocessSuccess then
+        BadExit(`Error during Cobalt actor environment preprocessing: {PreprocessError}`)
     end
 
     local BundleSuccess, CodegenOutputOrError, FailedCompilations = pcall(BundleModel, ModelRoot, EnvName, Minify, ExtraOffsetLines, Verbose)

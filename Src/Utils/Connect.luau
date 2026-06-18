@@ -1,19 +1,23 @@
-wax.shared.Connections = {}
+local Connections = {}
 
-wax.shared.Connect = function(Connection)
-	table.insert(wax.shared.Connections, Connection)
+local function Connect(Connection)
+	table.insert(Connections, Connection)
 	return Connection
 end
 
-wax.shared.Disconnect = function(Connection)
+local function Disconnect(Connection)
 	Connection:Disconnect()
 
-	local Index = table.find(wax.shared.Connections, Connection)
+	local Index = table.find(Connections, Connection)
 	if Index then
-		table.remove(wax.shared.Connections, Index)
+		table.remove(Connections, Index)
 	end
 
 	return true
 end
 
-return {}
+wax.shared.Connections = Connections
+wax.shared.Connect = Connect
+wax.shared.Disconnect = Disconnect
+
+return Connect

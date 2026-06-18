@@ -15,7 +15,8 @@ local Success, IconsModule = pcall(function()
 	})
 
 	assert(
-		IconFetchSuccess and IconModuleSource.Success or IconModuleSource.StatusCode >= 200 and IconModuleSource.StatusCode < 300,
+		IconFetchSuccess and IconModuleSource.Success
+			or IconModuleSource.StatusCode >= 200 and IconModuleSource.StatusCode < 300,
 		"Failed to fetch lucide icons direct module source"
 	)
 	return (loadstring(IconModuleSource.Body) :: () -> { Icons: { string }, GetAsset: (Name: string) -> Icon? })()

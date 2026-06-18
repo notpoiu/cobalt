@@ -1,10 +1,9 @@
-local LuaEncode = require(script.Parent.Parent.Utils.Serializer.LuaEncode)
-local CodeGen = require(script.Parent.Parent.Utils.CodeGen.Generator)
+local LuaEncode = require(script.Parent.Parent.Utils.CodeGen.Serializer.LuaEncode)
 
 local Hooks = script.Parent.Hooks
 
 -- Main Thread Hooks
-for _, Hook in Hooks.Default:GetChildren() do
+for _, Hook in Hooks:GetChildren() do
 	task.spawn(require, Hook)
 end
 
@@ -49,7 +48,7 @@ if wax.shared.ActorsEnabled then
 
 	ActorEnvironmentCode = ActorEnvironmentCode:gsub("COBALT_ACTOR_DATA", ActorData)
 
-	-- Actor Logs Sync Layer
+	--#region Actor Logs Sync Layer
 	local function ReconstructTable(Info, CyclicRefs)
 		local Reconstructed = {}
 
@@ -127,43 +126,29 @@ if wax.shared.ActorsEnabled then
 
 			local ReconstructedInfo = ReconstructTable(RawInfo, CyclicRefs)
 			ReconstructedInfo.Blocked = true
+			ReconstructedInfo.IsActor = true -- Incase the Actor Instance is nil for some reason
 
 			--// Reconstruct Packed Arguments (BindableEvents omit ["n"] for unknown reason) \\--
 			ReconstructedInfo.Arguments = ReconstructPacked(ReconstructedInfo.Arguments)
-			ReconstructedInfo.OriginalInvokeArgs = ReconstructPacked(ReconstructedInfo.OriginalInvokeArgs)
+			ReconstructedInfo.InvokeResult = ReconstructPacked(ReconstructedInfo.InvokeResult)
 
 			Log:Call(ReconstructedInfo)
 			wax.shared.Communicator:Fire(Log.Instance, Type, #Log.Calls)
 		elseif not Log.Ignored then
 			local ReconstructedInfo = ReconstructTable(RawInfo, CyclicRefs)
+			ReconstructedInfo.IsActor = true -- Incase the Actor Instance is nil for some reason
 
 			--// Reconstruct Packed Arguments (BindableEvents omit ["n"] for unknown reason) \\--
 			ReconstructedInfo.Arguments = ReconstructPacked(ReconstructedInfo.Arguments)
-			ReconstructedInfo.OriginalInvokeArgs = ReconstructPacked(ReconstructedInfo.OriginalInvokeArgs)
+			ReconstructedInfo.InvokeResult = ReconstructPacked(ReconstructedInfo.InvokeResult)
 
 			Log:Call(ReconstructedInfo)
 			wax.shared.Communicator:Fire(Log.Instance, Type, #Log.Calls)
 		end
 	end))
+	--#endregion
 
-	-- Actor Hooking Code Generation
-	local CodeToRun = ActorEnvironmentCode
-
-	for _, ActorHook in Hooks.Actors:GetChildren() :: { StringValue } do
-		CodeToRun ..= table.concat({
-			"task.spawn(function()",
-			CodeGen:IndentCode(ActorHook.Value, 1),
-			"end)",
-		}, "\n") .. "\n\n"
-	end
-
-	CodeToRun ..= table.concat({
-		"task.spawn(function()",
-		CodeGen:IndentCode(ActorsUtils.Unload.Value, 1),
-		"end)",
-	}, "\n")
-
-	-- Actual Hooking Logic
+	--#region Actor Hooking Logic
 	-- The hooking code wont run again if cobalt is already initialized in that Actor (to address deleted actors aka LuaStateProxy stuff)
 
 	-- `HookActor` is to address Volcano returning non initialized actors inside their `getactors` function.
@@ -173,19 +158,14 @@ if wax.shared.ActorsEnabled then
 		local Attempts = 0
 
 		repeat
-			Hooked, _ = pcall(run_on_actor,
-				TargetActor,
-				CodeToRun,
-				CommunicationChannelID,
-				TargetActor
-			)
+			Hooked, _ = pcall(run_on_actor, TargetActor, ActorEnvironmentCode, CommunicationChannelID, TargetActor)
 
 			Attempts += 1
 			task.wait(0.25)
 		until Hooked or Attempts > 10
 	end
 
-	for _, Category in {getactors(), getdeletedactors and getdeletedactors() or {} } do
+	for _, Category in { getactors(), getdeletedactors and getdeletedactors() or {} } do
 		for _, TargetActor in Category do
 			task.spawn(HookActor, TargetActor)
 		end
@@ -207,6 +187,7 @@ if wax.shared.ActorsEnabled then
 	end
 
 	wax.shared.Connect(ActorHookConnection)
+	--#endregion
 end
 
 return {}

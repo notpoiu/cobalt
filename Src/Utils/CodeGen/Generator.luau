@@ -1,36 +1,6 @@
-local CodeGen = {
-	CleanTable = { ['"'] = '\\"', ["\\"] = "\\\\" },
-	IndentTemplate = string.rep(" ", 4),
-}
+local CodeGen = {}
 
-export type SupportedRemoteTypes = RemoteEvent | RemoteFunction | BindableEvent | BindableFunction | UnreliableRemoteEvent
-export type CallInfo = {
-	Arguments: { [number]: any, n: number },
-	CreationTime: number,
-	Origin: BaseScript?,
-	Function: (
-		...any
-	) -> any | {
-		Address: string,
-		Name: string,
-		Source: string?,
-		IsC: boolean,
-		Constants: { any }?,
-		Upvalues: { any }?,
-		Protos: { any }?,
-		FunctionHash: string?,
-	},
-	Line: number?,
-	Source: string?,
-	Instance: SupportedRemoteTypes,
-	Order: number,
-	Type: "Incoming" | "Outgoing",
-	OriginalInvokeArgs: { [number]: any, n: number }?,
-	IsCallbackReturn: boolean?,
-	IsExecutor: boolean?,
-	Path: string?,
-	Actor: Actor?,
-}
+local Types = require(script.Parent.Types)
 
 wax.shared.FunctionForClasses = {
 	Incoming = {
@@ -50,878 +20,289 @@ wax.shared.FunctionForClasses = {
 	},
 }
 
-local GetNilCode = [[local function GetNil(Name, DebugId)
-	for _, Object in getnilinstances() do
-		if Object.Name == Name and Object:GetDebugId() == DebugId then
-			return Object
-		end
-	end
-end]]
+local Formatter = require(script.Parent.Formatter)
 
-local GetEventReferenceCode = [[local function GetEventReference(options)
-	local Hash, Index, ExcludeExecutor, Path = options.Hash, options.Index, options.ExcludeExecutor, options.Path
-	local Retrieved = nil
+local InstanceSerializer = require(script.Parent.Serializer.Instance)
+local Renderer = require(script.Parent.Renderer)
+local Classifier = require(script.Parent.Classifier)
 
-	if filtergc then
-		Retrieved = filtergc("function", {
-			Hash = Hash,
-			IgnoreExecutor = ExcludeExecutor
-		}, true)
-	else
-		for _, Func in getgc() do
-			if typeof(Func) ~= "function" then
-				continue
-			end
+--[[
 
-			if ExcludeExecutor and isexecutorclosure(Func) then
-				continue
-			end
-			
-			if getfunctionhash(Func) == Hash then
-				Retrieved = Func
-				break
-			end
-		end
-	end
+    Invokes plugin handlers for a given type.
 
-	assert(Retrieved, "Could not find function with hash " .. tostring(Hash))
-	local Value = debug.getupvalue(Retrieved, Index)
+    @param Type: The type of plugin handler to invoke.
+    @param ShouldUseResult: Returns whether a plugin result should replace the default codegen output.
+    @param ...: The arguments to pass to the plugin handler.
+    @return:
+		- ShouldContinue: Whether to continue the default behavior.
+		- Results: The results of the plugin handlers.
+]]
+local function InvokePluginHandlers(Type: "Hook" | "Call", ShouldUseResult: (...any) -> boolean, ...)
+	local PluginManager = wax.shared.CobaltPluginManager
+	if PluginManager and PluginManager.HasCodeGenInterceptors then
+		local Interceptors = PluginManager.Registry.UIHooks.CodeGen[Type]
 
-	if Path then
-		for _, Key in next, Path do
-			Value = Value[Key]
-		end
-	end
+		for _, Interceptor in Interceptors or {} do
+			local Results = table.pack(pcall(Interceptor, ...))
+			local Success = Results[1]
 
-	return Value
-end]]
-
---// Pasted from Dex (maximum detection)
-for i = 0, 31 do
-	CodeGen.CleanTable[string.char(i)] = "\\" .. string.format("%03d", i)
-end
-for i = 127, 255 do
-	CodeGen.CleanTable[string.char(i)] = "\\" .. string.format("%03d", i)
-end
-
-function CodeGen.FormatLuaString(str)
-	return string.gsub(str, '["\\\0-\31\127-\255]', CodeGen.CleanTable)
-end
-
-local function FormatLuaLiteral(Value): string?
-	local ValueType = type(Value)
-	if ValueType == "string" then
-		return `"{CodeGen.FormatLuaString(Value)}"`
-	elseif ValueType == "number" or ValueType == "boolean" then
-		return tostring(Value)
-	end
-
-	return nil
-end
-
-local function FormatLuaArray(Values: { any }): string
-	local Serialized = {}
-	for _, Value in Values do
-		local Literal = FormatLuaLiteral(Value)
-		if not Literal then
-			return "{}"
-		end
-
-		table.insert(Serialized, Literal)
-	end
-
-	return "{ " .. table.concat(Serialized, ", ") .. " }"
-end
-
-local function IsEqualToInstance(Object, ToCompareTo)
-	if rawequal(Object, ToCompareTo) then
-		return true
-	end
-
-	if wax.shared.ExecutorSupport["compareinstances"].IsWorking then
-		return compareinstances(Object, ToCompareTo)
-	end
-
-	return false
-end
-
-function CodeGen.GetFullPath(Object, options: {
-	DisableNilParentHandler: boolean?,
-	VariableName: string?,
-	OmitNilFunctionGetterCodeGeneration: boolean?,
-	IgnorePlugins: boolean?,
-	EventReference: {
-		Hash: string,
-		Index: number,
-		ExcludeExecutor: boolean?,
-		Path: { any }?,
-	}?,
-}?)
-	local DisableNilParentHandler = options and options.DisableNilParentHandler
-	local OmitNilFunctionGetterCodeGeneration = options and options.OmitNilFunctionGetterCodeGeneration
-	local VariableName = options and options.VariableName
-	local IgnorePlugins = options and options.IgnorePlugins
-	local EventReference = options and options.EventReference
-	do
-		if DisableNilParentHandler == nil then
-			DisableNilParentHandler = true
-		end
-
-		if OmitNilFunctionGetterCodeGeneration == nil then
-			OmitNilFunctionGetterCodeGeneration = false
-		end
-	end
-
-	if not IgnorePlugins then
-		local PluginManager = wax.shared.CobaltPluginManager
-		if PluginManager and PluginManager.HasCodeGenInterceptors then
-			local Interceptors = PluginManager.Registry.UIHooks.CodeGen.InstancePath
-			for _, Interceptor in Interceptors or {} do
-				local Success, InterceptedCode = pcall(Interceptor, Object, options)
-				if Success and type(InterceptedCode) == "string" then
-					return InterceptedCode, false
-				elseif not Success then
-					warn("Error in CodeGen Interceptor (InstancePath):", InterceptedCode)
+			if Success then
+				local ReturnValues = table.pack(table.unpack(Results, 2, Results.n))
+				if ShouldUseResult(table.unpack(ReturnValues, 1, ReturnValues.n)) then
+					return false, ReturnValues
 				end
+			else
+				warn(`Error in Cobalt Plugin (CodeGen Interceptor ({Type})):`, table.unpack(Results, 2, Results.n))
 			end
 		end
 	end
 
-	local ChildLookupMode = wax.shared.SaveManager:GetState("InstancePathLookupChain", "Index")
-	local NilEventReferenceStrategy = wax.shared.SaveManager:GetState("EventReferenceStrategy", "GetNil")
-	
-	local function BuildDynamicAccessor(Expression: string): string
-		if ChildLookupMode == "WaitForChild" then
-			return ":WaitForChild(" .. Expression .. ")"
-		elseif ChildLookupMode == "FindFirstChild" then
-			return ":FindFirstChild(" .. Expression .. ")"
-		end
-
-		return "[" .. Expression .. "]"
-	end
-
-	local function BuildStaticAccessor(Name: string): string
-		local SanitizedName = CodeGen.FormatLuaString(Name)
-
-		if ChildLookupMode == "WaitForChild" then
-			return ':WaitForChild("' .. SanitizedName .. '")'
-		elseif ChildLookupMode == "FindFirstChild" then
-			return ':FindFirstChild("' .. SanitizedName .. '")'
-		elseif string.match(Name, "^[%a_][%w_]*$") then
-			return "." .. Name
-		end
-
-		return '["' .. SanitizedName .. '"]'
-	end
-
-	local CurrentObject = Object
-	local DidInsertNilFunction = false
-	local IsNil = false
-	local Path = ""
-
-	repeat
-		if typeof(CurrentObject) ~= "Instance" then
-			break
-		end
-
-		if IsEqualToInstance(CurrentObject, game) then
-			Path = "game" .. Path
-			break
-		end
-
-		local IndexName = ""
-
-		if IsEqualToInstance(CurrentObject, wax.shared.LocalPlayer) then
-			IndexName = ".LocalPlayer"
-		elseif
-			wax.shared.LocalPlayer.Character and IsEqualToInstance(CurrentObject, wax.shared.LocalPlayer.Character)
-		then
-			Path = 'game:GetService("Players").LocalPlayer.Character' .. Path
-			break
-		elseif CurrentObject.Name and CurrentObject.Name == wax.shared.LocalPlayer.Name then
-			IndexName = BuildDynamicAccessor('game:GetService("Players").LocalPlayer.Name')
-		elseif CurrentObject.Name and CurrentObject.Name == tostring(wax.shared.LocalPlayer.UserId) then
-			IndexName = BuildDynamicAccessor('game:GetService("Players").LocalPlayer.UserId')
-		elseif IsEqualToInstance(CurrentObject, workspace) then
-			Path = "workspace" .. Path
-			break
-		elseif CurrentObject.ClassName and CurrentObject.Name then
-			IndexName = BuildStaticAccessor(CurrentObject.Name)
-
-			local Parent = CurrentObject.Parent
-			if Parent then
-				local DirectChildPtr = Parent:FindFirstChild(CurrentObject.Name)
-
-				if
-					IsEqualToInstance(Parent, game)
-					and IsEqualToInstance(game:FindService(CurrentObject.ClassName), CurrentObject)
-				then
-					IndexName = ':GetService("' .. CurrentObject.ClassName .. '")'
-				elseif DirectChildPtr then
-					local Children = Parent:GetChildren()
-					local FoundIndex = nil
-
-					if
-						wax.shared.ExecutorSupport["compareinstances"].IsWorking
-						and not compareinstances(DirectChildPtr, CurrentObject)
-					then
-						for Index, Child in Children do
-							if not compareinstances(Child, CurrentObject) then
-								continue
-							end
-
-							FoundIndex = Index
-							break
-						end
-					elseif DirectChildPtr ~= CurrentObject then
-						FoundIndex = table.find(Children, CurrentObject)
-					end
-
-					if FoundIndex then
-						IndexName = ":GetChildren()[" .. tostring(FoundIndex) .. "]"
-					end
-				end
-			elseif Parent == nil then
-				IsNil = true
-
-				if DisableNilParentHandler then
-					Path = Path .. " --[[Nil Parent]]"
-				else
-					local Base = `GetNil("{CodeGen.FormatLuaString(CurrentObject.Name)}", "{CodeGen.FormatLuaString(
-						CurrentObject:GetDebugId()
-					)}")`
-					DidInsertNilFunction = true
-					local GetterCode = GetNilCode
-
-					if NilEventReferenceStrategy == "Upvalue Lookup" and EventReference then
-						local EventReferenceCall = {
-							"GetEventReference({",
-							CodeGen:IndentCode(`Hash = "{CodeGen.FormatLuaString(EventReference.Hash)}",`, 1),
-							CodeGen:IndentCode(`ExcludeExecutor = {EventReference.ExcludeExecutor == true and "true" or "false"},`, 1),
-							CodeGen:IndentCode(`Index = {tostring(EventReference.Index)},`, 1),
-						}
-
-						if EventReference.Path and #EventReference.Path > 0 then
-							table.insert(EventReferenceCall, CodeGen:IndentCode(`Path = {FormatLuaArray(EventReference.Path)},`, 1))
-						end
-
-						table.insert(EventReferenceCall, "})\n")
-						Base = table.concat(EventReferenceCall, "\n")
-						GetterCode = GetEventReferenceCode
-						DidInsertNilFunction = false
-					end
-					
-					if OmitNilFunctionGetterCodeGeneration then
-						Path = Base
-						break
-					end
-
-					Path = GetterCode .. `\n\n{VariableName and `local {VariableName} = ` or ""}` .. Base
-					break
-				end
-			end
-		end
-
-		Path = IndexName .. Path
-
-		CurrentObject = CurrentObject.Parent
-	until CurrentObject == nil
-
-	if IsNil then
-		return Path, DidInsertNilFunction
-	end
-
-	return `{VariableName and `local {VariableName} = ` or ""}{Path}`, DidInsertNilFunction
+	return true, nil
 end
 
-local function DoesUseCallbackValue(Instance: Instance)
-	return Instance.ClassName == "RemoteFunction" or Instance.ClassName == "BindableFunction"
-end
+CodeGen.GetFullPath = InstanceSerializer.Serialize
 
 local CodeGenHeaderTemplate = [[-- This code was generated by Cobalt
 -- https://github.com/notpoiu/cobalt
 
 ]]
 
-function CodeGen:IndentCode(Code: string, IndentLevel: number)
-	local Indent = CodeGen.IndentTemplate:rep(IndentLevel)
-	local IndentedCode = Code:gsub("\n", "\n" .. Indent)
-	return Indent .. IndentedCode
+local function CountValues(Values)
+	if type(Values) ~= "table" then
+		return "N/A"
+	end
+
+	return tostring(#Values)
 end
 
-local WrapperActorCode = table.concat({
-	"-- Event originated from an Actor Environment",
-	"for _, actor in getactors() do",
-	"	run_on_actor(actor, [[\n%s\n]])",
-	"end",
-}, "\n")
-
-local function WrapCodeInActor(Code: string, ShouldWrap: boolean)
-	if not ShouldWrap then
-		return Code
+local function CountDebugValues(DebugFunction, TargetFunction)
+	if not DebugFunction then
+		return "N/A"
 	end
 
-	return string.format(WrapperActorCode, CodeGen:IndentCode(Code, 2))
+	local Success, Values = pcall(DebugFunction, TargetFunction)
+	if not Success then
+		return "N/A"
+	end
+
+	return CountValues(Values)
 end
 
-local function FindEventReferenceInTable(Table: { [any]: any }, Instance: Instance, Visited: { [any]: boolean }?): { any }?
-	local Seen = Visited or {}
-	if Seen[Table] then
-		return nil
-	end
+--[[
+    Builds the code gen header.
 
-	Seen[Table] = true
-
-	for Key, Value in next, Table do
-		if typeof(Value) == "Instance" and IsEqualToInstance(Value, Instance) and FormatLuaLiteral(Key) then
-			return { Key }
-		end
-
-		if type(Value) == "table" and FormatLuaLiteral(Key) then
-			local ChildPath = FindEventReferenceInTable(Value, Instance, Seen)
-			if ChildPath then
-				table.insert(ChildPath, 1, Key)
-				return ChildPath
-			end
-		end
-	end
-
-	return nil
-end
-
-local function ResolveEventReference(CallInfo: CallInfo): { Hash: string, Index: number, ExcludeExecutor: boolean?, Path: { any }? }?
-	if wax.shared.SaveManager:GetState("EventReferenceStrategy", "GetNil") ~= "Upvalue Lookup" then
-		return nil
-	end
-
-	if CallInfo.Actor and typeof(CallInfo.Function) == "table" then
-		local FunctionHash = CallInfo.Function.FunctionHash
-		local Upvalues = CallInfo.Function.Upvalues
-
-		if FunctionHash and type(Upvalues) == "table" then
-			local UpvaluePath = FindEventReferenceInTable(Upvalues, CallInfo.Instance)
-			if not UpvaluePath then
-				return nil
-			end
-
-			local UpvalueIndex = table.remove(UpvaluePath, 1)
-			return {
-				Hash = FunctionHash,
-				Index = UpvalueIndex,
-				Path = UpvaluePath,
-				ExcludeExecutor = true,
-			}
-		end
-
-		return nil
-	end
-
-	if typeof(CallInfo.Function) ~= "function" or not islclosure(CallInfo.Function) or not getfunctionhash then
-		return nil
-	end
-
-	local UpvaluePath = FindEventReferenceInTable(debug.getupvalues(CallInfo.Function), CallInfo.Instance)
-	if not UpvaluePath then
-		return nil
-	end
-
-	local UpvalueIndex = table.remove(UpvaluePath, 1)
-	return {
-		Hash = getfunctionhash(CallInfo.Function),
-		Index = UpvalueIndex,
-		Path = UpvaluePath,
-		ExcludeExecutor = CallInfo.IsExecutor ~= true,
-	}
-end
-
-function CodeGen:BuildHookCode(CallInfo: CallInfo)
-	local PluginManager = wax.shared.CobaltPluginManager
-	if PluginManager and PluginManager.HasCodeGenInterceptors then
-		local Interceptors = PluginManager.Registry.UIHooks.CodeGen.Hook
-		
-		for _, Interceptor in Interceptors or {} do
-			local Success, InterceptedCode = pcall(Interceptor, CallInfo)
-			if Success and type(InterceptedCode) == "string" then
-				return InterceptedCode
-			elseif not Success then
-				warn("Error in Cobalt Plugin (CodeGen Interceptor (Hook)):", InterceptedCode)
-			end
-		end
-	end
-
-	local Type = CallInfo.Type
-	local Path = self.GetFullPath(CallInfo.Instance, {
-		VariableName = "Event",
-		DisableNilParentHandler = false,
-		EventReference = ResolveEventReference(CallInfo),
-	})
-	if wax.shared.SaveManager:GetState("CacheInstancePaths", false) then
-		local Log = wax.shared.Logs[Type][CallInfo.Instance]
-		if Log then
-			Path = "-- Cached Event Path: " .. (CallInfo.Path or "N/A") .. "\n" .. Path
-		end
-	end
-
-	local IsFromActor = CallInfo.Actor ~= nil
-	local Method = wax.shared.FunctionForClasses[Type][CallInfo.Instance.ClassName]
-
-	local CodeGenHeader = CodeGenHeaderTemplate
+    @return The code gen header.
+]]
+local function BuildCodeGenHeader(): string
 	if not wax.shared.SaveManager:GetState("ShowWatermark", true) then
-		CodeGenHeader = ""
-	end
-
-	if Type == "Incoming" then
-		if DoesUseCallbackValue(CallInfo.Instance) then
-			-- Callback/Invoke returned value
-			if CallInfo.OriginalInvokeArgs then
-				if CallInfo.IsCallbackReturn then
-					return CodeGenHeader
-						.. WrapCodeInActor(
-							string.format(
-								[[%s
-local Callback = getcallbackvalue(Event, "%s")
-Event.%s = function(...)
-	local Args = table.pack(...)
-
-	local Result = table.pack(
-		Callback(table.unpack(Args, 1, Args.n))
-	)
-
-	return table.unpack(Result, 1, Result.n)
-end
-
-local mtHook; mtHook = hookmetamethod(game, "__newindex", function(...)
-	local self, key, value = ...
-	
-	if (
-		rawequal(self, Event) and
-		rawequal(key, "%s") and
-		typeof(value) == "function" and
-		not checkcaller()
-	) then
-		Callback = value
-	end
-
-	return mtHook(...)
-end)]],
-								Path,
-								Method,
-								Method,
-								Method
-							),
-							IsFromActor
-						)
-				end
-
-				Method = wax.shared.FunctionForClasses.Outgoing[CallInfo.Instance.ClassName]
-
-				return CodeGenHeader
-					.. WrapCodeInActor(
-						string.format(
-							[[%s
-local mtHook; mtHook = hookmetamethod(game, "__namecall", function(...)
-	local self = ...
-
-	if rawequal(self, Event) and getnamecallmethod() == "%s" then
-		local Args = table.pack(...)
-
-		local Result = table.pack(
-			mtHook(table.unpack(Args, 1, Args.n))
-		)
-
-		return table.unpack(Result, 1, Result.n)
-	end
-
-	return mtHook(self, ...)
-end)
-
-local Old%s; Old%s = hookfunction(Event.%s, function(...)
-	local self = ...
-
-	if rawequal(self, Event) then
-		local Args = table.pack(...)
-
-		local Result = table.pack(
-			Old%s(table.unpack(Args, 1, Args.n))
-		)
-
-		return table.unpack(Result, 1, Result.n)
-	end
-
-	return Old%s(self, ...)
-end)]],
-							Path,
-							Method,
-							Method,
-							Method,
-							Method,
-							Method,
-							Method
-						),
-						IsFromActor
-					)
-			end
-
-			-- Callback value
-			return CodeGenHeader
-				.. WrapCodeInActor(
-					string.format(
-						[[%s
-local Callback = getcallbackvalue(Event, "%s")
-Event.%s = function(...)
-	print(`Intercepted (Callback) {Event.Name}.%s`, ...)
-	return Callback(...)
-end
-
-local mtHook; mtHook = hookmetamethod(game, "__newindex", function(...)
-	local self, key, value = ...
-	
-	if (
-		rawequal(self, Event) and
-		rawequal(key, "%s") and
-		typeof(value) == "function" and
-		not checkcaller()
-	) then
-		Callback = value
-	end
-
-	return mtHook(...)
-end)]],
-						Path,
-						Method,
-						Method,
-						Method,
-						Method
-					),
-					IsFromActor
-				)
-		end
-
-		return CodeGenHeader
-			.. WrapCodeInActor(
-				string.format(
-					[[%s
-for _, Connection in getconnections(Event.%s) do
-	local old; old = hookfunction(Connection.Function, function(...)
-		print(`Intercepted (Connection) {Event.Name}.%s`, ...)
-		return old(...)
-	end)
-end]],
-					Path,
-					Method,
-					Method
-				),
-				IsFromActor
-			)
-	end
-
-	return CodeGenHeader
-		.. WrapCodeInActor(
-			string.format(
-				[[%s
-local mtHook; mtHook = hookmetamethod(game, "__namecall", function(...)
-	local self = ...
-
-	if rawequal(self, Event) and getnamecallmethod() == "%s" then
-		local Args = table.pack(...)
-		
-		local Result = table.pack(
-			mtHook(self, table.unpack(Args, 1, Args.n))
-		)
-
-		print(`Intercepted (__namecall) {Event.Name}:%s()`, ...)
-
-		return table.unpack(Result, 1, Result.n)
-	end
-
-	return mtHook(...)
-end)
-
-local Old%s; Old%s = hookfunction(Event.%s, function(...)
-	local self = ...
-
-	if rawequal(self, Event) then
-		local Args = table.pack(...)
-
-		local Result = table.pack(
-			Old%s(table.unpack(Args, 1, Args.n))
-		)
-
-		print(`Intercepted (__index) {Event.Name}:%s()`, self, table.unpack(Result, 1, Result.n))
-
-		return table.unpack(Result, 1, Result.n)
-	end
-
-	return Old%s(self, ...)
-end)]],
-				Path,
-				Method,
-				Method,
-				Method,
-				Method,
-				Method,
-				Method,
-				Method,
-				Method
-			),
-			IsFromActor
-		)
-end
-
-function CreateArgsString(SerializedArgs: string, Args: { [number]: any, n: number }, Prefix: string?)
-	if Args.n == 0 then
 		return ""
 	end
 
-	--// Cyclic Table Handler \\--
-	if string.sub(SerializedArgs, 1, 9) == "(function" then
-		return `{Prefix == nil and "" or Prefix}table.unpack({SerializedArgs}, 1, {Args.n})`
-	end
-
-	--// Normal Table Handler \\--
-	return `{Prefix == nil and "" or Prefix}{string.sub(SerializedArgs, 2, #SerializedArgs - 1)}`
+	return CodeGenHeaderTemplate
 end
 
-function CodeGen:BuildCallCode(CallInfo: CallInfo)
-	local PluginManager = wax.shared.CobaltPluginManager
-	if PluginManager and PluginManager.HasCodeGenInterceptors then
-		local Interceptors = PluginManager.Registry.UIHooks.CodeGen.Call
-		if Interceptors then
-			for _, Interceptor in Interceptors do
-				local Success, InterceptedCode = pcall(Interceptor, CallInfo)
-				if Success and type(InterceptedCode) == "string" then
-					return InterceptedCode
-				elseif not Success then
-					warn("Error in CodeGen Interceptor (Call):", InterceptedCode)
-				end
-			end
-		end
+--[[
+    Builds hook code for a call info.
+
+    @param CallInfo: The call info.
+    @return The hook code.
+]]
+function CodeGen:BuildHookCode(CallInfo: Types.CallInfo)
+	local InterceptedByPlugin, InterceptionResults = InvokePluginHandlers("Hook", function(InterceptedCode)
+		return type(InterceptedCode) == "string"
+	end, CallInfo)
+
+	if not InterceptedByPlugin then
+		return InterceptionResults[1]
 	end
 
-	local Type = CallInfo.Type
+	--// Determine Scenario \\--
+	local Scenario = Classifier.DetermineScenario(CallInfo)
 
-	local Path = self.GetFullPath(CallInfo.Instance, {
-		VariableName = "Event",
-		DisableNilParentHandler = false,
-		EventReference = ResolveEventReference(CallInfo),
+	--// Resolve Template \\--
+	local Template = Renderer.ResolveTemplate("Hook", Scenario)
+	local Variables = Renderer.DeriveVariables("Hook", {
+		Scenario = Scenario,
+		CallInfo = CallInfo,
 	})
-	if wax.shared.SaveManager:GetState("CacheInstancePaths", false) then
-		local Log = wax.shared.Logs[Type][CallInfo.Instance]
-		if Log then
-			Path = "-- Cached Event Path: " .. (CallInfo.Path or "N/A") .. "\n" .. Path
+
+	--// Build Code \\--
+	local Code = Renderer.Render({
+		Code = Template,
+		Args = Variables,
+		
+		CallInfo = CallInfo,
+	})
+	return BuildCodeGenHeader() .. Code
+end
+
+function CodeGen:BuildCallCode(CallInfo: Types.CallInfo)
+	local InterceptedByPlugin, InterceptionResults = InvokePluginHandlers("Call", function(InterceptedCode)
+		return type(InterceptedCode) == "string"
+	end, CallInfo)
+
+	if not InterceptedByPlugin then
+		return InterceptionResults[1]
+	end
+
+	--// Determine Scenario \\--
+	local Scenario = Classifier.DetermineScenario(CallInfo)
+
+	--// Resolve Template \\--
+	local Template = Renderer.ResolveTemplate("Call", Scenario)
+	local Variables = Renderer.DeriveVariables("Call", {
+		Scenario = Scenario,
+		CallInfo = CallInfo,
+	})
+
+	--// Build Code \\--
+	local Code = Renderer.Render({
+		Code = Template,
+		Args = Variables,
+	})
+	return BuildCodeGenHeader() .. Code
+end
+
+function CodeGen:BuildFunctionInfo(CallInfo: Types.CallInfo)
+	local Info = {}
+
+	if not CallInfo.Function then
+		Info["Function Address"] = "N/A"
+		Info["Name"] = "N/A"
+		Info["Script Path"] = (
+			CallInfo.Origin and
+				InstanceSerializer.Serialize(CallInfo.Origin, { DisableNilParentHandler = true })
+			or wax.shared.ExecutorName
+		)
+		
+		Info["Source"] = CallInfo.Source or "N/A"
+		Info["Calling Line"] = CallInfo.Line or "N/A"
+		
+		if CallInfo.IsActor then
+			Info["Origin Actor"] = CallInfo.Actor and InstanceSerializer.Serialize(CallInfo.Actor, { DisableNilParentHandler = true }) or "N/A"
+		end
+		
+		Info["Closure Type"] = "N/A"
+		Info["Constants"] = "N/A"
+		Info["Upvalues"] = "N/A"
+		Info["Protos"] = "N/A"
+	elseif typeof(CallInfo.Function) == "table" then
+		local Function = CallInfo.Function
+
+		Info["Function Address"] = Function.Address and Function.Address:match("0x%x+") or tostring(Function)
+		Info["Name"] = Function.Name ~= "" and Function.Name or "Anonymous"
+		Info["Script Path"] = (
+			CallInfo.Origin and
+				InstanceSerializer.Serialize(CallInfo.Origin, { DisableNilParentHandler = true })
+			or wax.shared.ExecutorName
+		)
+
+		Info["Source"] = Function.Source or "N/A"
+		Info["Calling Line"] = CallInfo.Line or "N/A"
+		if CallInfo.IsActor then
+			Info["Origin Actor"] = CallInfo.Actor and InstanceSerializer.Serialize(CallInfo.Actor, { DisableNilParentHandler = true }) or "N/A"
+		end
+
+		if Function.IsC then
+			Info["Closure Type"] = "C closure"
+		else
+			Info["Closure Type"] = "Luau closure"
+			Info["Constants"] = debug.getconstants and CountValues(Function.Constants) or "N/A"
+			Info["Upvalues"] = debug.getupvalues and CountValues(Function.Upvalues) or "N/A"
+			Info["Protos"] = debug.getprotos and CountValues(Function.Protos) or "N/A"
+		end
+	else
+		local FunctionName = debug.info(CallInfo.Function, "n")
+
+		Info["Function Address"] = tostring(CallInfo.Function):match("0x%x+") or tostring(CallInfo.Function)
+		Info["Name"] = FunctionName ~= "" and FunctionName or "Anonymous"
+		Info["Script Path"] = CallInfo.Origin
+				and InstanceSerializer.Serialize(CallInfo.Origin, { DisableNilParentHandler = true })
+			or wax.shared.ExecutorName
+		Info["Source"] = CallInfo.Source or debug.info(CallInfo.Function, "s") or "N/A"
+		Info["Calling Line"] = tostring(CallInfo.Line)
+		if CallInfo.IsActor then
+			Info["Origin Actor"] = CallInfo.Actor and InstanceSerializer.Serialize(CallInfo.Actor, { DisableNilParentHandler = true }) or "N/A"
+		end
+
+		if iscclosure(CallInfo.Function) then
+			Info["Closure Type"] = "C closure"
+		else
+			Info["Closure Type"] = "Luau closure"
+			Info["Constants"] = CountDebugValues(debug.getconstants, CallInfo.Function)
+			Info["Upvalues"] = CountDebugValues(debug.getupvalues, CallInfo.Function)
+			Info["Protos"] = CountDebugValues(debug.getprotos, CallInfo.Function)
 		end
 	end
 
-	local Method = wax.shared.FunctionForClasses[Type][CallInfo.Instance.ClassName]
-	local SerializedArgs, DidInsertNilFunction = wax.shared.LuaEncode(
-		CallInfo.Arguments,
-		{ Prettify = true, InsertCycles = true, IsArray = true }
-	)
-
-	local CodeGenHeader = CodeGenHeaderTemplate
-	if not wax.shared.SaveManager:GetState("ShowWatermark", true) then
-		CodeGenHeader = ""
+	local InfoLines = {}
+	for _, Key in
+		{
+			"Function Address",
+			"Name",
+			"Script Path",
+			"Source",
+			"Calling Line",
+			"Origin Actor",
+			"Closure Type",
+			"Constants",
+			"Upvalues",
+			"Protos",
+		}
+	do
+		local Value = Info[Key]
+		if Value ~= nil then
+			table.insert(InfoLines, string.format("<b>%s:</b> %s", Key, tostring(Value)))
+		end
 	end
 
-	if Type == "Incoming" then
-		if DoesUseCallbackValue(CallInfo.Instance) then
-			local PrettifiedExpectedResult, DidInsertNilFunctionInExpectation = wax.shared.LuaEncode(
-				CallInfo.Arguments,
-				{ Prettify = true, InsertCycles = true, IsArray = true }
-			)
+	return table.concat(InfoLines, "\n")
+end
 
-			if CallInfo.OriginalInvokeArgs then
-				local PrettifiedOutput, InsertedNilFunction = wax.shared.LuaEncode(
-					CallInfo.OriginalInvokeArgs,
-					{ Prettify = true, InsertCycles = true, IsArray = true }
-				)
+function CodeGen:ReplayCallInfo(CallInfo: Types.CallInfo)
+	local Scenario = Classifier.DetermineScenario(CallInfo)
+	local Method = Scenario.Method
+	local Arguments = Scenario.Arguments
+	local TargetInstance = CallInfo.Instance :: Instance
 
-				if CallInfo.IsCallbackReturn then
-					return CodeGenHeader
-						.. string.format(
-							[[%s%s
-local Callback = getcallbackvalue(Event, "%s")
-local Result = table.pack(Callback(%s))
+	if Scenario.Type == "Incoming" then
+		--// RemoteEvent/BindableEvent Signal \\--
+		if Scenario.Shape == "Signal" then
+			assert(firesignal or getconnections, "No firesignal or getconnections found")
 
-local ExpectedResult = table.unpack(%s)
-
-]],
-							(
-								(InsertedNilFunction or DidInsertNilFunction or DidInsertNilFunctionInExpectation)
-									and GetNilCode .. "\n\n"
-								or ""
-							),
-							Path,
-							Method,
-							CreateArgsString(PrettifiedOutput, CallInfo.OriginalInvokeArgs),
-							PrettifiedExpectedResult
-						)
+			if firesignal then
+				firesignal(TargetInstance[Method], table.unpack(Arguments, 1, Arguments.n))
+			elseif getconnections then
+				for _, conn in getconnections(TargetInstance[Method]) do
+					conn:Fire(table.unpack(Arguments, 1, Arguments.n))
 				end
-
-				Method = wax.shared.FunctionForClasses.Outgoing[CallInfo.Instance.ClassName]
-
-				return CodeGenHeader
-					.. string.format(
-						[[%s%s
-local Result = Event:%s(%s)
-
-local ExpectedResult = table.unpack(%s)
-
-]],
-						(
-							(InsertedNilFunction or DidInsertNilFunction or DidInsertNilFunctionInExpectation)
-								and GetNilCode .. "\n\n"
-							or ""
-						),
-						Path,
-						Method,
-						CreateArgsString(PrettifiedOutput, CallInfo.OriginalInvokeArgs),
-						PrettifiedExpectedResult
-					)
 			end
 
-			return CodeGenHeader
-				.. string.format(
-					[[%s%s
-local Callback = getcallbackvalue(Event, "%s")
-Callback(%s)
-
-local ExpectedResult = table.unpack(%s)
-
-]],
-					(DidInsertNilFunction or DidInsertNilFunctionInExpectation and GetNilCode .. "\n\n" or ""),
-					Path,
-					Method,
-					CreateArgsString(SerializedArgs, CallInfo.Arguments),
-
-					PrettifiedExpectedResult
-				)
+			return
 		end
 
-		return CodeGenHeader
-			.. string.format(
-				[[%s%s
-firesignal(Event.%s%s)]],
-				(DidInsertNilFunction and GetNilCode .. "\n\n" or ""),
-				Path,
-				Method,
-				CreateArgsString(SerializedArgs, CallInfo.Arguments, ", ")
-			)
-	end
-
-	return CodeGenHeader
-		.. string.format(
-			[[%s%s
-Event:%s(%s)]],
-			(DidInsertNilFunction and GetNilCode .. "\n\n" or ""),
-			Path,
-			Method,
-			CreateArgsString(SerializedArgs, CallInfo.Arguments)
-		)
-end
-
-function CodeGen:BuildFunctionInfo(CallInfo: CallInfo)
-	if CallInfo.Actor and typeof(CallInfo.Function) == "table" then
-		return string.format(
-			[[<b>Function Address:</b> %s
-<b>Name:</b> %s
-<b>Script Path:</b> %s
-<b>Source:</b> %s
-<b>Calling Line:</b> %s
-<b>Origin Actor:</b> %s
-%s]],
-			CallInfo.Function.Address:match("0x%x+") or tostring(CallInfo.Function),
-			CallInfo.Function.Name ~= "" and CallInfo.Function.Name or "Anonymous",
-			CallInfo.Origin and self.GetFullPath(CallInfo.Origin, { DisableNilParentHandler = true }) or wax.shared.ExecutorName,
-			CallInfo.Function.Source or "N/A",
-			tostring(CallInfo.Line),
-			self.GetFullPath(CallInfo.Actor, { DisableNilParentHandler = true }) or "N/A",
-			CallInfo.Function.IsC and "<b>Closure Type</b>: C closure"
-				or string.format(
-					"<b>Closure Type</b>: Luau closure\n<b>Constants:</b> %s\n<b>Upvalues:</b> %s\n<b>Protos:</b> %s",
-					debug.getconstants and tostring(#CallInfo.Function.Constants) or "N/A",
-					debug.getupvalues and tostring(#CallInfo.Function.Upvalues) or "N/A",
-					debug.getprotos and tostring(#CallInfo.Function.Protos) or "N/A"
-				)
-		)
-	end
-
-	local FunctionName = debug.info(CallInfo.Function, "n")
-
-	return string.format(
-		[[<b>Function Address:</b> %s
-<b>Name:</b> %s
-<b>Script Path:</b> %s
-<b>Source:</b> %s
-<b>Calling Line:</b> %s
-%s]],
-		tostring(CallInfo.Function):match("0x%x+") or tostring(CallInfo.Function),
-		FunctionName ~= "" and FunctionName or "Anonymous",
-		CallInfo.Origin and self.GetFullPath(CallInfo.Origin, { DisableNilParentHandler = true }) or wax.shared.ExecutorName,
-		CallInfo.Source or debug.info(CallInfo.Function, "s"),
-		tostring(CallInfo.Line),
-
-		iscclosure(CallInfo.Function) and "<b>Closure Type</b>: C closure"
-			or string.format(
-				"<b>Closure Type</b>: Luau closure\n<b>Constants:</b> %s\n<b>Upvalues:</b> %s\n<b>Protos:</b> %s",
-				debug.getconstants and tostring(#debug.getconstants(CallInfo.Function)) or "N/A",
-				debug.getupvalues and tostring(#debug.getupvalues(CallInfo.Function)) or "N/A",
-				debug.getprotos and tostring(#debug.getprotos(CallInfo.Function)) or "N/A"
-			)
-	)
-end
-
-wax.shared.ReplayCallInfo = function(CallInfo: CallInfo)
-	local Type = CallInfo.Type
-	local Method = wax.shared.FunctionForClasses[Type][CallInfo.Instance.ClassName]
-
-	if Type == "Incoming" then
-		if DoesUseCallbackValue(CallInfo.Instance) then
-			if CallInfo.OriginalInvokeArgs then
-				if CallInfo.IsCallbackReturn then
-					local Callback = getcallbackvalue(CallInfo.Instance, Method)
-
-					if not Callback then
-						return
-					end
-
-					Callback(table.unpack(CallInfo.OriginalInvokeArgs, 1, CallInfo.OriginalInvokeArgs.n))
-					return
-				end
-
-				Method = wax.shared.FunctionForClasses.Outgoing[CallInfo.Instance.ClassName]
-
-				CallInfo.Instance[Method](
-					CallInfo.Instance,
-					table.unpack(CallInfo.OriginalInvokeArgs, 1, CallInfo.OriginalInvokeArgs.n)
-				)
-				return
-			end
-
-			local Callback = getcallbackvalue(CallInfo.Instance, Method)
+		--// RemoteFunction/BindableFunction SSE \\--
+		if Scenario.Shape == "SSE" then
+			local Callback = getcallbackvalue(TargetInstance, Method)
 
 			if not Callback then
 				return
 			end
 
-			Callback(table.unpack(CallInfo.Arguments))
+			task.spawn(function()
+				local table_unpack, task_spawn = table.unpack, task.spawn
+				
+				setthreadidentity(2)
+				setfenv(0, getfenv(Callback))
+				task_spawn(Callback, table_unpack(Arguments, 1, Arguments.n))
+			end)
 			return
 		end
-
-		assert(firesignal or getconnections, "No firesignal or getconnections found")
-
-		if firesignal then
-			firesignal(CallInfo.Instance[Method], table.unpack(CallInfo.Arguments, 1, CallInfo.Arguments.n))
-		elseif getconnections then
-			for _, conn in getconnections(CallInfo.Instance[Method]) do
-				conn:Fire(table.unpack(CallInfo.Arguments, 1, CallInfo.Arguments.n))
-			end
-		end
-
-		return
 	end
 
-	CallInfo.Instance[Method](CallInfo.Instance, table.unpack(CallInfo.Arguments, 1, CallInfo.Arguments.n))
+	task.spawn(function()
+		TargetInstance[Method](TargetInstance, table.unpack(Arguments, 1, Arguments.n))
+	end)
 end
 
 return CodeGen

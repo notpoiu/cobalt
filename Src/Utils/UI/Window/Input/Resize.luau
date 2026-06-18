@@ -1,7 +1,7 @@
 local Resize = {}
 Resize.__index = Resize
 
-local Interface = require(script.Parent.Interface)
+local Interface = require(script.Parent.Parent.Parent.Interface)
 local Drag = require(script.Parent.Drag)
 
 local HANDLE_SIZE = 6
@@ -201,7 +201,7 @@ function Resize.new(Options: {
 			if wax.shared.GetDPIScale then
 				mouseDelta = mouseDelta / wax.shared.GetDPIScale()
 			end
-			
+
 			local newSize, newPosition =
 				CalculateResizeProperties(Info.FramePosition, Info.FrameSize, mouseDelta, resizeTypeX, resizeTypeY)
 

@@ -3,26 +3,28 @@
 ]]
 
 local AnticheatData = require(script.Parent.Utils.Anticheats.Main)
-local LuaEncode = require(script.Parent.Utils.Serializer.LuaEncode)
+local LuaEncode = require(script.Parent.Utils.CodeGen.Serializer.LuaEncode)
 
 local Utils = script.Parent.Utils
 
 local Pagination = require(Utils.Pagination)
 local CodeGen = require(Utils.CodeGen.Generator)
-local SessionExporter = require(Utils.CodeGen.SessionExporter)
+local InstanceSerializer = require(Utils.CodeGen.Serializer.Instance)
+local Session = require(Utils.CodeGen.Serializer.Session)
 
 local UIUtils = script.Parent.Utils.UI
 
-local SyntaxHighlighter = require(UIUtils.Highlighter)
+local SyntaxHighlighter = require(UIUtils.Text.Highlighter)
+local LazySerializer = require(UIUtils.Text.LazySerializer)
 
-local AssetManager = require(UIUtils.AssetManager)
-local Icons = require(UIUtils.Icons)
+local AssetManager = require(UIUtils.Assets.Manager)
+local Icons = require(UIUtils.Assets.Icons)
 
 local Interface = require(UIUtils.Interface)
-local Helper = require(UIUtils.Helper)
+local InputUtils = require(UIUtils.Window.Input.Input)
 
-local Resize = require(UIUtils.Resize)
-local Drag = require(UIUtils.Drag)
+local Resize = require(UIUtils.Window.Input.Resize)
+local Drag = require(UIUtils.Window.Input.Drag)
 
 local PaginationHelper = Pagination.new({
 	ItemsPerPage = wax.shared.SaveManager:GetState("MaxItemPerPages", 20),
@@ -335,11 +337,10 @@ local function CreateContextMenu(Parent: GuiObject, Options: {}, MouseOnCursorPo
 				wax.shared.UserInputService:GetMouseLocation().Y - (45 / GetDPIScale())
 			)
 		else
-			ContextMenu.Position =
-				UDim2.fromOffset(
-					Parent.AbsolutePosition.X / GetDPIScale(),
-					(Parent.AbsolutePosition.Y + Parent.AbsoluteSize.Y) / GetDPIScale()
-				)
+			ContextMenu.Position = UDim2.fromOffset(
+				Parent.AbsolutePosition.X / GetDPIScale(),
+				(Parent.AbsolutePosition.Y + Parent.AbsoluteSize.Y) / GetDPIScale()
+			)
 		end
 		ContextMenu.Visible = true
 	end
@@ -1614,7 +1615,6 @@ do
 			Parent = Card,
 		})
 
-
 		local Content = Interface.New("Frame", {
 			AutomaticSize = Enum.AutomaticSize.Y,
 			BackgroundTransparency = 1,
@@ -1622,9 +1622,9 @@ do
 			Parent = Card,
 
 			["UIPadding"] = {
-				PaddingLeft  = UDim.new(0, 12),
+				PaddingLeft = UDim.new(0, 12),
 				PaddingRight = UDim.new(0, 12),
-				PaddingTop   = UDim.new(0, 7),
+				PaddingTop = UDim.new(0, 7),
 				PaddingBottom = UDim.new(0, 7),
 			},
 
@@ -1734,7 +1734,7 @@ do
 
 		local Registry = wax.shared.CobaltPluginManager.Registry
 		local LoadedCount = #Registry.Plugins
-		local ErrorCount  = #Registry.Errored
+		local ErrorCount = #Registry.Errored
 
 		-- Update summary label
 		local SummaryParts = {}
@@ -1894,11 +1894,6 @@ CodeGenSection:CreateCheckbox("PreferBufferFromString", {
 	Default = false,
 })
 
-CodeGenSection:CreateCheckbox("CacheInstancePaths", {
-	Text = "Cache Event Instance Paths",
-	Default = false,
-})
-
 CodeGenSection:CreateCheckbox("ShowWatermark", {
 	Text = "Show Cobalt Watermark",
 	Default = true,
@@ -1913,13 +1908,13 @@ MainSection:CreateDropdown("WindowDPIScale", {
 		"75%",
 		"100%",
 		"125%",
-		"150%"
+		"150%",
 	},
 	Default = "100%",
 
 	Callback = function(value)
 		ScreenDPIScale.Scale = GetDPIScale()
-	end
+	end,
 })
 
 MainSection:CreateTextBox("MaxItemPerPages", {
@@ -1995,7 +1990,9 @@ wax.shared.ClearLogs = function(FilterInstance: Instance?, FilterType: string?)
 	end
 
 	if ClearedAny then
-		wax.shared.Sonner.success(`Successfully Cleared {FilterInstance and FilterInstance.Name .. " " or ""}{FilterType or "All"} Logs`)
+		wax.shared.Sonner.success(
+			`Successfully Cleared {FilterInstance and FilterInstance.Name .. " " or ""}{FilterType or "All"} Logs`
+		)
 	end
 end
 
@@ -2103,10 +2100,12 @@ LoggingSection:CreateCheckbox("EnableLogging", {
 	end,
 })
 
-SessionLog = LoggingSection:AddLabel(`Current Session Log: <b>{wax.shared.Settings.EnableLogging.Value and wax.shared.LogFileName:gsub(
-	"Cobalt/Logs/",
-	""
-) or "Not Logging"}</b>`)
+SessionLog = LoggingSection:AddLabel(
+	`Current Session Log: <b>{wax.shared.Settings.EnableLogging.Value and wax.shared.LogFileName:gsub(
+		"Cobalt/Logs/",
+		""
+	) or "Not Logging"}</b>`
+)
 
 LoggingSection:AddLabel(`Logs Path: <b>Cobalt/Logs</b>`)
 
@@ -2152,31 +2151,28 @@ CopyFullSessionPath.Size = UDim2.new(0.5, -4, 0, 24)
 LoggingSection:CreateButton("Export Logs to HTML", function()
 	wax.shared.Sonner.promise(function(UpdateProgress)
 		assert(typeof(writefile) == "function", "Exploit does not support writefile")
-		
+
 		--// Collect all logs \\--
-		local AllCalls = SessionExporter:FetchAllLogs()
-		local SessionData = SessionExporter:GetSessionData(AllCalls)
+		local AllCalls = Session:FetchAllLogs()
+		local SessionData = Session:GetSessionData(AllCalls)
 
 		--// Data Processing \\--
 		UpdateProgress("Sorting calls...")
-		SessionExporter:SortCalls(AllCalls)
-		local Events, StringMap = SessionExporter:ProcessCalls(
-			AllCalls,
-			SessionData,
-			UpdateProgress
-		)
+		Session:SortCalls(AllCalls)
+		local Events, StringMap = Session:ProcessCalls(AllCalls, SessionData, UpdateProgress)
 
 		--// Export \\--
 		local FileName = `Cobalt_Session_{os.time()}.html`
-		writefile(
-			FileName,
-			SessionExporter:ExportSessionToHTML(Events, StringMap, SessionData)
-		)
+		writefile(FileName, Session:ExportSessionToHTML(Events, StringMap, SessionData))
 		return FileName
 	end, {
 		loadingText = "Starting Export...",
-		successText = function(fileName) return `Successfully exported trace to {fileName}` end,
-		errorText = function(err) return `Export Failed: {err}` end,
+		successText = function(fileName)
+			return `Successfully exported trace to {fileName}`
+		end,
+		errorText = function(err)
+			return `Export Failed: {err}`
+		end,
 	})
 end, 14)
 
@@ -2389,21 +2385,23 @@ local DefaultFooterButtons = {
 					end
 
 					local Info = {
-						Function = typeof(CurrentInfo.Function) == "function" and {
-							Name = CurrentInfo.Function and debug.info(CurrentInfo.Function, "n") or "Unknown",
-							Source = CurrentInfo.Source
-								or (CurrentInfo.Function and debug.info(CurrentInfo.Function, "s"))
-								or "Unknown",
-							Type = CurrentInfo.Function
-									and (iscclosure(CurrentInfo.Function) and "C Closure" or "Luau function")
-								or "N/A",
-							Address = tostring(CurrentInfo.Function),
-							Arguments = table.unpack(
-								CurrentInfo.Arguments,
-								1,
-								wax.shared.GetTableLength(CurrentInfo.Arguments)
-							),
-						} or CurrentInfo.Function,
+						Function = typeof(CurrentInfo.Function) == "function"
+								and {
+									Name = CurrentInfo.Function and debug.info(CurrentInfo.Function, "n") or "Unknown",
+									Source = CurrentInfo.Source
+										or (CurrentInfo.Function and debug.info(CurrentInfo.Function, "s"))
+										or "Unknown",
+									Type = CurrentInfo.Function
+											and (iscclosure(CurrentInfo.Function) and "C Closure" or "Luau function")
+										or "N/A",
+									Address = tostring(CurrentInfo.Function),
+									Arguments = table.unpack(
+										CurrentInfo.Arguments,
+										1,
+										wax.shared.GetTableLength(CurrentInfo.Arguments)
+									),
+								}
+							or CurrentInfo.Function,
 						Script = CurrentInfo.Origin,
 						Line = CurrentInfo.Line,
 					}
@@ -2424,7 +2422,10 @@ local DefaultFooterButtons = {
 						end
 					end
 
-					local Success, Error = pcall(setclipboard, `local Info = {LuaEncode(Info, { Prettify = true, DisableNilParentHandler = true })}`)
+					local Success, Error = pcall(
+						setclipboard,
+						`local Info = {LuaEncode(Info, { Prettify = true, DisableNilParentHandler = true })}`
+					)
 					if Success then
 						wax.shared.Sonner.success("Copied function info to clipboard")
 					else
@@ -2433,7 +2434,7 @@ local DefaultFooterButtons = {
 					end
 				end,
 			},
-		}
+		},
 	},
 	{
 		Icon = "scroll-text",
@@ -2447,10 +2448,13 @@ local DefaultFooterButtons = {
 						return
 					end
 
-					local Success, Error = pcall(setclipboard, CodeGen.GetFullPath(CurrentInfo.Instance, {
-						VariableName = "Event",
-						DisableNilParentHandler = false
-					}))
+					local Success, Error = pcall(
+						setclipboard,
+						InstanceSerializer.Serialize(CurrentInfo.Instance, {
+							VariableName = "Event",
+							DisableNilParentHandler = false,
+						})
+					)
 					if Success then
 						wax.shared.Sonner.success("Copied remote path to clipboard")
 					else
@@ -2470,7 +2474,7 @@ local DefaultFooterButtons = {
 						return
 					end
 
-					local Success, Error = pcall(setclipboard, CodeGen.GetFullPath(CurrentInfo.Origin))
+					local Success, Error = pcall(setclipboard, InstanceSerializer.Serialize(CurrentInfo.Origin))
 					if Success then
 						wax.shared.Sonner.success("Copied script path to clipboard")
 					else
@@ -2486,7 +2490,13 @@ local DefaultFooterButtons = {
 					return CurrentInfo and typeof(CurrentInfo.Origin) == "Instance" and typeof(decompile) == "function"
 				end,
 				Callback = function()
-					if not (CurrentInfo and typeof(CurrentInfo.Origin) == "Instance" and typeof(decompile) == "function") then
+					if
+						not (
+							CurrentInfo
+							and typeof(CurrentInfo.Origin) == "Instance"
+							and typeof(decompile) == "function"
+						)
+					then
 						return
 					end
 
@@ -2505,7 +2515,7 @@ local DefaultFooterButtons = {
 					end
 				end,
 			},
-		}
+		},
 	},
 	{
 		Icon = "network",
@@ -2520,7 +2530,7 @@ local DefaultFooterButtons = {
 					end
 
 					wax.shared.Sonner.promise(function()
-						wax.shared.ReplayCallInfo(CurrentInfo, CurrentTab.Name)
+						CodeGen:ReplayCallInfo(CurrentInfo)
 					end, {
 						loadingText = "Replaying event...",
 						successText = "Replayed event successfully!",
@@ -2616,9 +2626,9 @@ local DefaultFooterButtons = {
 						CurrentLog.Button.Instance.Parent = nil
 					end
 				end,
-			}
-		}
-	}
+			},
+		},
+	},
 }
 
 InfoButtons = Interface.New("Frame", {
@@ -4018,7 +4028,7 @@ function CreateLogButton(Log): (TextButton, TextLabel, TextLabel)
 				Icon = Option.Icon,
 				Callback = function()
 					task.spawn(Option.Callback, Log)
-				end
+				end,
 			})
 		end
 	end
@@ -4081,7 +4091,7 @@ function CreateArgHolder(Index: number, Value: any, Parent: GuiObject, IsBlocked
 		TextColor3 = if IsBlockedCall
 			then Color3.fromRGB(255, 190, 190)
 			else Color3.fromHex(SyntaxHighlighter.GetArgumentColor(Value)),
-		Text = tostring(Helper.QuickSerializeArgument(Value)):gsub("<", "&lt;"):gsub(">", "&gt;"),
+		Text = tostring(LazySerializer.QuickSerializeArgument(Value)):gsub("<", "&lt;"):gsub(">", "&gt;"),
 		RichText = true,
 		TextSize = 15,
 		TextWrapped = true,
@@ -4173,10 +4183,13 @@ function CreateCallFrame(CallInfo)
 						return
 					end
 
-					local Success, Error = pcall(setclipboard, CodeGen.GetFullPath(CallInfo.Instance, {
-						VariableName = "Event",
-						DisableNilParentHandler = false,
-					}))
+					local Success, Error = pcall(
+						setclipboard,
+						InstanceSerializer.Serialize(CallInfo.Instance, {
+							VariableName = "Event",
+							DisableNilParentHandler = false,
+						})
+					)
 
 					if Success then
 						wax.shared.Sonner.success("Copied remote path to clipboard")
@@ -4197,7 +4210,7 @@ function CreateCallFrame(CallInfo)
 						return
 					end
 
-					local Success, Error = pcall(setclipboard, CodeGen.GetFullPath(CallInfo.Origin))
+					local Success, Error = pcall(setclipboard, InstanceSerializer.Serialize(CallInfo.Origin))
 					if Success then
 						wax.shared.Sonner.success("Copied script path to clipboard")
 					else
@@ -4215,7 +4228,7 @@ function CreateCallFrame(CallInfo)
 					end
 
 					wax.shared.Sonner.promise(function()
-						wax.shared.ReplayCallInfo(CallInfo, CurrentTab.Name)
+						CodeGen:ReplayCallInfo(CallInfo)
 					end, {
 						loadingText = "Replaying event...",
 						successText = "Replayed event successfully!",
@@ -4234,7 +4247,7 @@ function CreateCallFrame(CallInfo)
 					Icon = Option.Icon,
 					Callback = function()
 						task.spawn(Option.Callback, CallInfo)
-					end
+					end,
 				})
 			end
 		end
@@ -4441,7 +4454,7 @@ function OpenInfo(CallInfo)
 	if wax.shared.CobaltPluginManager and wax.shared.CobaltPluginManager.Initialized then
 		for _, Interceptor in wax.shared.CobaltPluginManager.Registry.UIHooks.RemoteInfo.Intercept do
 			local Success, Result = pcall(Interceptor, CallInfo)
-			
+
 			if Success and Result == false then
 				return
 			end
@@ -4503,7 +4516,7 @@ function OpenInfo(CallInfo)
 
 	CurrentInfoTab = "Arguments"
 	UpdateFooterButtons()
-	
+
 	if InfoModalTab["Arguments"] then
 		local TabButton = InfoModalTab["Arguments"].TabButton
 		local TabContent = InfoModalTab["Arguments"].TabContents
@@ -4521,7 +4534,7 @@ function OpenInfo(CallInfo)
 end
 
 Drag.Setup(RemoteListLine, RemoteListResize, function(Info, Input: InputObject)
-	local Delta = (Input.Position - Info.StartPosition) / GetDPIScale() 
+	local Delta = (Input.Position - Info.StartPosition) / GetDPIScale()
 	local FramePosition: UDim2 = Info.FramePosition
 	local Offset = math.clamp(FramePosition.X.Offset + Delta.X, 120, (MainFrame.AbsoluteSize.X - 2) / 2)
 
@@ -4592,12 +4605,12 @@ wax.shared.Connect(wax.shared.Communicator.Event:Connect(function(Instance, Type
 end))
 
 wax.shared.Connect(wax.shared.UserInputService.InputBegan:Connect(function(Input: InputObject)
-	if Helper.IsClickInput(Input) then
+	if InputUtils.IsClickInput(Input) then
 		if
 			CurrentContext
 			and not (
-				Helper.IsMouseOverFrame(ContextMenu, Input.Position)
-				or Helper.IsMouseOverFrame(CurrentContext.Parent, Input.Position)
+				InputUtils.IsMouseOverFrame(ContextMenu, Input.Position)
+				or InputUtils.IsMouseOverFrame(CurrentContext.Parent, Input.Position)
 			)
 		then
 			CurrentContext:Close()

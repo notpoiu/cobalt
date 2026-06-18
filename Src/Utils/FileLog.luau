@@ -13,6 +13,8 @@
 local Logger = {}
 Logger.__index = Logger
 
+local FileHelper = require(script.Parent.FileHelper)
+
 Logger.LOG_LEVELS = {
 	ERROR = 1,
 	WARNING = 2,
@@ -29,15 +31,11 @@ local LOG_LEVEL_STRINGS = {
 
 local startTime = tick()
 
-local function createDirectoryRecursive(path)
-	local currentPath = ""
-	for part in path:gmatch("[^\\/]+") do
-		currentPath = currentPath .. part
-		if not isfolder(currentPath) then
-			makefolder(currentPath)
-		end
-		currentPath = currentPath .. "/"
-	end
+local function SplitFilePath(path: string): (string, string)
+	local normalizedPath = FileHelper.NormalizePath(path)
+	local directory, fileName = normalizedPath:match("^(.*)/([^/]*)$")
+
+	return directory or "", fileName or normalizedPath
 end
 
 --[=[
@@ -50,8 +48,13 @@ end
 function Logger:GenerateFileName()
 	local JobIdNumber = game.JobId:gsub("%D", "")
 	local timestamp = os.date("!%Y%m%d%H%M%S")
+	local fileName = `{JobIdNumber * 1.7 // 1.8}_{timestamp}.log`
 
-	return `{self.logFileDirectory}/{JobIdNumber * 1.7 // 1.8}_{timestamp}.log`
+	if self.logFileDirectory == "" then
+		return fileName
+	end
+
+	return `{self.logFileDirectory}/{fileName}`
 end
 
 --[=[
@@ -64,22 +67,24 @@ end
 ]=]
 function Logger.new(logFilePath: string, logLevel: number?, overwrite: boolean?)
 	local self = setmetatable({}, Logger)
-	self.logFilePath = logFilePath
-	self.logFileDirectory = logFilePath:match("(.+)/")
+	local logFileDirectory, logFileName = SplitFilePath(logFilePath)
+
+	self.fileHelper = FileHelper.new(logFileDirectory)
+	self.logFileName = logFileName
+	self.logFileDirectory = logFileDirectory
+	self.logFilePath = self.fileHelper:GetPath(logFileName)
 	self.logLevel = logLevel or Logger.LOG_LEVELS.INFO
 	self.overwrite = overwrite or false
 
-	local folderPath, fileName = logFilePath:match("(.*[\\/])(.*)")
-
-	if folderPath and not isfolder(folderPath) then
-		createDirectoryRecursive(folderPath)
-	end
-
-	if self.overwrite then
-		local success, err = pcall(writefile, self.logFilePath, "")
-		if not success then
-			warn(debug.traceback(`Failed to clear log file: {self.logFilePath} - {err}`, 2))
+	local success, err = pcall(function()
+		if self.overwrite then
+			self.fileHelper:WriteFile(self.logFileName, "")
+		else
+			self.fileHelper:EnsureFile(self.logFileName, "")
 		end
+	end)
+	if not success then
+		warn(debug.traceback(`Failed to initialize log file: {self.logFilePath} - {err}`, 2))
 	end
 
 	self:Info("Logger", "Logger initialized")
@@ -103,7 +108,7 @@ function Logger:Log(level: number, threadId: string, message: string)
 
 		local logMessage = `{timestamp},{elapsedTime},{threadId},{levelStr} {message}\n`
 
-		local success, err = pcall(appendfile, self.logFilePath, logMessage)
+		local success, err = pcall(self.fileHelper.AppendFile, self.fileHelper, self.logFileName, logMessage)
 		if not success then
 			warn(debug.traceback(`Failed to write to log file: {self.logFilePath} - {err}`, 2))
 		end

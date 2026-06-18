@@ -29,13 +29,16 @@ local Manager = {
 }
 
 local UIUtils = script.Parent.Parent.UI
-local Highlighter = require(UIUtils.Highlighter)
+local Highlighter = require(UIUtils.Text.Highlighter)
 local Interface = require(UIUtils.Interface)
-local Resize = require(UIUtils.Resize)
-local UIHelper = require(UIUtils.Helper)
+local Resize = require(UIUtils.Window.Input.Resize)
+local LazySerializer = require(UIUtils.Text.LazySerializer)
 
 local Signals = require(script.Parent.Parent.Signal)
-local CodeGen = require(script.Parent.Parent.CodeGen.Generator)
+local Types = require(script.Parent.Parent.CodeGen.Types)
+
+local Formatter = require(script.Parent.Parent.CodeGen.Formatter)
+local InstanceSerializer = require(script.Parent.Parent.CodeGen.Serializer.Instance)
 
 -- File Helper
 local FileHelperUtil = require(script.Parent.Parent.FileHelper)
@@ -534,7 +537,7 @@ local function CreatePluginEnvironement(FilePath: string, PluginCallback: (...an
         @param Callback: The function to be called.
         @return: A function to remove the binded callback.
     ]]
-    function Cobalt.UI.RemoteInfo:BindToModalOpen(Callback: (CallInfo: CodeGen.CallInfo) -> (...any))
+    function Cobalt.UI.RemoteInfo:BindToModalOpen(Callback: (CallInfo: Types.CallInfo) -> (...any))
         table.insert(Manager.Registry.UIHooks.RemoteInfo.Open, Callback)
 
         return function()
@@ -552,7 +555,7 @@ local function CreatePluginEnvironement(FilePath: string, PluginCallback: (...an
         @param Callback: The function to be called before opening the modal.
         @return: A function to remove the added interceptor.
     ]]
-    function Cobalt.UI.RemoteInfo:InterceptModalOpen(Callback: (CallInfo: CodeGen.CallInfo) -> (boolean?))
+    function Cobalt.UI.RemoteInfo:InterceptModalOpen(Callback: (CallInfo: Types.CallInfo) -> (boolean?))
         table.insert(Manager.Registry.UIHooks.RemoteInfo.Intercept, Callback)
 
         return function()
@@ -610,7 +613,7 @@ local function CreatePluginEnvironement(FilePath: string, PluginCallback: (...an
     end
 
     -- Spy Functions
-    type InterceptorFunction = (Info: CodeGen.CallInfo, Instance: Instance, Type: "Incoming" | "Outgoing") -> (...any)
+    type InterceptorFunction = (Info: Types.CallInfo, Instance: Instance, Type: "Incoming" | "Outgoing") -> (...any)
     --[[
         Intercepts executed calls.
 
@@ -765,10 +768,10 @@ local function CreatePluginEnvironement(FilePath: string, PluginCallback: (...an
         if typeof(data) == "table" then
             return wax.shared.LuaEncode(data, options)
         elseif typeof(data) == "Instance" then
-            return CodeGen.GetFullPath(data, options)
+            return InstanceSerializer.Serialize(data, options)
         end
 
-        return UIHelper.QuickSerializeArgument(data)      
+        return LazySerializer.QuickSerializeArgument(data)      
     end
 
     --[[
@@ -779,7 +782,7 @@ local function CreatePluginEnvironement(FilePath: string, PluginCallback: (...an
         @return: The indented code.
     ]]
     function Cobalt.CodeGen.Indent(str: string, indent: number)
-        return CodeGen:IndentCode(str, indent)
+        return Formatter.IndentCode(str, indent)
     end
 
     -- Handle Cobalt.PluginData assignment

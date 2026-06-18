@@ -21,7 +21,6 @@ local function CreateLookupTable(table)
 	return LookupTable
 end
 
-
 local function GetLog(Instance: InstancesToHook, Method: MethodsToHook, Function: (...any) -> ...any)
 	if wax.shared.ShouldIgnore(Instance, getcallingscript()) or LogConnectionFunctions[Function] then
 		return nil
@@ -170,17 +169,18 @@ local function CreateCallbackDetour(Instance: InstancesToHook, Method: MethodsTo
 			then isexecutorclosure(FunctionCaller)
 			else isexecutorclosure(Callback)
 
-		local OriginalInvokeArgs = table.pack(...)
+		local Arguments = wax.shared.SafePack.Pack(...)
 		local Log = GetLog(Instance, Method, Callback)
 
 		if Log and Log.Blocked then
 			if wax.shared.SaveManager:GetState("LogBlockedRemotes", false) then
 				Log:Call({
-					Arguments = OriginalInvokeArgs,
+					Arguments = Arguments,
 					Origin = Origin,
 					Function = Callback,
 					Line = nil,
 					IsExecutor = IsExecutor,
+					InvokeKind = "Callback",
 					Blocked = true,
 				})
 			end
@@ -188,20 +188,27 @@ local function CreateCallbackDetour(Instance: InstancesToHook, Method: MethodsTo
 			return
 		end
 
-		local old = getthreadidentity()
-		setthreadidentity(2)
-		local Result = table.pack(Callback(table.unpack(OriginalInvokeArgs, 1, OriginalInvokeArgs.n)))
-		setthreadidentity(old)
+		local Result
+		do
+			local InitialEnv, InitialIdentity = getfenv(CreateCallbackDetour), getthreadidentity()
+			local old_setfenv, old_pack = setfenv, wax.shared.SafePack.Pack
+			
+			setthreadidentity(2)
+			setfenv(0, getfenv(Callback))
+			Result = old_pack(Callback(...))
+			old_setfenv(0, InitialEnv)
+			setthreadidentity(InitialIdentity)
+		end
 
 		if Log and not Log.Ignored then
 			Log:Call({
-				Arguments = Result,
+				Arguments = Arguments,
+				InvokeResult = Result,
 				Origin = Origin,
 				Function = Callback,
 				Line = nil,
 				IsExecutor = IsExecutor,
-				OriginalInvokeArgs = OriginalInvokeArgs,
-				IsCallbackReturn = true,
+				InvokeKind = "Callback",
 			})
 		end
 
@@ -257,7 +264,16 @@ end
 
 wax.shared.Connect(game.DescendantAdded:Connect(HandleInstance))
 
-local CategoryToSearch = { game:QueryDescendants("RemoteEvent, RemoteFunction, UnreliableRemoteEvent, BindableEvent, BindableFunction") }
+local CategoryToSearch = {
+	game:QueryDescendants(table.concat({
+		"RemoteEvent",
+		"RemoteFunction",
+		"UnreliableRemoteEvent",
+		"BindableEvent",
+		"BindableFunction",
+	}, ", ")),
+}
+
 if wax.shared.ExecutorSupport["getnilinstances"].IsWorking then
 	table.insert(CategoryToSearch, getnilinstances())
 end

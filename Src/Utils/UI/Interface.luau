@@ -1,12 +1,12 @@
 local Interface = {}
-local Icons = require(script.Parent.Icons)
-local AssetManager = require(script.Parent.AssetManager)
+local Icons = require(script.Parent.Assets.Icons)
+local AssetManager = require(script.Parent.Assets.Manager)
 
 local DefaultFont = AssetManager.GetCustomFont({
 	Name = "Inter",
 	Url = "https://raw.githubusercontent.com/notpoiu/cobalt/refs/heads/main/Assets/Inter.ttf",
 
-	FallbackId = 12187365364
+	FallbackId = 12187365364,
 })
 
 local DefaultProperties = {

@@ -17,8 +17,8 @@ local Sonner = {
 	Processing = false,
 }
 
-local Icons = require(script.Parent.Icons)
-local Interface = require(script.Parent.Interface)
+local Icons = require(script.Parent.Parent.Assets.Icons)
+local Interface = require(script.Parent.Parent.Interface)
 local Animations = require(script.Parent.Animations)
 
 local function InternalCreateNotificationObject(zindex, image, text)
