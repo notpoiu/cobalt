@@ -59,18 +59,18 @@ function SignalHandler.New(self)
 	end
 
 	function Signal:Wait(...)
-		local return_data = {}
+		local return_data = { n = 0 }
 		local finishedWaiting = false
 
 		Signal:Once(function(...)
-			return_data = { ... }
+			return_data = wax.shared.SafePack.Pack(...)
 			finishedWaiting = true
 		end)
 
 		repeat
 			task.wait()
 		until finishedWaiting
-		return table.unpack(return_data)
+		return wax.shared.SafePack.Unpack(return_data)
 	end
 
 	table.insert(SignalHandler.Signals, Signal)

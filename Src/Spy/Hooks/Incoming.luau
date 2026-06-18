@@ -116,7 +116,7 @@ local function CreateConnectionFunction(Instance: InstancesToHook, Method: Metho
 			end
 
 			LogRemote(Instance, Method, Function, {
-				Arguments = table.pack(...),
+				Arguments = wax.shared.SafePack.Pack(...),
 				Origin = Origin,
 				Function = Function,
 				Line = nil,
@@ -126,7 +126,7 @@ local function CreateConnectionFunction(Instance: InstancesToHook, Method: Metho
 
 		if not HasLoggedRegular then
 			LogRemote(Instance, Method, nil, {
-				Arguments = table.pack(...),
+				Arguments = wax.shared.SafePack.Pack(...),
 				Origin = nil,
 				Function = nil,
 				Line = nil,
@@ -137,6 +137,41 @@ local function CreateConnectionFunction(Instance: InstancesToHook, Method: Metho
 
 	LogConnectionFunctions[ConnectionFunction] = true
 	return ConnectionFunction
+end
+
+local setfenv = setfenv
+--[[
+	Handles logging for a callback.
+
+	@param Log The log to use.
+	@param Arguments The arguments to use.
+	@param Origin The origin to use.
+	@param Callback The callback to use.
+	@param IsExecutor Whether the callback is an executor.
+	@param InitialEnv The initial environment to use.
+	@param InitialIdentity The initial identity to use.
+	@param ... The result of the callback.
+
+	@return The result of the callback.
+]]
+local function HandleCallbackLogging(Log, Arguments, Origin, Callback, IsExecutor, InitialEnv, InitialIdentity, ...)
+	setfenv(0, InitialEnv)
+	setthreadidentity(InitialIdentity)
+
+	if Log and not Log.Ignored then
+		local Result = wax.shared.SafePack.Pack(...)
+		Log:Call({
+			Arguments = Arguments,
+			InvokeResult = Result,
+			Origin = Origin,
+			Function = Callback,
+			Line = nil,
+			IsExecutor = IsExecutor,
+			InvokeKind = "Callback",
+		})
+	end
+
+	return ...
 end
 
 --[[
@@ -188,31 +223,11 @@ local function CreateCallbackDetour(Instance: InstancesToHook, Method: MethodsTo
 			return
 		end
 
-		local Result
-		do
-			local InitialEnv, InitialIdentity = getfenv(CreateCallbackDetour), getthreadidentity()
-			local old_setfenv, old_pack = setfenv, wax.shared.SafePack.Pack
-			
-			setthreadidentity(2)
-			setfenv(0, getfenv(Callback))
-			Result = old_pack(Callback(...))
-			old_setfenv(0, InitialEnv)
-			setthreadidentity(InitialIdentity)
-		end
+		local InitialEnv, InitialIdentity = getfenv(CreateCallbackDetour), getthreadidentity()
 
-		if Log and not Log.Ignored then
-			Log:Call({
-				Arguments = Arguments,
-				InvokeResult = Result,
-				Origin = Origin,
-				Function = Callback,
-				Line = nil,
-				IsExecutor = IsExecutor,
-				InvokeKind = "Callback",
-			})
-		end
-
-		return table.unpack(Result, 1, Result.n)
+		setthreadidentity(2)
+		setfenv(0, getfenv(Callback))
+		return HandleCallbackLogging(Log, Arguments, Origin, Callback, IsExecutor, InitialEnv, InitialIdentity, Callback(...))
 	end
 
 	if wax.shared.ExecutorSupport["setstackhidden"].IsWorking then
@@ -316,6 +331,33 @@ local ConnectionKeys = CreateLookupTable({
 	"Once",
 })
 
+--[[
+	Handles logging for a connection.
+
+	@param Method The method to log.
+	@param callback The callback to log.
+	@param ... The arguments to log.
+
+	@return The result of the connection.
+]]
+local function HandleConnectionLogging(Instance, Method, callback, ...)
+	local Log = wax.shared.Logs.Incoming[Instance]
+
+	if Log and Log.Blocked then
+		for _, Connection in getconnections(Instance[Method]) do
+			if not Connection.ForeignState and Connection.Function ~= callback then
+				continue
+			end
+
+			Connection:Disable()
+		end
+	end
+
+	
+	return ...
+end
+
+
 local SignalMetatable = wax.shared.getrawmetatable(Instance.new("Part").Touched)
 wax.shared.Hooks[SignalMetatable.__index] = wax.shared.Hooking.HookFunction(SignalMetatable.__index, function(...)
 	local self, key = ...
@@ -331,21 +373,7 @@ wax.shared.Hooks[SignalMetatable.__index] = wax.shared.Hooking.HookFunction(Sign
 		local Method = ClassesToHook[Instance.ClassName]
 		return wax.shared.newcclosure(function(...)
 			local _self, callback = ...
-
-			local Result = table.pack(Connect(...))
-			local Log = wax.shared.Logs.Incoming[Instance]
-
-			if Log and Log.Blocked then
-				for _, Connection in getconnections(Instance[Method]) do
-					if not Connection.ForeignState and Connection.Function ~= callback then
-						continue
-					end
-
-					Connection:Disable()
-				end
-			end
-
-			return table.unpack(Result, 1, Result.n)
+			return HandleConnectionLogging(Instance, Method, callback, Connect(...))
 		end, debug.info(Connect, "n"))
 	end
 

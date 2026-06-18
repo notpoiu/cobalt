@@ -295,6 +295,11 @@ end
 
 --#region @include "Src/Utils/SafePack.luau" as "wax.shared.SafePack"
 do
+	--[[
+	    SafePack
+	    Author: centerepic
+	]]
+
 	local TableProxy = {}
 
 	local UNPACK_CHUNK = 7997

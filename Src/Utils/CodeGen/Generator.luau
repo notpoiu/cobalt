@@ -264,6 +264,7 @@ function CodeGen:ReplayCallInfo(CallInfo: Types.CallInfo)
 	local Method = Scenario.Method
 	local Arguments = Scenario.Arguments
 	local TargetInstance = CallInfo.Instance :: Instance
+	local SafeUnpack = wax.shared.SafePack.Unpack
 
 	if Scenario.Type == "Incoming" then
 		--// RemoteEvent/BindableEvent Signal \\--
@@ -271,10 +272,10 @@ function CodeGen:ReplayCallInfo(CallInfo: Types.CallInfo)
 			assert(firesignal or getconnections, "No firesignal or getconnections found")
 
 			if firesignal then
-				firesignal(TargetInstance[Method], table.unpack(Arguments, 1, Arguments.n))
+				firesignal(TargetInstance[Method], SafeUnpack(Arguments, 1, Arguments.n))
 			elseif getconnections then
 				for _, conn in getconnections(TargetInstance[Method]) do
-					conn:Fire(table.unpack(Arguments, 1, Arguments.n))
+					conn:Fire(SafeUnpack(Arguments, 1, Arguments.n))
 				end
 			end
 
@@ -290,18 +291,18 @@ function CodeGen:ReplayCallInfo(CallInfo: Types.CallInfo)
 			end
 
 			task.spawn(function()
-				local table_unpack, task_spawn = table.unpack, task.spawn
+				local task_spawn = task.spawn
 				
 				setthreadidentity(2)
 				setfenv(0, getfenv(Callback))
-				task_spawn(Callback, table_unpack(Arguments, 1, Arguments.n))
+				task_spawn(Callback, SafeUnpack(Arguments, 1, Arguments.n))
 			end)
 			return
 		end
 	end
 
 	task.spawn(function()
-		TargetInstance[Method](TargetInstance, table.unpack(Arguments, 1, Arguments.n))
+		TargetInstance[Method](TargetInstance, SafeUnpack(Arguments, 1, Arguments.n))
 	end)
 end
 

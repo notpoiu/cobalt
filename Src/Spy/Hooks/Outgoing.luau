@@ -109,17 +109,34 @@ local function GetLog(Instance: Instance, Direction: "Outgoing" | "Incoming", Me
 end
 
 --[[
+	Handles logging for a result of a remote function.
+	@param Log The log to use.
+	@param Arguments The arguments to use.
+	@param ... The result to log.
+	@return The result.
+]]
+local function HandleLoggingResult(Log, Info, ResultKey, ...)
+	local Result = wax.shared.SafePack.Pack(...)
+	if not Log.Ignored then
+		Info[ResultKey] = Result
+		Log:Call(Info)
+	end
+	
+	return ...
+end
+
+--[[
 	Handles the logging for a specific instance and method.
 
 	@param Instance: The instance that was called.
 	@param Method: The method that was called (e.g., "OnClientEvent").
 	@param ... The arguments passed from the server to the client.
 ]]
-local function HandleLogging(TargetInstance: Instance, Method: string, OldFunction: (...any) -> ...any, ...)
+local function HandleLogging(TargetInstance: Instance, Method: string, Arguments: { [number]: any, n: number }, OldFunction: (...any) -> ...any, ...)
 	local Log = GetLog(TargetInstance, "Outgoing", Method)
 
 	local Info = {
-		Arguments = table.pack(select(2, ...)),
+		Arguments = Arguments,
 		Origin = getcallingscript(),
 		Function = getcallingfunction(),
 		Line = getcallingline(),
@@ -133,20 +150,24 @@ local function HandleLogging(TargetInstance: Instance, Method: string, OldFuncti
 			Log:Call(Info)
 		end
 
-		return true
+		return
 	end
 
 	if not Log.Ignored then
+		--// Outgoing Log \\--
 		Log:Call(Info)
 
-		-- For RemoteFunction return value (ex: local result = RemoteFunction:InvokeServer())
-		if TargetInstance.ClassName == "RemoteFunction" and (Method == "InvokeServer" or Method == "invokeServer") then
+		if
+			TargetInstance.ClassName == "RemoteFunction" and
+			(Method == "InvokeServer" or Method == "invokeServer")
+		then
+			--// Handle Incoming Log \\--
 			Log = GetLog(TargetInstance, "Incoming", Method)
-
+	
 			if Log.Blocked then
 				if wax.shared.SaveManager:GetState("LogBlockedRemotes", false) then
 					Log:Call({
-						Arguments = table.pack(select(2, ...)),
+						Arguments = Arguments,
 						Origin = getcallingscript(),
 						Function = getcallingfunction(),
 						Line = getcallingline(),
@@ -156,30 +177,24 @@ local function HandleLogging(TargetInstance: Instance, Method: string, OldFuncti
 						Blocked = true,
 					})
 				end
-
-				return true
+				return
 			end
-
-			local Result = table.pack(OldFunction(...))
-			if not Log.Ignored then
-				local RFResultInfo = {
-					Arguments = table.pack(select(2, ...)),
-					InvokeResult = Result,
-					Origin = getcallingscript(),
-					Function = getcallingfunction(),
-					Line = getcallingline(),
-					Source = getcallingsource(),
-					IsExecutor = checkcaller(),
-					InvokeKind = "Request",
-				}
-				Log:Call(RFResultInfo)
-			end
-
-			return false, Result
+	
+			local RFResultInfo = {
+				Arguments = Arguments,
+				InvokeResult = nil,
+				Origin = getcallingscript(),
+				Function = getcallingfunction(),
+				Line = getcallingline(),
+				Source = getcallingsource(),
+				IsExecutor = checkcaller(),
+				InvokeKind = "Request",
+			}
+			return HandleLoggingResult(Log, RFResultInfo, "InvokeResult", OldFunction(...))
 		end
 	end
 
-	return false, table.pack(OldFunction(...))
+	return OldFunction(...)
 end
 
 -- metamethod hooks
@@ -195,12 +210,8 @@ wax.shared.NamecallHook = wax.shared.Hooking.HookMetaMethod(game, "__namecall", 
 		and NamecallMethods[Method]
 		and not wax.shared.ShouldIgnore(self, getcallingscript())
 	then
-		local WasBlocked, Result = HandleLogging(self, Method, wax.shared.NamecallHook, ...)
-		if WasBlocked then
-			return
-		end
-
-		return table.unpack(Result, 1, Result.n)
+		local Arguments = wax.shared.SafePack.Pack(select(2, ...))
+		return HandleLogging(self, Method, Arguments, wax.shared.NamecallHook, ...)
 	end
 
 	return wax.shared.NamecallHook(...)
@@ -245,12 +256,8 @@ for _, Function in next, FunctionsToHook do
 			and not rawequal(self, wax.shared.Communicator)
 			and not wax.shared.ShouldIgnore(self, getcallingscript())
 		then
-			local WasBlocked, Result = HandleLogging(self, Method, wax.shared.Hooks[Function], ...)
-			if WasBlocked then
-				return
-			end
-
-			return table.unpack(Result, 1, Result.n)
+			local Arguments = wax.shared.SafePack.Pack(select(2, ...))
+			return HandleLogging(self, Method, Arguments, wax.shared.Hooks[Function], ...)
 		end
 
 		return wax.shared.Hooks[Function](...)

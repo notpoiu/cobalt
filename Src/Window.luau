@@ -2395,11 +2395,11 @@ local DefaultFooterButtons = {
 											and (iscclosure(CurrentInfo.Function) and "C Closure" or "Luau function")
 										or "N/A",
 									Address = tostring(CurrentInfo.Function),
-									Arguments = table.unpack(
-										CurrentInfo.Arguments,
-										1,
-										wax.shared.GetTableLength(CurrentInfo.Arguments)
-									),
+									Arguments = { wax.shared.SafePack.Unpack(
+											CurrentInfo.Arguments,
+											1,
+											wax.shared.GetTableLength(CurrentInfo.Arguments)
+										) },
 								}
 							or CurrentInfo.Function,
 						Script = CurrentInfo.Origin,

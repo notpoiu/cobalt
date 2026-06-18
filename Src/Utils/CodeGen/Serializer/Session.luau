@@ -104,7 +104,7 @@ function Session:ProcessCalls(AllCalls, SessionData, UpdateProgress)
 			task.wait()
 		end
 
-		local ArgsString = self:SerializeLuauTableForHTML({ table.unpack(Call.Arguments, 1, Call.Arguments.n) })
+		local ArgsString = self:SerializeLuauTableForHTML({ wax.shared.SafePack.Unpack(Call.Arguments, 1, Call.Arguments.n) })
 
 		local Method = "Unknown"
 		if wax.shared.FunctionForClasses[Call.Type] then
