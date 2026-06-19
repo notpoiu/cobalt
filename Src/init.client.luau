@@ -213,7 +213,10 @@ wax.shared.Unload = function()
 		pcall(oth.unhook, gameMetatable.__namecall)
 		pcall(oth.unhook, gameMetatable.__newindex)
 	else
-		if wax.shared.ExecutorSupport["restorefunction"].IsWorking and not wax.shared.AlternativeEnabled then
+		if
+			wax.shared.ExecutorSupport["restorefunction"].IsWorking
+			and wax.shared.ExecutorSupport["hookmetamethod"].IsWorking
+		then
 			pcall(restorefunction, gameMetatable.__namecall)
 			pcall(restorefunction, gameMetatable.__newindex)
 		else

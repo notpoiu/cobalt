@@ -1,10 +1,5 @@
 local Hooking = {}
 
-local AlternativeEnabled = if IS_ACTOR
-	then Data.UseAlternativeHooks
-	else wax.shared.SaveManager:GetState("UseAlternativeHooks", false)
-wax.shared.AlternativeEnabled = AlternativeEnabled
-
 Hooking.HookFunction = function(Original, Replacement)
 	if
 		wax.shared.ExecutorSupport["oth"].IsWorking
@@ -39,11 +34,8 @@ Hooking.HookMetaMethod = function(object, method, hook)
 	end
 
 	if
-		AlternativeEnabled
-		or (
-			not wax.shared.ExecutorSupport["hookmetamethod"].IsWorking
-			and wax.shared.ExecutorSupport["getrawmetatable"].IsWorking
-		)
+		not wax.shared.ExecutorSupport["hookmetamethod"].IsWorking
+		and wax.shared.ExecutorSupport["getrawmetatable"].IsWorking
 	then
 		setreadonly(Metatable, false)
 		rawset(Metatable, method, hook)

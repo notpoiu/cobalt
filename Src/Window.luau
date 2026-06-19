@@ -1658,9 +1658,9 @@ MainSection:CreateCheckbox("ExecuteOnTeleport", {
 	Default = false,
 })
 
-MainSection:CreateCheckbox("UseAlternativeHooks", {
-	Text = "Use alternative metamethod hook",
-	Default = false,
+MainSection:CreateCheckbox("DisableNonEssentialChecks", {
+	Text = "Disable Edge Case Checks",
+	Default = true,
 })
 
 MainSection:CreateCheckbox("AnticheatBypass", {

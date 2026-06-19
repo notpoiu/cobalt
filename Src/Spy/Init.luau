@@ -26,8 +26,6 @@ if wax.shared.ActorsEnabled then
 	local CommunicationChannelID, Channel = create_comm_channel()
 	wax.shared.ActorCommunicator = Channel
 
-	local AlternativeEnabled = wax.shared.SaveManager:GetState("UseAlternativeHooks", false)
-
 	local IgnorePlayerModule = wax.shared.SaveManager:GetState("IgnorePlayerModule", true)
 	local LogBlockedRemotes = wax.shared.SaveManager:GetState("LogBlockedRemotes", false)
 	local IngoredRemotesDropdown = wax.shared.SaveManager:GetState("IgnoredRemotesDropdown", {
@@ -41,7 +39,6 @@ if wax.shared.ActorsEnabled then
 		IgnorePlayerModule = IgnorePlayerModule,
 		LogBlockedRemotes = LogBlockedRemotes,
 		IgnoredRemotesDropdown = IngoredRemotesDropdown,
-		UseAlternativeHooks = AlternativeEnabled,
 
 		ExecutorSupport = wax.shared.ExecutorSupport,
 	})

@@ -19,7 +19,6 @@ type ActorData = {
 
 	IgnorePlayerModule: boolean,
 	LogBlockedRemotes: boolean,
-	UseAlternativeHooks: boolean,
 	IgnoredRemotesDropdown: { [string]: boolean },
 
 	ExecutorSupport: { [string]: { IsWorking: boolean } },
@@ -41,6 +40,12 @@ do
 		IgnorePlayerModule = { Value = Data.IgnorePlayerModule },
 		LogBlockedRemotes = { Value = Data.LogBlockedRemotes },
 		IgnoredRemotesDropdown = { Value = Data.IgnoredRemotesDropdown },
+	}
+
+	wax.shared.SaveManager = {
+		GetState = function(Idx, Default)
+			return wax.shared.Settings[Idx].Value or Data[Idx] or Default
+		end,
 	}
 
 	wax.shared.Log = {}
@@ -204,16 +209,8 @@ wax.shared.newcclosure = wax.shared.ExecutorName == "AWP"
 do
 	local Hooking = {}
 
-	local AlternativeEnabled = if IS_ACTOR
-		then Data.UseAlternativeHooks
-		else wax.shared.SaveManager:GetState("UseAlternativeHooks", false)
-	wax.shared.AlternativeEnabled = AlternativeEnabled
-
 	Hooking.HookFunction = function(Original, Replacement)
-		if
-			wax.shared.ExecutorSupport["oth"].IsWorking
-			and iscclosure(Original)
-		then
+		if wax.shared.ExecutorSupport["oth"].IsWorking and iscclosure(Original) then
 			return oth.hook(Original, Replacement)
 		end
 
@@ -243,11 +240,8 @@ do
 		end
 
 		if
-			AlternativeEnabled
-			or (
-				not wax.shared.ExecutorSupport["hookmetamethod"].IsWorking
-				and wax.shared.ExecutorSupport["getrawmetatable"].IsWorking
-			)
+			not wax.shared.ExecutorSupport["hookmetamethod"].IsWorking
+			and wax.shared.ExecutorSupport["getrawmetatable"].IsWorking
 		then
 			setreadonly(Metatable, false)
 			rawset(Metatable, method, hook)
@@ -759,7 +753,7 @@ task.spawn(function()
 			pcall(oth.unhook, gameMetatable.__namecall)
 			pcall(oth.unhook, gameMetatable.__newindex)
 		else
-			if wax.shared.ExecutorSupport["restorefunction"].IsWorking and not wax.shared.AlternativeEnabled then
+			if wax.shared.ExecutorSupport["restorefunction"].IsWorking and wax.shared.ExecutorSupport["hookmetamethod"].IsWorking then
 				pcall(restorefunction, gameMetatable.__namecall)
 				pcall(restorefunction, gameMetatable.__newindex)
 			else

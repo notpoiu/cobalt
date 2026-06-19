@@ -225,7 +225,7 @@ local function CreateCallbackDetour(Instance: InstancesToHook, Method: MethodsTo
 		end
 
 		local InitialEnv, InitialIdentity = getfenv(CreateCallbackDetour), getthreadidentity()
-
+		
 		setthreadidentity(2)
 		setfenv(0, getfenv(Callback))
 		return HandleCallbackLogging(Log, Arguments, Origin, Callback, IsExecutor, InitialEnv, InitialIdentity, Callback(...))

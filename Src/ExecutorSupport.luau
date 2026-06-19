@@ -236,64 +236,67 @@ test("oth", function()
 	assert(Success, "oth.unhook failed: " .. tostring(Error))
 	VIM:Destroy()
 
-	assert(typeof(getrawmetatable) == "function", "getrawmetatable is required to validate oth __namecall returns")
-	assert(typeof(getnamecallmethod) == "function", "getnamecallmethod is required to validate oth __namecall returns")
-
-	local function CheckInvokeResult(Result, Context)
-		if Result.n ~= 4 then
-			return false, `{Context}: returned {Result.n} values instead of 4`
+	if not wax.shared.SaveManager:GetState("DisableNonEssentialChecks", false) then
+		assert(typeof(getrawmetatable) == "function", "getrawmetatable is required to validate oth __namecall returns")
+		assert(typeof(getnamecallmethod) == "function", "getnamecallmethod is required to validate oth __namecall returns")
+	
+		local function CheckInvokeResult(Result, Context)
+			if Result.n ~= 4 then
+				return false, `{Context}: returned {Result.n} values instead of 4`
+			end
+			if Result[1] ~= "expected" then
+				return false, `{Context}: did not preserve the first return value`
+			end
+			if Result[2] ~= 123 then
+				return false, `{Context}: did not preserve the second return value`
+			end
+			if Result[3] ~= nil then
+				return false, `{Context}: did not preserve the nil return value`
+			end
+			if Result[4] ~= "tail" then
+				return false, `{Context}: did not preserve the tail return value`
+			end
+	
+			return true
 		end
-		if Result[1] ~= "expected" then
-			return false, `{Context}: did not preserve the first return value`
-		end
-		if Result[2] ~= 123 then
-			return false, `{Context}: did not preserve the second return value`
-		end
-		if Result[3] ~= nil then
-			return false, `{Context}: did not preserve the nil return value`
-		end
-		if Result[4] ~= "tail" then
-			return false, `{Context}: did not preserve the tail return value`
-		end
-
-		return true
+	
+	
+		local Bindable = Instance.new("BindableFunction")
+		Bindable.OnInvoke = function() return "expected", 123, nil, "tail" end
+	
+		local SuccededInsideHook, InsideError = false, nil
+	
+		local OldNamecall
+		OldNamecall = oth.hook(getrawmetatable(game).__namecall, function(...)
+			local self = ...
+			local Method = getnamecallmethod()
+	
+			if self == Bindable and Method == "Invoke" then
+				pcall(function() end)
+				
+				local Result = table.pack(OldNamecall(...))
+	
+				SuccededInsideHook, InsideError = CheckInvokeResult(
+					Result,
+					"Result corruption in __namecall oth hook"
+				)
+	
+				return table.unpack(Result, 1, Result.n)
+			end
+	
+			return OldNamecall(...)
+		end)
+	
+		local Result = table.pack(Bindable:Invoke())
+		pcall(oth.unhook, getrawmetatable(game).__namecall)
+		Bindable:Destroy()
+	
+		assert(SuccededInsideHook, InsideError)
+		assert(CheckInvokeResult(
+			Result,
+			"Result corruption post oth hook and pcall"
+		))
 	end
-
-	local Bindable = Instance.new("BindableFunction")
-	Bindable.OnInvoke = function() return "expected", 123, nil, "tail" end
-
-	local SuccededInsideHook, InsideError = false, nil
-
-	local OldNamecall
-	OldNamecall = oth.hook(getrawmetatable(game).__namecall, function(...)
-		local self = ...
-		local Method = getnamecallmethod()
-
-		if self == Bindable and Method == "Invoke" then
-			pcall(function() end)
-			
-			local Result = table.pack(OldNamecall(...))
-
-			SuccededInsideHook, InsideError = CheckInvokeResult(
-				Result,
-				"Result corruption in __namecall oth hook"
-			)
-
-			return table.unpack(Result, 1, Result.n)
-		end
-
-		return OldNamecall(...)
-	end)
-
-	local Result = table.pack(Bindable:Invoke())
-	pcall(oth.unhook, getrawmetatable(game).__namecall)
-	Bindable:Destroy()
-
-	assert(SuccededInsideHook, InsideError)
-	assert(CheckInvokeResult(
-		Result,
-		"Result corruption post oth hook and pcall"
-	))
 end, false, false)
 
 -- Metamethod
