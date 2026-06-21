@@ -3,3 +3,4 @@ sourcemap.json
 aftman.toml
 test_session.html
 Tests/
+.DS_Store

@@ -210,7 +210,10 @@ do
 	local Hooking = {}
 
 	Hooking.HookFunction = function(Original, Replacement)
-		if wax.shared.ExecutorSupport["oth"].IsWorking and iscclosure(Original) then
+		if
+			wax.shared.ExecutorSupport["oth"].IsWorking
+			and iscclosure(Original)
+		then
 			return oth.hook(Original, Replacement)
 		end
 

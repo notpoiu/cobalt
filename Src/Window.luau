@@ -2219,6 +2219,11 @@ local DefaultFooterButtons = {
 						return
 					end
 
+					if not decompile then
+						wax.shared.Sonner.error("Decompiler not found")
+						return
+					end
+
 					local Decompiled, Result = pcall(decompile, CurrentInfo.Origin)
 					if Decompiled then
 						local Success, Error = pcall(setclipboard, Result)

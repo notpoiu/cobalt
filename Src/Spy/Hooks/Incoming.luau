@@ -88,15 +88,30 @@ end
 ]]
 local function CreateConnectionFunction(Instance: InstancesToHook, Method: MethodsToHook)
 	local ConnectionFunction = function(...)
-		local HasLoggedRegular = false
+		local HasValidConnections = false
 		for _, Connection in getconnections((Instance :: any)[Method]) do
+			--// Foreign State Connections \\--
 			if Connection.ForeignState then
+				--// It is a Lua Connection - Other Actor's Connections \\--
+				if Connection.LuaConnection then
+					HasValidConnections = true
+				end
+
 				continue
 			end
 
+			--// Get Function \\--
 			local Function = typeof(Connection.Function) == "function" and Connection.Function or nil
-			local Thread = Connection.Thread
+			local IsCobaltConnection = LogConnectionFunctions[Function] == true
+						
+			if IsCobaltConnection then
+				continue
+			end
 
+			HasValidConnections = true
+
+			--// Get Origin \\--
+			local Thread = Connection.Thread
 			local Origin = nil
 
 			if Thread and getscriptfromthread then
@@ -113,10 +128,7 @@ local function CreateConnectionFunction(Instance: InstancesToHook, Method: Metho
 				end
 			end
 
-			if not HasLoggedRegular and not LogConnectionFunctions[Function] then
-				HasLoggedRegular = true
-			end
-
+			--// Log Remote \\--
 			LogRemote(Instance, Method, Function, {
 				Arguments = wax.shared.SafePack.Pack(...),
 				Origin = Origin,
@@ -126,7 +138,7 @@ local function CreateConnectionFunction(Instance: InstancesToHook, Method: Metho
 			})
 		end
 
-		if not HasLoggedRegular and not IS_ACTOR then
+		if not HasValidConnections and not IS_ACTOR then
 			LogRemote(Instance, Method, nil, {
 				Arguments = wax.shared.SafePack.Pack(...),
 				Origin = nil,
@@ -173,6 +185,10 @@ local function HandleCallbackLogging(Log, Arguments, Origin, Callback, IsExecuto
 	end
 
 	return ...
+end
+
+if wax.shared.ExecutorSupport["setstackhidden"].IsWorking then
+	setstackhidden(HandleCallbackLogging, true)
 end
 
 --[[
