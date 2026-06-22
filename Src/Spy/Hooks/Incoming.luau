@@ -299,7 +299,15 @@ local function HandleInstance(Instance: any)
 			return
 		end
 
-		Instance[Method] = CreateCallbackDetour(Instance, Method, Callback)
+
+		--// Use trampoline_call so error redirection dosent occur \\--
+		if wax.shared.trampoline_call then
+			wax.shared.trampoline_call(function()
+				Instance[Method] = CreateCallbackDetour(Instance, Method, Callback)
+			end, {}, {})
+		else
+			Instance[Method] = CreateCallbackDetour(Instance, Method, Callback)
+		end
 	end
 end
 

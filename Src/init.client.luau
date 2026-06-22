@@ -65,6 +65,7 @@ end
 --#endregion
 
 -- Functions
+wax.shared.trampoline_call = trampoline_call or (syn and syn.trampoline_call)
 wax.shared.gethui = gethui or function()
 	return wax.shared.CoreGui
 end
