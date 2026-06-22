@@ -74,6 +74,144 @@ do
 		wax.shared[Service] = cloneref(game:GetService(Service))
 	end
 
+	--// Event Reference \\--
+
+	local InstanceSerializer = {}
+	do
+		--#region @include region IsEqualToInstance
+		--[[
+		    Checks if two instances are equal.
+
+		    @param Object: The first instance.
+		    @param ToCompareTo: The second instance.
+		    @return Whether the instances are equal.
+		]]
+		local function IsEqualToInstance(Object, ToCompareTo)
+			if rawequal(Object, ToCompareTo) then
+				return true
+			end
+
+			if wax.shared.ExecutorSupport["compareinstances"].IsWorking then
+				return compareinstances(Object, ToCompareTo)
+			end
+
+			local ObjectDebugId, ToCompareToDebugId, ShouldCompareDebugIds = nil, nil, false
+			do
+				local identity = getidentity()
+				setthreadidentity(8)
+				local GetDebugId = Object.GetDebugId
+
+				local Success, ObjectDebugIdResult = pcall(GetDebugId, Object)
+				local Success2, ToCompareToDebugIdResult = pcall(GetDebugId, ToCompareTo)
+				setthreadidentity(identity)
+
+				if Success and Success2 then
+					ObjectDebugId = ObjectDebugIdResult
+					ToCompareToDebugId = ToCompareToDebugIdResult
+					ShouldCompareDebugIds = true
+				end
+			end
+
+			if ShouldCompareDebugIds then
+				return ObjectDebugId == ToCompareToDebugId
+			end
+
+			return false
+		end
+		--#endregion
+
+		InstanceSerializer.IsEqualToInstance = IsEqualToInstance
+	end
+
+	local Formatter = {}
+	do
+		--#region @include region FormatLuaLiteral
+		--// Populate CleanTable \\--
+		Formatter.CleanTable = { ['"'] = '\\"', ["\\"] = "\\\\" }
+		do
+			for i = 0, 31 do
+				Formatter.CleanTable[string.char(i)] = "\\" .. string.format("%03d", i)
+			end
+			for i = 127, 255 do
+				Formatter.CleanTable[string.char(i)] = "\\" .. string.format("%03d", i)
+			end
+		end
+
+		--// Indent Template \\--
+		local IndentTemplate = string.rep(" ", 4)
+
+		--[[
+		    Formats a Lua string to be used in a Lua code block.
+
+		    @param str: The string to format.
+		    @return The formatted string.
+		]]
+		function Formatter.FormatLuaString(str)
+			return string.gsub(str, '["\\\0-\31\127-\255]', Formatter.CleanTable)
+		end
+
+		--[[
+		    Formats a Lua literal to be used in a Lua code block.
+
+		    @param Value: The value to format.
+		    @return The formatted string.
+		]]
+		function Formatter.FormatLuaLiteral(Value): string?
+			local ValueType = type(Value)
+			if ValueType == "string" then
+				return `"{Formatter.FormatLuaString(Value)}"`
+			elseif ValueType == "number" or ValueType == "boolean" then
+				return tostring(Value)
+			end
+
+			return nil
+		end
+		--#endregion
+	end
+
+	--#region @include region FindEventReferenceInTable
+		--[[
+			Finds an event reference in a table, used to search upvalues which are tables.
+
+			@param Table: The table to search.
+			@param Instance: The instance to search for.
+			@param Visited: The visited table.
+			@return The event reference.
+		]]
+		local function FindEventReferenceInTable(
+			Table: { [any]: any },
+			Instance: Instance,
+			Visited: { [any]: boolean }?
+		): { any }?
+			local Seen = Visited or {}
+			if Seen[Table] then
+				return nil
+			end
+
+			Seen[Table] = true
+
+			for Key, Value in next, Table do
+				if
+					typeof(Value) == "Instance"
+					and InstanceSerializer.IsEqualToInstance(Value, Instance)
+					and Formatter.FormatLuaLiteral(Key)
+				then
+					return { Key }
+				end
+
+				if type(Value) == "table" and Formatter.FormatLuaLiteral(Key) then
+					local ChildPath = FindEventReferenceInTable(Value, Instance, Seen)
+					if ChildPath then
+						table.insert(ChildPath, 1, Key)
+						return ChildPath
+					end
+				end
+			end
+
+			return nil
+		end
+	--#endregion
+
 	--// Unload \\--
 	local RelayConnection
 	RelayConnection = RelayChannel.Event:Connect(function(Type, ...)
@@ -104,6 +242,50 @@ do
 			if wax.shared.Settings[Setting] then
 				wax.shared.Settings[Setting].Value = Value
 			end
+		elseif Type == "ResolveEventReference" then
+			local Hash, Instance, IsExecutor, RequestId = ...
+			local Retrieved = nil
+
+			if filtergc then
+				Retrieved = filtergc("function", {
+					Hash = Hash,
+					IgnoreExecutor = not IsExecutor,
+				}, true)
+			else
+				for _, Func in getgc() do
+					if typeof(Func) ~= "function" then
+						continue
+					end
+
+					if IsExecutor and not isexecutorclosure(Func) then
+						continue
+					end
+
+					if getfunctionhash(Func) == Hash then
+						Retrieved = Func
+						break
+					end
+				end
+			end
+
+			if not Retrieved then
+				RelayChannel:Fire("ResolveEventReferenceResponse", RequestId, nil)
+				return
+			end
+
+			local UpvaluePath = FindEventReferenceInTable(debug.getupvalues(Retrieved), Instance)
+
+			if not UpvaluePath then
+				RelayChannel:Fire("ResolveEventReferenceResponse", RequestId, nil)
+				return
+			end
+
+			local UpvalueIndex = table.remove(UpvaluePath, 1)
+			RelayChannel:Fire("ResolveEventReferenceResponse", RequestId, {
+				Hash = Hash,
+				Index = UpvalueIndex,
+				Path = UpvaluePath,
+			})
 		end
 	end)
 
@@ -373,17 +555,20 @@ do
 	local FunctionToMetatadata, FixTable
 	do
 		if IS_ACTOR then
-			local GenerateUUID = wax.shared.HttpService.GenerateGUID
-			local function GenerateId()
-				return GenerateUUID(wax.shared.HttpService, false)
-			end
+			local FunctionMetadataCache = setmetatable({}, { __mode = "k" })
 
 			local function CreateTraversalState(Refs)
 				return {
 					CyclicRefs = Refs or {},
 					TableIds = setmetatable({}, { __mode = "k" }),
 					Functions = setmetatable({}, { __mode = "k" }),
+					NextId = 0,
 				}
+			end
+
+			local function GenerateId(State)
+				State.NextId += 1
+				return State.NextId
 			end
 
 			FixTable = function(Table, State)
@@ -398,7 +583,7 @@ do
 				local CyclicRefs = State.CyclicRefs
 				local TableId = State.TableIds[Table]
 				if not TableId then
-					TableId = GenerateId()
+					TableId = GenerateId(State)
 					State.TableIds[Table] = TableId
 				end
 
@@ -407,7 +592,7 @@ do
 
 				local ContainsCyclicRef = false
 
-				for Key, Value in Table do
+				for Key, Value in next, Table do
 					if type(Value) == "table" then
 						local ExistingId = State.TableIds[Value]
 						if ExistingId then
@@ -452,6 +637,11 @@ do
 					State = CreateTraversalState()
 				end
 
+				local CachedMetadata = FunctionMetadataCache[Function]
+				if CachedMetadata then
+					return CachedMetadata
+				end
+
 				local Metadata = {
 					Address = tostring(Function),
 					Name = debug.info(Function, "n"),
@@ -470,9 +660,9 @@ do
 				State.Functions[Function] = true
 
 				if not iscclosure(Function) then
-					Metadata["Upvalues"] = FixTable(debug.getupvalues(Function), State)
-					Metadata["Constants"] = FixTable(debug.getconstants(Function), State)
-					Metadata["Protos"] = FixTable(debug.getprotos(Function), State)
+					Metadata["Upvalues"] = debug.getupvalues and #debug.getupvalues(Function) or 0
+					Metadata["Constants"] = debug.getconstants and #debug.getconstants(Function) or 0
+					Metadata["Protos"] = debug.getprotos and #debug.getprotos(Function) or 0
 
 					if getfunctionhash then
 						Metadata["FunctionHash"] = getfunctionhash(Function)
@@ -483,6 +673,8 @@ do
 				Metadata["Validation"] = Data.Token
 				Metadata["__Function"] = true
 
+				FunctionMetadataCache[Function] = Metadata
+
 				return Metadata
 			end
 		end
@@ -490,6 +682,10 @@ do
 
 	--// Cloning \\--
 	function DeepClone(orig, copies)
+		if IS_ACTOR then
+			return orig
+		end
+
 		copies = copies or {}
 
 		if typeof(orig) == "Instance" then
@@ -603,21 +799,31 @@ do
 			local OldArguments = Info.Arguments
 			Info.Arguments = {
 				Data = OldArguments,
-				n = OldArguments.n or rawlen(OldArguments),
+				n = OldArguments.n,
 			}
 
 			if Info.InvokeResult then
 				local OldInvokeResult = Info.InvokeResult
 				Info.InvokeResult = {
 					Data = OldInvokeResult,
-					n = OldInvokeResult.n or rawlen(OldInvokeResult),
+					n = OldInvokeResult.n,
 				}
 			end
+
+			local FixedInfo, CyclicRefs, ContainsCyclicRef = FixTable(Info)
 
 			-- Seliware puts their actor BindableEvents in CoreGui
 			local identity = getthreadidentity()
 			setthreadidentity(8)
-			wax.shared.Communicator.Fire(wax.shared.Communicator, "ActorCall", self.Instance, self.Type, FixTable(Info))
+			wax.shared.Communicator.Fire(
+				wax.shared.Communicator,
+				"ActorCall",
+				self.Instance,
+				self.Type,
+				FixedInfo,
+				CyclicRefs,
+				ContainsCyclicRef
+			)
 			setthreadidentity(identity)
 			return
 		end

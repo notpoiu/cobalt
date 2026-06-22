@@ -103,7 +103,7 @@ local function CreateConnectionFunction(Instance: InstancesToHook, Method: Metho
 			--// Get Function \\--
 			local Function = typeof(Connection.Function) == "function" and Connection.Function or nil
 			local IsCobaltConnection = LogConnectionFunctions[Function] == true
-						
+
 			if IsCobaltConnection then
 				continue
 			end
@@ -241,10 +241,19 @@ local function CreateCallbackDetour(Instance: InstancesToHook, Method: MethodsTo
 		end
 
 		local InitialEnv, InitialIdentity = getfenv(CreateCallbackDetour), getthreadidentity()
-		
+
 		setthreadidentity(2)
 		setfenv(0, getfenv(Callback))
-		return HandleCallbackLogging(Log, Arguments, Origin, Callback, IsExecutor, InitialEnv, InitialIdentity, Callback(...))
+		return HandleCallbackLogging(
+			Log,
+			Arguments,
+			Origin,
+			Callback,
+			IsExecutor,
+			InitialEnv,
+			InitialIdentity,
+			Callback(...)
+		)
 	end
 
 	if wax.shared.ExecutorSupport["setstackhidden"].IsWorking then
@@ -370,10 +379,8 @@ local function HandleConnectionLogging(Instance, Method, callback, ...)
 		end
 	end
 
-	
 	return ...
 end
-
 
 local SignalMetatable = wax.shared.getrawmetatable(Instance.new("Part").Touched)
 wax.shared.Hooks[SignalMetatable.__index] = wax.shared.Hooking.HookFunction(SignalMetatable.__index, function(...)

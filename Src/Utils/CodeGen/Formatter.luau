@@ -1,5 +1,6 @@
 local Formatter = {}
 
+--#region @export "FormatLuaLiteral"
 --// Populate CleanTable \\--
 Formatter.CleanTable = { ['"'] = '\\"', ["\\"] = "\\\\" }
 do
@@ -40,6 +41,7 @@ function Formatter.FormatLuaLiteral(Value): string?
 
 	return nil
 end
+--#endregion
 
 --[[
     Formats a Lua array to be used in a Lua code block.

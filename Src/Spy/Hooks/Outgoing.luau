@@ -121,7 +121,7 @@ local function HandleLoggingResult(Log, Info, ResultKey, ...)
 		Info[ResultKey] = Result
 		Log:Call(Info)
 	end
-	
+
 	return ...
 end
 
@@ -159,19 +159,17 @@ local function HandleLogging(TargetInstance: Instance, Method: string, OldFuncti
 		Log:Call(Info)
 
 		local IsRemoteFunctionInvoke = (
-			TargetInstance.ClassName == "RemoteFunction" and
-			(Method == "InvokeServer" or Method == "invokeServer")
+			TargetInstance.ClassName == "RemoteFunction" and (Method == "InvokeServer" or Method == "invokeServer")
 		)
 
 		local IsBindableFunctionInvoke = (
-			TargetInstance.ClassName == "BindableFunction" and
-			(Method == "Invoke" or Method == "invoke")
+			TargetInstance.ClassName == "BindableFunction" and (Method == "Invoke" or Method == "invoke")
 		)
 
 		if IsRemoteFunctionInvoke or IsBindableFunctionInvoke then
 			--// Handle Incoming Log \\--
 			Log = GetLog(TargetInstance, "Incoming", Method)
-	
+
 			if Log.Blocked then
 				if wax.shared.SaveManager:GetState("LogBlockedRemotes", false) then
 					Log:Call({
@@ -187,7 +185,7 @@ local function HandleLogging(TargetInstance: Instance, Method: string, OldFuncti
 				end
 				return
 			end
-	
+
 			local RFResultInfo = {
 				Arguments = Arguments,
 				InvokeResult = nil,

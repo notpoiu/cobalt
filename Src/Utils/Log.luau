@@ -9,17 +9,20 @@ local SpamTimeWindowSeconds = 1
 local FunctionToMetatadata, FixTable
 do
 	if IS_ACTOR then
-		local GenerateUUID = wax.shared.HttpService.GenerateGUID
-		local function GenerateId()
-			return GenerateUUID(wax.shared.HttpService, false)
-		end
+		local FunctionMetadataCache = setmetatable({}, { __mode = "k" })
 
 		local function CreateTraversalState(Refs)
 			return {
 				CyclicRefs = Refs or {},
 				TableIds = setmetatable({}, { __mode = "k" }),
 				Functions = setmetatable({}, { __mode = "k" }),
+				NextId = 0,
 			}
+		end
+
+		local function GenerateId(State)
+			State.NextId += 1
+			return State.NextId
 		end
 
 		FixTable = function(Table, State)
@@ -34,7 +37,7 @@ do
 			local CyclicRefs = State.CyclicRefs
 			local TableId = State.TableIds[Table]
 			if not TableId then
-				TableId = GenerateId()
+				TableId = GenerateId(State)
 				State.TableIds[Table] = TableId
 			end
 
@@ -43,7 +46,7 @@ do
 
 			local ContainsCyclicRef = false
 
-			for Key, Value in Table do
+			for Key, Value in next, Table do
 				if type(Value) == "table" then
 					local ExistingId = State.TableIds[Value]
 					if ExistingId then
@@ -88,6 +91,11 @@ do
 				State = CreateTraversalState()
 			end
 
+			local CachedMetadata = FunctionMetadataCache[Function]
+			if CachedMetadata then
+				return CachedMetadata
+			end
+
 			local Metadata = {
 				Address = tostring(Function),
 				Name = debug.info(Function, "n"),
@@ -106,9 +114,9 @@ do
 			State.Functions[Function] = true
 
 			if not iscclosure(Function) then
-				Metadata["Upvalues"] = FixTable(debug.getupvalues(Function), State)
-				Metadata["Constants"] = FixTable(debug.getconstants(Function), State)
-				Metadata["Protos"] = FixTable(debug.getprotos(Function), State)
+				Metadata["Upvalues"] = debug.getupvalues and #debug.getupvalues(Function) or 0
+				Metadata["Constants"] = debug.getconstants and #debug.getconstants(Function) or 0
+				Metadata["Protos"] = debug.getprotos and #debug.getprotos(Function) or 0
 
 				if getfunctionhash then
 					Metadata["FunctionHash"] = getfunctionhash(Function)
@@ -119,6 +127,8 @@ do
 			Metadata["Validation"] = Data.Token
 			Metadata["__Function"] = true
 
+			FunctionMetadataCache[Function] = Metadata
+
 			return Metadata
 		end
 	end
@@ -126,6 +136,10 @@ end
 
 --// Cloning \\--
 function DeepClone(orig, copies)
+	if IS_ACTOR then
+		return orig
+	end
+
 	copies = copies or {}
 
 	if typeof(orig) == "Instance" then
@@ -239,21 +253,31 @@ function Log:Call(RawInfo)
 		local OldArguments = Info.Arguments
 		Info.Arguments = {
 			Data = OldArguments,
-			n = OldArguments.n or rawlen(OldArguments),
+			n = OldArguments.n,
 		}
 
 		if Info.InvokeResult then
 			local OldInvokeResult = Info.InvokeResult
 			Info.InvokeResult = {
 				Data = OldInvokeResult,
-				n = OldInvokeResult.n or rawlen(OldInvokeResult),
+				n = OldInvokeResult.n,
 			}
 		end
+
+		local FixedInfo, CyclicRefs, ContainsCyclicRef = FixTable(Info)
 
 		-- Seliware puts their actor BindableEvents in CoreGui
 		local identity = getthreadidentity()
 		setthreadidentity(8)
-		wax.shared.Communicator.Fire(wax.shared.Communicator, "ActorCall", self.Instance, self.Type, FixTable(Info))
+		wax.shared.Communicator.Fire(
+			wax.shared.Communicator,
+			"ActorCall",
+			self.Instance,
+			self.Type,
+			FixedInfo,
+			CyclicRefs,
+			ContainsCyclicRef
+		)
 		setthreadidentity(identity)
 		return
 	end

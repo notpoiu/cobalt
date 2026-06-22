@@ -6,6 +6,7 @@ local ReferencingTemplate = require(script.Parent.Parent.Templates.Referencing)
 local GetNilCode = ReferencingTemplate.GetNilCode
 local GetEventReferenceCode = ReferencingTemplate.GetEventReferenceCode
 
+--#region @export "IsEqualToInstance"
 --[[
     Checks if two instances are equal.
 
@@ -45,6 +46,7 @@ local function IsEqualToInstance(Object, ToCompareTo)
 
 	return false
 end
+--#endregion
 
 --[[
 

@@ -207,9 +207,9 @@ function CodeGen:BuildFunctionInfo(CallInfo: Types.CallInfo)
 			Info["Closure Type"] = "C closure"
 		else
 			Info["Closure Type"] = "Luau closure"
-			Info["Constants"] = debug.getconstants and CountValues(Function.Constants) or "N/A"
-			Info["Upvalues"] = debug.getupvalues and CountValues(Function.Upvalues) or "N/A"
-			Info["Protos"] = debug.getprotos and CountValues(Function.Protos) or "N/A"
+			Info["Constants"] = debug.getconstants and Function.Constants or "N/A"
+			Info["Upvalues"] = debug.getupvalues and Function.Upvalues or "N/A"
+			Info["Protos"] = debug.getprotos and Function.Protos or "N/A"
 		end
 	else
 		local FunctionName = debug.info(CallInfo.Function, "n")

@@ -17,6 +17,7 @@ local GetNilCode = ReferencingTemplate.GetNilCode
 local InstanceSerializer = require(script.Parent.Serializer.Instance)
 local ResolveEventPath
 do
+	--#region @export "FindEventReferenceInTable"
 	--[[
 		Finds an event reference in a table, used to search upvalues which are tables.
 
@@ -57,7 +58,9 @@ do
 
 		return nil
 	end
+	--#endregion
 
+	--#region @export "ResolveEventReference"
 	--[[
 		Resolves an event reference from a call info.
 
@@ -72,25 +75,54 @@ do
 		end
 
 		if (CallInfo.IsActor == true or CallInfo.Actor ~= nil) and typeof(CallInfo.Function) == "table" then
-			local FunctionHash = CallInfo.Function.FunctionHash
-			local Upvalues = CallInfo.Function.Upvalues
+			-- local FunctionHash = CallInfo.Function.FunctionHash
+			-- local Upvalues = CallInfo.Function.Upvalues
 
-			if FunctionHash and type(Upvalues) == "table" then
-				local UpvaluePath = FindEventReferenceInTable(Upvalues, CallInfo.Instance)
-				if not UpvaluePath then
-					return nil
+			-- if FunctionHash and type(Upvalues) == "table" then
+			-- 	local UpvaluePath = FindEventReferenceInTable(Upvalues, CallInfo.Instance)
+			-- 	if not UpvaluePath then
+			-- 		return nil
+			-- 	end
+
+			-- 	local UpvalueIndex = table.remove(UpvaluePath, 1)
+			-- 	return {
+			-- 		Hash = FunctionHash,
+			-- 		Index = UpvalueIndex,
+			-- 		Path = UpvaluePath,
+			-- 		ExcludeExecutor = true,
+			-- 	}
+			-- end
+
+			local RequestId = tick()
+			local Thread = coroutine.running()
+			local Response = nil
+			wax.shared.Communicator:Fire("ResolveEventReference", getfunctionhash(CallInfo.Function), CallInfo.Instance, CallInfo.IsExecutor ~= true, RequestId)
+
+			local ResponseConnection
+			ResponseConnection = wax.shared.Communicator.Event:Connect(function(Type, ...)
+				if Type ~= "ResolveEventReferenceResponse" then
+					return
 				end
 
-				local UpvalueIndex = table.remove(UpvaluePath, 1)
-				return {
-					Hash = FunctionHash,
-					Index = UpvalueIndex,
-					Path = UpvaluePath,
-					ExcludeExecutor = true,
-				}
+				local ResolvedRequestId, ResolvedResponse = ...
+				if ResolvedRequestId == RequestId then
+					ResponseConnection:Disconnect()
+					Response = ResolvedResponse
+					coroutine.resume(Thread)
+				end
+			end)
+
+			coroutine.yield()
+			if not Response then
+				return nil
 			end
 
-			return nil
+			return {
+				Hash = Response.Hash,
+				Index = Response.Index,
+				Path = Response.Path,
+				ExcludeExecutor = CallInfo.IsExecutor ~= true,
+			}
 		end
 
 		if
@@ -115,6 +147,7 @@ do
 			ExcludeExecutor = CallInfo.IsExecutor ~= true,
 		}
 	end
+	--#endregion
 
 	ResolveEventPath = function(CallInfo: Types.CallInfo): (string, string?)
 		return InstanceSerializer.Serialize(CallInfo.Instance, {
@@ -153,7 +186,7 @@ function Renderer.Render(Data: {
 	Code: string,
 	Args: { [string]: any },
 
-	CallInfo: Types.CallInfo?
+	CallInfo: Types.CallInfo?,
 })
 	local RenderedCode = RenderCode(Data.Code, Data.Args)
 
@@ -175,7 +208,7 @@ function Renderer.Render(Data: {
 				OmitNilFunctionGetterCodeGeneration = true,
 				DisableNilParentHandler = false,
 			})
-			
+
 			Args.Prelude = ActorPrelude and `{Args.Prelude}\n{ActorPrelude}\n\n` or Args.Prelude
 			Args.Actor = Actor or ""
 		end

@@ -41,6 +41,17 @@ local CurrentInfo, CurrentTab, CurrentLog, InfoButtons
 local LogsList, RemoteList
 local ShowPagination, ShowCalls, CreateCallFrame, ShowLog, CreateLogButton, CleanLogsList, UpdateSearch, SelectResult, EnterResult, OpenSearch
 
+local CreateCallFrameLimiter = Ratelimiter.new({
+	Burst = {
+		Time = 0.1,
+		Max = 5,
+	},
+	MainCallback = function(Data)
+		CreateCallFrame(Data)
+	end,
+})
+
+
 local DefaultTweenInfo = TweenInfo.new(0.2, Enum.EasingStyle.Exponential)
 
 type SupportedRemoteTypes = RemoteEvent | RemoteFunction | BindableEvent | BindableFunction | UnreliableRemoteEvent
@@ -4411,7 +4422,7 @@ wax.shared.Connect(wax.shared.Communicator.Event:Connect(function(Instance, Type
 			__index = CallInfo,
 		})
 
-		CreateCallFrame(Data)
+		CreateCallFrameLimiter:QueueOperation(Data)
 	end
 end))
 
