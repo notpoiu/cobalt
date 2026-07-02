@@ -21,11 +21,11 @@ function GenerateSafeUniqueRandomString(length: number): string
 			randomString ..= string.sub(Charset, randomIndex, randomIndex)
 		end
 
-		local Success, IsFile = pcall(function()
+		local Success, Exists = pcall(function()
 			return isfile(randomString) or isfolder(randomString)
 		end)
 
-		if Success and IsFile then continue end
+		if Success and Exists then continue end
 		if UsedRandomStrings[randomString] then continue end
 
 		UsedRandomStrings[randomString] = true
