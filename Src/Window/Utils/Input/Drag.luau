@@ -6,17 +6,24 @@ local Drag = {
 	StartPosition = nil,
 	ChangedConnection = nil,
 	Callback = nil,
+	GetDPIScale = nil,
 }
 
 local InputUtils = require(script.Parent.Input)
+
+local function GetDPIScale()
+	if Drag.GetDPIScale then
+		return Drag.GetDPIScale()
+	end
+
+	return 1
+end
 
 local function DefaultCallback(_, Input: InputObject)
 	local Delta = Input.Position - Drag.StartPosition
 	local FramePosition: UDim2 = Drag.FramePosition
 
-	if wax.shared.GetDPIScale then
-		Delta = Delta / wax.shared.GetDPIScale()
-	end
+	Delta = Delta / GetDPIScale()
 
 	Drag.Frame.Position = UDim2.new(
 		FramePosition.X.Scale,
@@ -26,8 +33,16 @@ local function DefaultCallback(_, Input: InputObject)
 	)
 end
 
-function Drag.Setup(Frame: GuiObject, DragFrame: GuiObject, Callback: (Info: {}, Input: InputObject) -> () | nil)
+function Drag.Setup(
+	Frame: GuiObject,
+	DragFrame: GuiObject,
+	Callback: ((Info: {}, Input: InputObject) -> ())?,
+	Options: {
+		GetDPIScale: (() -> number)?,
+	}?
+)
 	Callback = Callback or DefaultCallback
+	Options = Options or {}
 
 	DragFrame.InputBegan:Connect(function(Input: InputObject)
 		if not InputUtils.IsClickInput(Input) then
@@ -40,6 +55,7 @@ function Drag.Setup(Frame: GuiObject, DragFrame: GuiObject, Callback: (Info: {},
 		Drag.StartPosition = Input.Position
 		Drag.FrameSize = Frame.Size
 		Drag.Callback = Callback
+		Drag.GetDPIScale = Options.GetDPIScale
 
 		Drag.ChangedConnection = Input.Changed:Connect(function()
 			if Input.UserInputState ~= Enum.UserInputState.End then
@@ -49,6 +65,7 @@ function Drag.Setup(Frame: GuiObject, DragFrame: GuiObject, Callback: (Info: {},
 			Drag.Dragging = false
 			Drag.Frame = nil
 			Drag.Callback = nil
+			Drag.GetDPIScale = nil
 
 			if Drag.ChangedConnection and Drag.ChangedConnection.Connected then
 				Drag.ChangedConnection:Disconnect()

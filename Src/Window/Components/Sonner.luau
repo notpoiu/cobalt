@@ -17,9 +17,9 @@ local Sonner = {
 	Processing = false,
 }
 
-local Icons = require(script.Parent.Parent.Assets.Icons)
-local Interface = require(script.Parent.Parent.Interface)
-local Animations = require(script.Parent.Animations)
+local Icons = require("@src/Utils/UI/Assets/Icons")
+local Interface = require("@src/Utils/UI/Interface")
+local Animations = require("@src/Window/Utils/Animations")
 
 local function InternalCreateNotificationObject(zindex, image, text)
 	local NotificationTemplate = Interface.New("CanvasGroup", {
@@ -86,7 +86,6 @@ local function InternalCreateNotificationObject(zindex, image, text)
 		TextSize = 14,
 		TextXAlignment = Enum.TextXAlignment.Left,
 		BackgroundColor3 = Color3.fromRGB(255, 255, 255),
-		FontFace = Font.new("rbxassetid://12187365364", Enum.FontWeight.Regular, Enum.FontStyle.Normal),
 		TextColor3 = Color3.fromRGB(255, 255, 255),
 		BackgroundTransparency = 1,
 		Size = UDim2.new(0, 200, 0, 50),

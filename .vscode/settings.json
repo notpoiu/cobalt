@@ -10,6 +10,7 @@
 
   "luau-lsp.diagnostics.strictDatamodelTypes": false,
   "luau-lsp.diagnostics.workspace": true,
+  "luau-lsp.fflags.enableNewSolver": true,
 
   "luau-lsp.sourcemap.autogenerate": true,
   "luau-lsp.sourcemap.includeNonScripts": true,

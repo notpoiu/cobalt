@@ -1,15 +1,25 @@
-local Interface = require(script.Parent.Parent.Interface)
+local Interface = require("@src/Utils/UI/Interface")
 
 local Modal = {}
 Modal.__index = Modal
 
+export type Modal = {
+	OpenedModal: GuiObject?,
+	Background: GuiObject,
+	TweenInfo: TweenInfo,
+} & typeof(setmetatable({}, Modal))
+
 local DefaultTweenInfo = TweenInfo.new(0.2, Enum.EasingStyle.Exponential)
 
-function Modal.new(Parent: GuiObject, Options: {
-	TweenInfo: TweenInfo?,
-}?)
+function Modal.new(
+	Parent: GuiObject,
+	Options: {
+		TweenInfo: TweenInfo?,
+	}?
+)
 	local self = setmetatable({
 		OpenedModal = nil,
+		Background = nil,
 		TweenInfo = Options and Options.TweenInfo or DefaultTweenInfo,
 	}, Modal)
 

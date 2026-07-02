@@ -1,6 +1,6 @@
 local LazySerializer = {}
 
-local InstanceSerializer = require(script.Parent.Parent.Parent.CodeGen.Serializer.Instance)
+local InstanceSerializer = require("@src/Utils/CodeGen/Serializer/Instance")
 
 function LazySerializer.QuickSerializeNumber(Number: number)
 	if Number % 1 ~= 0 then
@@ -16,7 +16,7 @@ end
 
 function LazySerializer.QuickSerializeArgument(Argument)
 	if typeof(Argument) == "string" then
-		return string.format('"%s"', Argument)
+		return string.format('"%s"', (Argument :: string))
 	elseif typeof(Argument) == "number" then
 		return LazySerializer.QuickSerializeNumber(Argument)
 	elseif typeof(Argument) == "Vector2" then

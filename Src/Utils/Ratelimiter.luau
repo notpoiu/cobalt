@@ -16,6 +16,8 @@ function Ratelimiter.new(Options: RatelimiterOptions)
 	local self = setmetatable(Options, Ratelimiter)
 	self.Bucket = {}
 	self.Queue = {}
+	self.QueueHead = 1
+	self.QueueTail = 0
 
 	self.IsDestroyed = false
 	self.ManagerThread = nil
@@ -31,7 +33,8 @@ function Ratelimiter:QueueOperation(...: any)
 		return
 	end
 
-	table.insert(self.Queue, table.pack(...))
+	self.QueueTail += 1
+	self.Queue[self.QueueTail] = table.pack(...)
 end
 
 function Ratelimiter:SetupManagerThread()
@@ -41,6 +44,8 @@ function Ratelimiter:SetupManagerThread()
 
 	self.Bucket = {}
 	self.Queue = {}
+	self.QueueHead = 1
+	self.QueueTail = 0
 
 	if self.ManagerThread then
 		task.cancel(self.ManagerThread)
@@ -67,8 +72,17 @@ function Ratelimiter:SetupManagerThread()
 				self.Bucket = NewBucket
 			end
 
-			while #self.Bucket < self.Burst.Max and #self.Queue > 0 do
-				local TaskData = table.remove(self.Queue, 1)
+			while #self.Bucket < self.Burst.Max and self.QueueHead <= self.QueueTail do
+				local TaskData = self.Queue[self.QueueHead]
+				self.Queue[self.QueueHead] = nil
+				self.QueueHead += 1
+
+				if self.QueueHead > self.QueueTail then
+					self.Queue = {}
+					self.QueueHead = 1
+					self.QueueTail = 0
+				end
+
 				if TaskData then
 					table.insert(self.Bucket, tick())
 
@@ -121,6 +135,8 @@ function Ratelimiter:Destroy()
 
 	table.clear(self.Bucket)
 	table.clear(self.Queue)
+	self.QueueHead = 1
+	self.QueueTail = 0
 end
 
 Ratelimiter.Stop = Ratelimiter.Destroy

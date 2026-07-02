@@ -15,19 +15,25 @@ local Session = require(Utils.CodeGen.Serializer.Session)
 
 local UIUtils = script.Parent.Utils.UI
 
-local SyntaxHighlighter = require(UIUtils.Text.Highlighter)
-local LazySerializer = require(UIUtils.Text.LazySerializer)
+local WindowUtils = script.Utils
+local WindowComponents = script.Components
+
+local SyntaxHighlighter = require(WindowUtils.Text.Highlighter)
+local LazySerializer = require(WindowUtils.Text.LazySerializer)
 
 local AssetManager = require(UIUtils.Assets.Manager)
 local Icons = require(UIUtils.Assets.Icons)
 
 local Interface = require(UIUtils.Interface)
-local InputUtils = require(UIUtils.Window.Input.Input)
 
-local Resize = require(UIUtils.Window.Input.Resize)
-local Drag = require(UIUtils.Window.Input.Drag)
-local ContextMenuController = require(UIUtils.Window.ContextMenu)
-local ModalController = require(UIUtils.Window.Modal)
+local InputUtils = require(WindowUtils.Input.Input)
+
+local Resize = require(WindowUtils.Input.Resize)
+local Drag = require(WindowUtils.Input.Drag)
+local ContextMenuController = require(WindowComponents.ContextMenu)
+local ModalController = require(WindowComponents.Modal)
+
+local State = require("@src/Window/State")
 
 local PaginationHelper = Pagination.new({
 	ItemsPerPage = wax.shared.SaveManager:GetState("MaxItemPerPages", 20),
@@ -41,35 +47,38 @@ local CurrentInfo, CurrentTab, CurrentLog, InfoButtons
 local LogsList, RemoteList
 local ShowPagination, ShowCalls, CreateCallFrame, ShowLog, CreateLogButton, CleanLogsList, UpdateSearch, SelectResult, EnterResult, OpenSearch
 
+local ActiveCallInfo = nil
+local SharedCallContextMenu = nil
+local CallFramePool = {}
+local CallFrameData = setmetatable({}, { __mode = "k" })
+local CurrentCallFrameRenderGeneration = 0
+local ReleaseCallFrame
+
 local CreateCallFrameLimiter = Ratelimiter.new({
 	Burst = {
 		Time = 0.1,
 		Max = 5,
 	},
 	MainCallback = function(Data)
+		if Data.RenderGeneration and Data.RenderGeneration ~= CurrentCallFrameRenderGeneration then
+			return
+		end
+
 		CreateCallFrame(Data)
 	end,
 })
 
-
 local DefaultTweenInfo = TweenInfo.new(0.2, Enum.EasingStyle.Exponential)
 
 type SupportedRemoteTypes = RemoteEvent | RemoteFunction | BindableEvent | BindableFunction | UnreliableRemoteEvent
-local ClassOrder = {
-	"RemoteEvent",
-	"UnreliableRemoteEvent",
-	"RemoteFunction",
-	"BindableEvent",
-	"BindableFunction",
-}
 
-local Images = {
+local Images = AssetManager.GetInstanceClassImages({
 	RemoteEvent = "rbxassetid://110803789420086",
 	UnreliableRemoteEvent = "rbxassetid://126244162339059",
 	RemoteFunction = "rbxassetid://108537517159060",
 	BindableEvent = "rbxassetid://116839398727495",
 	BindableFunction = "rbxassetid://112264959079193",
-}
+})
 
 -- Functions
 local function UpdateLogNameSize(Log)
@@ -122,15 +131,6 @@ local function QueueLogButtonUpdate(Log)
 	LogButtonUpdateLimiter:QueueOperation()
 end
 
-local function GetDPIScale()
-	local Scale = wax.shared.SaveManager:GetState("WindowDPIScale", "100%")
-	return (tonumber(Scale:sub(1, #Scale - 1)) or 100) / 100
-end
-wax.shared.GetDPIScale = GetDPIScale
-
--- ContentProvider PreloadAsync bypass
-Images = AssetManager.GetRemoteImages(Images)
-
 local CobaltLogo = AssetManager.GetImage("Logo")
 
 local ScreenGui = Interface.New("ScreenGui", {
@@ -143,7 +143,7 @@ wax.shared.ScreenGui = ScreenGui
 
 local ScreenDPIScale = Interface.New("UIScale", {
 	Parent = ScreenGui,
-	Scale = GetDPIScale(),
+	Scale = State.GetDPIScale(),
 })
 
 local MainUICorner = Interface.New("UICorner", {
@@ -204,7 +204,7 @@ Resize.new({
 
 -- Context Menus
 local ContextMenus = ContextMenuController.new(ScreenGui, {
-	GetDPIScale = GetDPIScale,
+	GetDPIScale = State.GetDPIScale,
 	TweenInfo = DefaultTweenInfo,
 })
 
@@ -230,7 +230,7 @@ wax.shared.Sonner.init(SonnerUI)
 
 -- Modal
 local Modals = ModalController.new(MainFrame, {
-	TweenInfo = DefaultTweenInfo,
+	TweenInfo = DefaultTweenInfo
 })
 local ModalBackground = Modals.Background
 
@@ -1639,9 +1639,7 @@ MainSection:CreateDropdown("WindowDPIScale", {
 	},
 	Default = "100%",
 
-	Callback = function(value)
-		ScreenDPIScale.Scale = GetDPIScale()
-	end,
+	Callback = State.CreateDPIScaleChangedCallback(ScreenDPIScale),
 })
 
 MainSection:CreateTextBox("MaxItemPerPages", {
@@ -2889,7 +2887,13 @@ FilterAllButton.MouseButton1Click:Connect(function()
 	UpdateSearch()
 end)
 
-for Order, ClassName in pairs(ClassOrder) do
+for Order, ClassName in pairs({
+	"RemoteEvent",
+	"UnreliableRemoteEvent",
+	"RemoteFunction",
+	"BindableEvent",
+	"BindableFunction",
+}) do
 	local ClassNameFilterButton = Interface.New("TextButton", {
 		BackgroundColor3 = Color3.fromRGB(25, 25, 25),
 		Size = UDim2.fromScale(0, 1),
@@ -3389,7 +3393,7 @@ end
 function CleanLogsList()
 	for _, Object in pairs(LogsList:GetChildren()) do
 		if Object.ClassName == "TextButton" then
-			Object:Destroy()
+			ReleaseCallFrame(Object)
 		end
 	end
 end
@@ -3432,6 +3436,8 @@ function ShowLog(Log)
 end
 
 ShowCalls = function(Log, Page)
+	CurrentCallFrameRenderGeneration += 1
+	local RenderGeneration = CurrentCallFrameRenderGeneration
 	local Start, End = PaginationHelper:GetIndexRanges(Page)
 
 	for Index = Start, End do
@@ -3450,11 +3456,12 @@ ShowCalls = function(Log, Page)
 			Instance = Log.Instance,
 			Type = Log.Type,
 			Order = Index,
+			RenderGeneration = RenderGeneration,
 		}, {
 			__index = Call,
 		})
 
-		CreateCallFrame(Data)
+		CreateCallFrameLimiter:QueueOperation(Data)
 	end
 end
 
@@ -3880,16 +3887,166 @@ function CreateArgHolder(Index: number, Value: any, Parent: GuiObject, IsBlocked
 	return Holder
 end
 
-function CreateCallFrame(CallInfo)
-	if not wax.shared.Settings.ShowExecutorLogs.Value and not CallInfo.Origin then
-		return
+local function GetActiveCallInfo()
+	return ActiveCallInfo
+end
+
+local function BuildCallContextMenuOptions()
+	local ContextMenuOptions = {
+		{
+			Text = "Copy Calling Code",
+			Icon = "forward",
+			Callback = function()
+				local CallInfo = GetActiveCallInfo()
+				if not CallInfo then
+					return
+				end
+
+				local Code = CodeGen:BuildCallCode(CallInfo)
+				local Success, Error = pcall(setclipboard, Code)
+
+				if Success then
+					wax.shared.Sonner.success("Copied code to clipboard")
+				else
+					wax.shared.Sonner.error("Failed to copy code to clipboard", Error)
+					warn("Failed to copy code to clipboard", Error)
+				end
+			end,
+		},
+		{
+			Text = "Copy Intercept Code",
+			Icon = "shield-alert",
+			Callback = function()
+				local CallInfo = GetActiveCallInfo()
+				if not CallInfo then
+					return
+				end
+
+				local Code = CodeGen:BuildHookCode(CallInfo, CurrentTab.Name)
+				local Success, Error = pcall(setclipboard, Code)
+
+				if Success then
+					wax.shared.Sonner.success("Copied code to clipboard")
+				else
+					wax.shared.Sonner.error("Failed to copy code to clipboard", Error)
+					warn("Failed to copy code to clipboard", Error)
+				end
+			end,
+		},
+		{
+			Text = "Copy Remote Path",
+			Icon = "package-search",
+			Callback = function()
+				local CallInfo = GetActiveCallInfo()
+				if not CallInfo then
+					return
+				end
+
+				local Success, Error = pcall(
+					setclipboard,
+					InstanceSerializer.Serialize(CallInfo.Instance, {
+						VariableName = "Event",
+						DisableNilParentHandler = false,
+					})
+				)
+
+				if Success then
+					wax.shared.Sonner.success("Copied remote path to clipboard")
+				else
+					wax.shared.Sonner.error("Failed to copy remote path to clipboard")
+					warn("Failed to copy remote path to clipboard", Error)
+				end
+			end,
+		},
+		{
+			Text = "Copy Script Path",
+			Icon = "file-search",
+			Condition = function()
+				local CallInfo = GetActiveCallInfo()
+				return CallInfo and typeof(CallInfo.Origin) == "Instance"
+			end,
+			Callback = function()
+				local CallInfo = GetActiveCallInfo()
+				if not CallInfo then
+					return
+				end
+
+				local Success, Error = pcall(setclipboard, InstanceSerializer.Serialize(CallInfo.Origin))
+				if Success then
+					wax.shared.Sonner.success("Copied script path to clipboard")
+				else
+					wax.shared.Sonner.error("Failed to copy script path to clipboard")
+					warn("Failed to copy script path to clipboard", Error)
+				end
+			end,
+		},
+		{
+			Text = "Replay",
+			Icon = "play",
+			Callback = function()
+				local CallInfo = GetActiveCallInfo()
+				if not CallInfo then
+					return
+				end
+
+				wax.shared.Sonner.promise(function()
+					CodeGen:ReplayCallInfo(CallInfo)
+				end, {
+					loadingText = "Replaying event...",
+					successText = "Replayed event successfully!",
+					errorText = "Failed to replay event",
+					time = 4.5,
+				})
+			end,
+		},
+	}
+
+	local PluginManager = wax.shared.CobaltPluginManager
+	if PluginManager and PluginManager.Registry.UIHooks.ContextMenus.CallList then
+		for _, Option in PluginManager.Registry.UIHooks.ContextMenus.CallList do
+			table.insert(ContextMenuOptions, {
+				Text = Option.Text,
+				Icon = Option.Icon,
+				Callback = function()
+					local CallInfo = GetActiveCallInfo()
+					if CallInfo then
+						task.spawn(Option.Callback, CallInfo)
+					end
+				end,
+			})
+		end
 	end
 
-	local IsBlockedCall = CallInfo.Blocked == true
-	local CallFrame = Interface.New("TextButton", {
+	return ContextMenuOptions
+end
+
+local function GetSharedCallContextMenu()
+	if not SharedCallContextMenu then
+		SharedCallContextMenu = CreateContextMenu(LogsList, BuildCallContextMenuOptions(), true)
+	end
+
+	return SharedCallContextMenu
+end
+
+local function ClearCallFrameContent(CallFrame)
+	for _, Child in CallFrame:GetChildren() do
+		if Child:IsA("UIListLayout") or Child:IsA("UIPadding") or Child:IsA("UICorner") or Child:IsA("UIStroke") then
+			continue
+		end
+
+		Child:Destroy()
+	end
+end
+
+local function AcquireCallFrame()
+	local CallFrame = table.remove(CallFramePool)
+	if CallFrame then
+		ClearCallFrameContent(CallFrame)
+		return CallFrame
+	end
+
+	CallFrame = Interface.New("TextButton", {
 		AutomaticSize = Enum.AutomaticSize.Y,
-		BackgroundColor3 = if IsBlockedCall then Color3.fromRGB(34, 18, 18) else Color3.fromRGB(25, 25, 25),
-		LayoutOrder = CallInfo.Order,
 		Size = UDim2.fromScale(1, 0),
 		Text = "",
 
@@ -3905,155 +4062,89 @@ function CreateCallFrame(CallInfo)
 		},
 
 		MainUICorner,
-
-		Parent = LogsList,
 	})
 
 	local HighlightStroke = Interface.New("UIStroke", {
 		ApplyStrokeMode = Enum.ApplyStrokeMode.Border,
-		Color = if IsBlockedCall then Color3.fromRGB(222, 82, 82) else Color3.fromRGB(75, 75, 75),
 		Thickness = 2,
-		Transparency = if IsBlockedCall then 0.5 else 1,
+		Transparency = 1,
 
 		Parent = CallFrame,
 	})
-	do
-		local ContextMenuOptions = {
-			{
-				Text = "Copy Calling Code",
-				Icon = "forward",
-				Callback = function()
-					local Code = CodeGen:BuildCallCode(CallInfo)
-					local Success, Error = pcall(setclipboard, Code)
 
-					if Success then
-						wax.shared.Sonner.success("Copied code to clipboard")
-					else
-						wax.shared.Sonner.error("Failed to copy code to clipboard", Error)
-						warn("Failed to copy code to clipboard", Error)
-					end
-				end,
-			},
-			{
-				Text = "Copy Intercept Code",
-				Icon = "shield-alert",
-				Callback = function()
-					local Code = CodeGen:BuildHookCode(CallInfo, CurrentTab.Name)
-					local Success, Error = pcall(setclipboard, Code)
+	CallFrameData[CallFrame] = {
+		HighlightStroke = HighlightStroke,
+	}
 
-					if Success then
-						wax.shared.Sonner.success("Copied code to clipboard")
-					else
-						wax.shared.Sonner.error("Failed to copy code to clipboard", Error)
-						warn("Failed to copy code to clipboard", Error)
-					end
-				end,
-			},
-			{
-				Text = "Copy Remote Path",
-				Icon = "package-search",
-				Callback = function()
-					if not CallInfo then
-						return
-					end
-
-					local Success, Error = pcall(
-						setclipboard,
-						InstanceSerializer.Serialize(CallInfo.Instance, {
-							VariableName = "Event",
-							DisableNilParentHandler = false,
-						})
-					)
-
-					if Success then
-						wax.shared.Sonner.success("Copied remote path to clipboard")
-					else
-						wax.shared.Sonner.error("Failed to copy remote path to clipboard")
-						warn("Failed to copy remote path to clipboard", Error)
-					end
-				end,
-			},
-			{
-				Text = "Copy Script Path",
-				Icon = "file-search",
-				Condition = function()
-					return CallInfo and typeof(CallInfo.Origin) == "Instance"
-				end,
-				Callback = function()
-					if not CallInfo then
-						return
-					end
-
-					local Success, Error = pcall(setclipboard, InstanceSerializer.Serialize(CallInfo.Origin))
-					if Success then
-						wax.shared.Sonner.success("Copied script path to clipboard")
-					else
-						wax.shared.Sonner.error("Failed to copy script path to clipboard")
-						warn("Failed to copy script path to clipboard", Error)
-					end
-				end,
-			},
-			{
-				Text = "Replay",
-				Icon = "play",
-				Callback = function()
-					if not CallInfo then
-						return
-					end
-
-					wax.shared.Sonner.promise(function()
-						CodeGen:ReplayCallInfo(CallInfo)
-					end, {
-						loadingText = "Replaying event...",
-						successText = "Replayed event successfully!",
-						errorText = "Failed to replay event",
-						time = 4.5,
-					})
-				end,
-			},
-		}
-
-		local PluginManager = wax.shared.CobaltPluginManager
-		if PluginManager and PluginManager.Registry.UIHooks.ContextMenus.CallList then
-			for _, Option in PluginManager.Registry.UIHooks.ContextMenus.CallList do
-				table.insert(ContextMenuOptions, {
-					Text = Option.Text,
-					Icon = Option.Icon,
-					Callback = function()
-						task.spawn(Option.Callback, CallInfo)
-					end,
-				})
-			end
+	CallFrame.MouseEnter:Connect(function()
+		local Data = CallFrameData[CallFrame]
+		if not Data then
+			return
 		end
 
-		local CallFrameContextMenu = CreateContextMenu(CallFrame, ContextMenuOptions, true)
+		wax.shared.TweenService
+			:Create(Data.HighlightStroke, DefaultTweenInfo, {
+				Transparency = 0,
+			})
+			:Play()
+	end)
 
-		CallFrame.MouseEnter:Connect(function()
-			wax.shared.TweenService
-				:Create(HighlightStroke, DefaultTweenInfo, {
-					Transparency = 0,
-				})
-				:Play()
-		end)
-		CallFrame.MouseLeave:Connect(function()
-			wax.shared.TweenService
-				:Create(HighlightStroke, DefaultTweenInfo, {
-					Transparency = if IsBlockedCall then 0.5 else 1,
-				})
-				:Play()
-		end)
-		CallFrame.MouseButton1Click:Connect(function()
-			OpenInfo(CallInfo)
-		end)
-		CallFrame.MouseButton2Click:Connect(CallFrameContextMenu.Open)
+	CallFrame.MouseLeave:Connect(function()
+		local Data = CallFrameData[CallFrame]
+		if not Data then
+			return
+		end
+
+		wax.shared.TweenService
+			:Create(Data.HighlightStroke, DefaultTweenInfo, {
+				Transparency = if Data.IsBlockedCall then 0.5 else 1,
+			})
+			:Play()
+	end)
+
+	CallFrame.MouseButton1Click:Connect(function()
+		local Data = CallFrameData[CallFrame]
+		if Data and Data.CallInfo then
+			OpenInfo(Data.CallInfo)
+		end
+	end)
+
+	CallFrame.MouseButton2Click:Connect(function()
+		local Data = CallFrameData[CallFrame]
+		if not (Data and Data.CallInfo) then
+			return
+		end
+
+		ActiveCallInfo = Data.CallInfo
+		GetSharedCallContextMenu().Open()
+	end)
+
+	return CallFrame
+end
+
+ReleaseCallFrame = function(CallFrame)
+	CallFrame.Parent = nil
+	table.insert(CallFramePool, CallFrame)
+end
+
+function CreateCallFrame(CallInfo)
+	if not wax.shared.Settings.ShowExecutorLogs.Value and not CallInfo.Origin then
+		return
 	end
 
-	local InitialDataView = (
-		CallInfo.Type == "Incoming" and CallInfo.InvokeResult and
-			"InvokeResult"
-		or
-			"Arguments"
-	)
+	local IsBlockedCall = CallInfo.Blocked == true
+	local CallFrame = AcquireCallFrame()
+	local Data = CallFrameData[CallFrame]
+	Data.CallInfo = CallInfo
+	Data.IsBlockedCall = IsBlockedCall
+
+	CallFrame.BackgroundColor3 = if IsBlockedCall then Color3.fromRGB(34, 18, 18) else Color3.fromRGB(25, 25, 25)
+	CallFrame.LayoutOrder = CallInfo.Order
+	Data.HighlightStroke.Color = if IsBlockedCall then Color3.fromRGB(222, 82, 82) else Color3.fromRGB(75, 75, 75)
+	Data.HighlightStroke.Transparency = if IsBlockedCall then 0.5 else 1
+	CallFrame.Parent = LogsList
+
+	local InitialDataView = (CallInfo.Type == "Incoming" and CallInfo.InvokeResult and "InvokeResult" or "Arguments")
 	local CallInfoValues = CallInfo[InitialDataView]
 	local CallInfoValueCount = wax.shared.GetTableLength(CallInfoValues)
 
@@ -4282,21 +4373,13 @@ function OpenInfo(CallInfo)
 	do
 		--// Get Initial Data View \\--
 		local InitialDataView = (
-			CallInfo.Type == "Incoming" and CallInfo.InvokeResult and
-				"InvokeResult"
-			or
-				"Arguments"
+			CallInfo.Type == "Incoming" and CallInfo.InvokeResult and "InvokeResult" or "Arguments"
 		)
 
 		--// Set Initial Tab Label \\--
 		local FirstTab = InfoModalTab[InfoModalTab[1]]
 		if FirstTab and FirstTab.TextLabel then
-			FirstTab.TextLabel.Text = (
-				if InitialDataView == "InvokeResult" then
-					"Return Data"
-				else
-					"Arguments"
-			)
+			FirstTab.TextLabel.Text = (if InitialDataView == "InvokeResult" then "Return Data" else "Arguments")
 		end
 
 		--// Cleanup \\--
@@ -4308,8 +4391,7 @@ function OpenInfo(CallInfo)
 
 		--// Show Original Args Tab if needed \\--
 		local ShouldShowOriginalArgs = (
-			InitialDataView == "InvokeResult" and
-			wax.shared.GetTableLength(CallInfo.Arguments) > 0
+			InitialDataView == "InvokeResult" and wax.shared.GetTableLength(CallInfo.Arguments) > 0
 		)
 
 		SetInfoTabMounted("Args", ShouldShowOriginalArgs)
@@ -4359,7 +4441,7 @@ function OpenInfo(CallInfo)
 end
 
 Drag.Setup(RemoteListLine, RemoteListResize, function(Info, Input: InputObject)
-	local Delta = (Input.Position - Info.StartPosition) / GetDPIScale()
+	local Delta = (Input.Position - Info.StartPosition) / State.GetDPIScale()
 	local FramePosition: UDim2 = Info.FramePosition
 	local Offset = math.clamp(FramePosition.X.Offset + Delta.X, 120, (MainFrame.AbsoluteSize.X - 2) / 2)
 

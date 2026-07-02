@@ -32,7 +32,7 @@ require(script.Utils.Connect)
 wax.shared.Hooking = require(script.Utils.Hooking)
 
 -- UI
-wax.shared.Sonner = require(script.Utils.UI.Window.Sonner)
+wax.shared.Sonner = require(script.Window.Components.Sonner)
 
 -- Code Generation
 local LuaEncode = require(script.Utils.CodeGen.Serializer.LuaEncode)

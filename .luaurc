@@ -1,5 +1,6 @@
 {
     "aliases": {
-        "lune": "./.lune"
+        "lune": "./.lune",
+        "src": "./Src"
     }
 }

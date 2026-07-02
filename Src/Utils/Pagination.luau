@@ -8,12 +8,17 @@ made by deivid and turned into module by upio
 local Pagination = {}
 Pagination.__index = Pagination
 
-function Pagination.new(Options: {
+type PaginationOptions = {
 	TotalItems: number,
 	ItemsPerPage: number,
 	CurrentPage: number?,
 	SiblingCount: number?,
-})
+}
+
+type PaginationOptionKeys = keyof<PaginationOptions>
+export type Pagination = typeof(Pagination)
+
+function Pagination.new(Options: PaginationOptions)
 	return setmetatable({
 		TotalItems = Options.TotalItems,
 		ItemsPerPage = Options.ItemsPerPage,
@@ -31,6 +36,22 @@ function Pagination:GetInfo()
 		CurrentPage = self.CurrentPage,
 		TotalPages = TotalPages,
 	}
+end
+
+function Pagination:SetOption(Key: PaginationOptionKeys, Value: any)
+	local Mapping = {
+		["ItemsPerPage"] = function(Value: number)
+			self:SetItemsPerPage(Value)
+		end,
+		["TotalItems"] = function(Value: number)
+			self:Update(Value)
+		end,
+		["CurrentPage"] = function(Value: number)
+			self:SetPage(Value)
+		end,
+	}
+
+	Mapping[Key](Value)
 end
 
 function Pagination:SetItemsPerPage(max: number)

@@ -16,6 +16,9 @@ local ObjectTree = ${ObjectTree}
 -- Line offsets for debugging (only included when minifyTables is false)
 local LineOffsets = ${LineOffsets}
 
+-- Luau aliases from .luaurc
+local Aliases = ${Aliases}
+
 -- Misc AOT variable imports
 local WaxVersion = "${Version}"
 local EnvName = "${EnvName}"
@@ -451,8 +454,29 @@ function ImportGlobals(refId)
             end
 
             return LoadScript(module)
-        elseif ModuleArgType == "string" and string_sub(module, 1, 1) ~= "@" then
+        elseif ModuleArgType == "string" then
             -- The control flow on this SUCKS
+            if string_sub(module, 1, 1) == "@" then
+                local AliasName, RemainingPath = string_match(module, "^@([^/]+)(.*)")
+                local MappedPath = AliasName and Aliases[AliasName]
+
+                if MappedPath then
+                    if string_sub(MappedPath, -1) == "/" and string_sub(RemainingPath, 1, 1) == "/" then
+                        module = MappedPath .. string_sub(RemainingPath, 2)
+                    elseif string_sub(MappedPath, -1) ~= "/" and string_sub(RemainingPath, 1, 1) ~= "/" and #RemainingPath > 0 then
+                        module = MappedPath .. "/" .. RemainingPath
+                    else
+                        module = MappedPath .. RemainingPath
+                    end
+
+                    if string_sub(module, 1, 1) ~= "/" then
+                        module = "/" .. module
+                    end
+                else
+                    -- Fallback to real require for @lune/ etc
+                    return RealCall(require, module, ...)
+                end
+            end
 
             if #module == 0 then
                 error("Attempted to call require with empty string", 2)

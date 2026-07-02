@@ -1,15 +1,26 @@
-local Interface = require(script.Parent.Parent.Interface)
-local Icons = require(script.Parent.Parent.Assets.Icons)
+local Interface = require("@src/Utils/UI/Interface")
+local Icons = require("@src/Utils/UI/Assets/Icons")
 
 local ContextMenu = {}
+export type ContextMenu = {
+	CurrentContext: {
+		Parent: GuiObject,
+		Options: { GuiObject },
+		Owner: ContextMenu,
+		MouseOnCursorPosition: boolean?,
+	}?,
+} & typeof(setmetatable({}, ContextMenu))
 ContextMenu.__index = ContextMenu
 
 local DefaultTweenInfo = TweenInfo.new(0.2, Enum.EasingStyle.Exponential)
 
-function ContextMenu.new(Parent: GuiObject, Options: {
-	GetDPIScale: (() -> number)?,
-	TweenInfo: TweenInfo?,
-}?)
+function ContextMenu.new(
+	Parent: GuiObject,
+	Options: {
+		GetDPIScale: (() -> number)?,
+		TweenInfo: TweenInfo?,
+	}?
+)
 	local self = setmetatable({
 		CurrentContext = nil,
 		GetDPIScale = Options and Options.GetDPIScale or function()
@@ -154,7 +165,7 @@ function ContextMenu:Create(Parent: GuiObject, Options: {}, MouseOnCursorPositio
 				end
 
 				if Data.CloseOnClick ~= false then
-					ContextData:Close()
+					ContextData.Close()
 				else
 					for _, Option in pairs(ContextData.Options) do
 						Option:Display()
@@ -199,7 +210,7 @@ function ContextMenu:Create(Parent: GuiObject, Options: {}, MouseOnCursorPositio
 		end
 
 		if Owner.CurrentContext then
-			Owner.CurrentContext:Close()
+			Owner.CurrentContext.Close()
 		end
 
 		Owner.CurrentContext = ContextData
@@ -229,7 +240,7 @@ function ContextMenu:Create(Parent: GuiObject, Options: {}, MouseOnCursorPositio
 
 	function ContextData.Toggle()
 		if ContextData.Owner.CurrentContext == ContextData then
-			ContextData:Close()
+			ContextData.Close()
 			return
 		end
 

@@ -39,21 +39,25 @@ local Classifier = require(script.Parent.Classifier)
 ]]
 local function InvokePluginHandlers(Type: "Hook" | "Call", ShouldUseResult: (...any) -> boolean, ...)
 	local PluginManager = wax.shared.CobaltPluginManager
-	if PluginManager and PluginManager.HasCodeGenInterceptors then
-		local Interceptors = PluginManager.Registry.UIHooks.CodeGen[Type]
+	if not PluginManager or not PluginManager.HasCodeGenInterceptors then
+		return true, nil
+	end
+	
+	local InterceptorRegistry = PluginManager.Registry.UIHooks.CodeGen[Type] or {}
 
-		for _, Interceptor in Interceptors or {} do
-			local Results = table.pack(pcall(Interceptor, ...))
-			local Success = Results[1]
+	for _, Interceptor in InterceptorRegistry do
+		local Results = wax.shared.SafePack.Pack(
+			xpcall(Interceptor, function(Error)
+				warn(`Error in Cobalt Plugin (CodeGen Interceptor ({Type})):`, Error)
+				return Error
+			end, ...)
+		)
 
-			if Success then
-				local ReturnValues = table.pack(table.unpack(Results, 2, Results.n))
-				if ShouldUseResult(table.unpack(ReturnValues, 1, ReturnValues.n)) then
-					return false, ReturnValues
-				end
-			else
-				warn(`Error in Cobalt Plugin (CodeGen Interceptor ({Type})):`, table.unpack(Results, 2, Results.n))
-			end
+		local Success = Results[1]
+		if not Success then continue end
+
+		if ShouldUseResult(wax.shared.SafePack.Unpack(Results, 2, Results.n)) then
+			return false, wax.shared.SafePack.Unpack(Results, 2, Results.n)
 		end
 	end
 
@@ -108,12 +112,12 @@ end
     @return The hook code.
 ]]
 function CodeGen:BuildHookCode(CallInfo: Types.CallInfo)
-	local InterceptedByPlugin, InterceptionResults = InvokePluginHandlers("Hook", function(InterceptedCode)
+	local InterceptedByPlugin, InterceptedCode = InvokePluginHandlers("Hook", function(InterceptedCode)
 		return type(InterceptedCode) == "string"
 	end, CallInfo)
 
 	if not InterceptedByPlugin then
-		return InterceptionResults[1]
+		return InterceptedCode
 	end
 
 	--// Determine Scenario \\--
@@ -137,12 +141,12 @@ function CodeGen:BuildHookCode(CallInfo: Types.CallInfo)
 end
 
 function CodeGen:BuildCallCode(CallInfo: Types.CallInfo)
-	local InterceptedByPlugin, InterceptionResults = InvokePluginHandlers("Call", function(InterceptedCode)
+	local InterceptedByPlugin, InterceptedCode = InvokePluginHandlers("Call", function(InterceptedCode)
 		return type(InterceptedCode) == "string"
 	end, CallInfo)
 
 	if not InterceptedByPlugin then
-		return InterceptionResults[1]
+		return InterceptedCode
 	end
 
 	--// Determine Scenario \\--

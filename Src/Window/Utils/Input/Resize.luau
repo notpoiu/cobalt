@@ -1,7 +1,7 @@
 local Resize = {}
 Resize.__index = Resize
 
-local Interface = require(script.Parent.Parent.Parent.Interface)
+local Interface = require("@src/Utils/UI/Interface")
 local Drag = require(script.Parent.Drag)
 
 local HANDLE_SIZE = 6
@@ -15,12 +15,16 @@ function Resize.new(Options: {
 	CornerHandleSize: number?,
 	Mirrored: boolean?,
 	LockedPosition: boolean? | UDim2?,
+	GetDPIScale: (() -> number)?,
 })
 	local MainFrame = Options.MainFrame
 	local HandleSize = Options.HandleSize or HANDLE_SIZE
 	local CornerHandleSize = Options.CornerHandleSize or CORNER_HANDLE_SIZE
 	local Mirrored = Options.Mirrored or false
 	local LockedPosition = Options.LockedPosition
+	local GetDPIScale = Options.GetDPIScale or function()
+		return 1
+	end
 
 	local MinimumSize
 	if typeof(Options.MinimumSize) == "Vector2" then
@@ -198,9 +202,7 @@ function Resize.new(Options: {
 	local function createDragHandler(resizeTypeX, resizeTypeY)
 		return function(Info, Input: InputObject)
 			local mouseDelta = Input.Position - Info.StartPosition
-			if wax.shared.GetDPIScale then
-				mouseDelta = mouseDelta / wax.shared.GetDPIScale()
-			end
+			mouseDelta = mouseDelta / GetDPIScale()
 
 			local newSize, newPosition =
 				CalculateResizeProperties(Info.FramePosition, Info.FrameSize, mouseDelta, resizeTypeX, resizeTypeY)
@@ -218,7 +220,9 @@ function Resize.new(Options: {
 		Parent = MainFrame,
 		ZIndex = 9e6,
 	})
-	Drag.Setup(MainFrame, LeftSide, createDragHandler("Left", nil))
+	Drag.Setup(MainFrame, LeftSide, createDragHandler("Left", nil), {
+		GetDPIScale = GetDPIScale,
+	})
 
 	local RightSide = Interface.New("Frame", {
 		Size = UDim2.new(0, HandleSize, 1, -CornerHandleSize * 2),
@@ -228,7 +232,9 @@ function Resize.new(Options: {
 		Parent = MainFrame,
 		ZIndex = 9e6,
 	})
-	Drag.Setup(MainFrame, RightSide, createDragHandler("Right", nil))
+	Drag.Setup(MainFrame, RightSide, createDragHandler("Right", nil), {
+		GetDPIScale = GetDPIScale,
+	})
 
 	local TopSide = Interface.New("Frame", {
 		Size = UDim2.new(1, -CornerHandleSize * 2, 0, HandleSize),
@@ -238,7 +244,9 @@ function Resize.new(Options: {
 		Parent = MainFrame,
 		ZIndex = 9e6,
 	})
-	Drag.Setup(MainFrame, TopSide, createDragHandler(nil, "Top"))
+	Drag.Setup(MainFrame, TopSide, createDragHandler(nil, "Top"), {
+		GetDPIScale = GetDPIScale,
+	})
 
 	local BottomSide = Interface.New("Frame", {
 		Size = UDim2.new(1, -CornerHandleSize * 2, 0, HandleSize),
@@ -248,7 +256,9 @@ function Resize.new(Options: {
 		Parent = MainFrame,
 		ZIndex = 9e6,
 	})
-	Drag.Setup(MainFrame, BottomSide, createDragHandler(nil, "Bottom"))
+	Drag.Setup(MainFrame, BottomSide, createDragHandler(nil, "Bottom"), {
+		GetDPIScale = GetDPIScale,
+	})
 
 	local TopLeftCorner = Interface.New("Frame", {
 		Size = UDim2.fromOffset(CornerHandleSize, CornerHandleSize),
@@ -258,7 +268,9 @@ function Resize.new(Options: {
 		Parent = MainFrame,
 		ZIndex = 9e6 + 1,
 	})
-	Drag.Setup(MainFrame, TopLeftCorner, createDragHandler("Left", "Top"))
+	Drag.Setup(MainFrame, TopLeftCorner, createDragHandler("Left", "Top"), {
+		GetDPIScale = GetDPIScale,
+	})
 
 	local TopRightCorner = Interface.New("Frame", {
 		Size = UDim2.fromOffset(CornerHandleSize, CornerHandleSize),
@@ -268,7 +280,9 @@ function Resize.new(Options: {
 		Parent = MainFrame,
 		ZIndex = 9e6 + 1,
 	})
-	Drag.Setup(MainFrame, TopRightCorner, createDragHandler("Right", "Top"))
+	Drag.Setup(MainFrame, TopRightCorner, createDragHandler("Right", "Top"), {
+		GetDPIScale = GetDPIScale,
+	})
 
 	local BottomLeftCorner = Interface.New("Frame", {
 		Size = UDim2.fromOffset(CornerHandleSize, CornerHandleSize),
@@ -278,7 +292,9 @@ function Resize.new(Options: {
 		Parent = MainFrame,
 		ZIndex = 9e6 + 1,
 	})
-	Drag.Setup(MainFrame, BottomLeftCorner, createDragHandler("Left", "Bottom"))
+	Drag.Setup(MainFrame, BottomLeftCorner, createDragHandler("Left", "Bottom"), {
+		GetDPIScale = GetDPIScale,
+	})
 
 	local BottomRightCorner = Interface.New("Frame", {
 		Size = UDim2.fromOffset(CornerHandleSize, CornerHandleSize),
@@ -288,7 +304,9 @@ function Resize.new(Options: {
 		Parent = MainFrame,
 		ZIndex = 9e6 + 1,
 	})
-	Drag.Setup(MainFrame, BottomRightCorner, createDragHandler("Right", "Bottom"))
+	Drag.Setup(MainFrame, BottomRightCorner, createDragHandler("Right", "Bottom"), {
+		GetDPIScale = GetDPIScale,
+	})
 
 	return self
 end

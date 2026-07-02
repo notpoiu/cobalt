@@ -5,15 +5,79 @@ local AssetManager = {
 	SessionLoadedFonts = {},
 }
 
-local FileHelper = require(script.Parent.Parent.Parent.FileHelper)
+local FileHelper = require("@src/Utils/FileHelper")
 local Assets = FileHelper.new("Cobalt/Assets")
 
-function SafeFetchCustomContentID(Path: string)
+local UsedRandomStrings = {}
+local AssetRandom = Random.new(tick())
+
+local Charset = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
+function GenerateSafeUniqueRandomString(length: number): string
+	local randomString = ""
+	while true do
+		randomString = ""
+		for i = 1, length do
+			local randomIndex = AssetRandom:NextInteger(1, #Charset)
+			randomString ..= string.sub(Charset, randomIndex, randomIndex)
+		end
+
+		local Success, IsFile = pcall(function()
+			return isfile(randomString) or isfolder(randomString)
+		end)
+
+		if Success and IsFile then continue end
+		if UsedRandomStrings[randomString] then continue end
+
+		UsedRandomStrings[randomString] = true
+		break
+	end
+	
+	return randomString
+end
+
+local IsCustomAssetSafe
+function SafeFetchCustomContentID(Path: string, FileName: string)
+	local HasEstablishedSafe = typeof(IsCustomAssetSafe) == "boolean"
+	if IsCustomAssetSafe or not HasEstablishedSafe then
+		local Success, Result = pcall(function()
+			return getcustomasset(Path)
+		end)
+
+		if not Success then
+			return nil
+		end
+
+		--// Check if custom asset is something like `rbxasset://jkasdljflkas/filename` \\--
+		if not HasEstablishedSafe then
+			IsCustomAssetSafe = (
+				Result:lower():find(
+					FileName:lower(),
+					1,
+					true
+				) == nil
+			)
+		end
+
+		if IsCustomAssetSafe then
+			return Result
+		end
+	end
+
+	--// Executor Implementation is not safe, we randomize the asset name. \\--
+	local RandomString = GenerateSafeUniqueRandomString(AssetRandom:NextInteger(4, 7))
+
 	local Success, Result = pcall(function()
-		return getcustomasset(Path)
+		writefile(RandomString, readfile(Path))
+		return getcustomasset(RandomString)
 	end)
 
-	return Success and Result or nil
+	pcall(delfile, RandomString)
+
+	if Success then
+		return Result
+	end
+
+	return nil
 end
 
 function SafeFetchCustomImgData(url)
@@ -29,7 +93,13 @@ function SafeFetchCustomImgData(url)
 	return nil
 end
 
-function AssetManager.GetRemoteImages(Images: { [string]: string })
+--[[
+	Returns a table of asset IDs for the given classname icons.
+
+	@param Images: A table of classname icons.
+	@return A table of asset IDs for the given classname icons.
+]]
+function AssetManager.GetInstanceClassImages(Images: { [string]: string })
 	if not getcustomasset then
 		return Images
 	end
@@ -40,7 +110,7 @@ function AssetManager.GetRemoteImages(Images: { [string]: string })
 		local FilePath = Assets:GetPath(FileName)
 
 		if Assets:DoesExist(FileName) then
-			NewImages[ClassName] = SafeFetchCustomContentID(FilePath) or Image
+			NewImages[ClassName] = SafeFetchCustomContentID(FilePath, ClassName) or Image
 			continue
 		end
 
@@ -52,12 +122,18 @@ function AssetManager.GetRemoteImages(Images: { [string]: string })
 
 		Assets:WriteFile(FileName, IconRawData)
 
-		NewImages[ClassName] = SafeFetchCustomContentID(FilePath) or Image
+		NewImages[ClassName] = SafeFetchCustomContentID(FilePath, ClassName) or Image
 	end
 
 	return NewImages
 end
 
+--[[
+	Returns the asset ID for the given image in registry.
+
+	@param Image: The name of the image.
+	@return The asset ID for the given image.
+]]
 function AssetManager.GetImage(Image: string)
 	if not getcustomasset then
 		return AssetManager.FallbackMapping[Image] or Image
@@ -67,7 +143,7 @@ function AssetManager.GetImage(Image: string)
 	local FilePath = Assets:GetPath(FileName)
 
 	if Assets:DoesExist(FileName) then
-		return SafeFetchCustomContentID(FilePath) or AssetManager.FallbackMapping[Image] or Image
+		return SafeFetchCustomContentID(FilePath, Image) or AssetManager.FallbackMapping[Image] or Image
 	end
 
 	local IconRawData =
@@ -78,9 +154,15 @@ function AssetManager.GetImage(Image: string)
 	end
 
 	Assets:WriteFile(FileName, IconRawData)
-	return SafeFetchCustomContentID(FilePath) or AssetManager.FallbackMapping[Image] or Image
+	return SafeFetchCustomContentID(FilePath, Image) or AssetManager.FallbackMapping[Image] or Image
 end
 
+--[[
+	Returns a custom font asset ID derived from the TTF url provided.
+
+	@param FontData: A table containing the font data.
+	@return The asset ID for the given font.
+]]
 function AssetManager.GetCustomFont(FontData: {
 	Name: string,
 	Url: string,
@@ -114,7 +196,7 @@ function AssetManager.GetCustomFont(FontData: {
 						name = "Regular",
 						weight = 400,
 						style = "normal",
-						assetId = SafeFetchCustomContentID(TTFPath) or FontData.FallbackId,
+						assetId = SafeFetchCustomContentID(TTFPath, FontData.Name) or FontData.FallbackId,
 					},
 				},
 			})
@@ -123,7 +205,7 @@ function AssetManager.GetCustomFont(FontData: {
 		AssetManager.SessionLoadedFonts[FontData.Name] = true
 	end
 
-	local CustomFontId = SafeFetchCustomContentID(FontPath)
+	local CustomFontId = SafeFetchCustomContentID(FontPath, FontData.Name)
 	if CustomFontId then
 		return Font.new(CustomFontId)
 	end
