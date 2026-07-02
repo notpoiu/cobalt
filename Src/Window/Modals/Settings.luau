@@ -94,6 +94,85 @@ local function SetupModal(ModalController: ModalController.Modal, GetDPIScale: (
 	return SettingsFrame, SettingsScrollingFrame
 end
 
+local function CreatePaddingText(Size: number): string
+	return `<font size="{Size}"> \n</font>`
+end
+
+local function CreateDetectionNotice(Parent: GuiObject)
+	local FailedChecks = wax.shared.ExecutorSupport.FailedChecks
+	local NonEssentialFailures = FailedChecks and FailedChecks.NonEssential
+	if not NonEssentialFailures or #NonEssentialFailures == 0 then
+		return
+	end
+
+	local WarningDisplay = Interface.New("Frame", {
+		AnchorPoint = Vector2.new(1, 0.5),
+		BackgroundColor3 = Color3.fromRGB(245, 60, 54),
+		BackgroundTransparency = 0.75,
+		Position = UDim2.new(1, 0, 0.5, 0),
+		Size = UDim2.new(1, 0, 0, 0),
+		AutomaticSize = Enum.AutomaticSize.Y,
+		Parent = Parent,
+
+		["UICorner"] = {
+			CornerRadius = UDim.new(0, 4),
+		},
+
+		["UIStroke"] = {
+			ApplyStrokeMode = Enum.ApplyStrokeMode.Border,
+			Color = Color3.fromRGB(245, 60, 54),
+			Thickness = 1,
+		},
+
+		["UIPadding"] = {
+			PaddingLeft = UDim.new(0, 8),
+			PaddingRight = UDim.new(0, 8),
+			PaddingTop = UDim.new(0, 8),
+			PaddingBottom = UDim.new(0, 8),
+		},
+
+		["UIListLayout"] = {
+			FillDirection = Enum.FillDirection.Vertical,
+			HorizontalAlignment = Enum.HorizontalAlignment.Center,
+			VerticalAlignment = Enum.VerticalAlignment.Center,
+		},
+	})
+
+	local NoticeTitleInfoSeparator = CreatePaddingText(4)
+	Interface.New("TextLabel", {
+		Text = `<font size="16"><b>DETECTION NOTICE ⚠️</b></font>\n{NoticeTitleInfoSeparator}Cobalt can get detected because your executor does not support the following functions/libraries:`,
+		TextSize = 15,
+		Size = UDim2.fromScale(1, 0),
+		AutomaticSize = Enum.AutomaticSize.Y,
+		TextXAlignment = Enum.TextXAlignment.Left,
+		TextYAlignment = Enum.TextYAlignment.Center,
+		BackgroundTransparency = 1,
+		Parent = WarningDisplay,
+		TextWrapped = true,
+	})
+
+	local DetectionDetails = CreatePaddingText(6)
+	local DetectionSuffix = `\n{CreatePaddingText(7)}`
+	for _, Name in NonEssentialFailures do
+		local Check = wax.shared.ExecutorSupport[Name]
+		local Details = if Check then Check.Details else "No details available."
+		DetectionDetails ..= `⚠️ <b><font color="#ff9900">{Name}</font></b>\n<i><font size="14" transparency="0.5">{Details}</font></i>{DetectionSuffix}`
+	end
+
+	DetectionDetails = DetectionDetails:sub(1, (#DetectionSuffix * -1) - 1)
+
+	Interface.New("TextLabel", {
+		Text = DetectionDetails,
+		TextSize = 15,
+		Size = UDim2.fromScale(1, 0),
+		AutomaticSize = Enum.AutomaticSize.Y,
+		TextXAlignment = Enum.TextXAlignment.Left,
+		BackgroundTransparency = 1,
+		Parent = WarningDisplay,
+		TextWrapped = true,
+	})
+end
+
 --// UI \\--
 return function(props: {
 	ModalController: ModalController.Modal,
@@ -116,6 +195,7 @@ return function(props: {
 	local SettingsFrame, SettingsScrollingFrame = SetupModal(ModalController, GetDPIScale)
 
 	local MainSettings = SettingsBuilder.new(SettingsScrollingFrame)
+	CreateDetectionNotice(SettingsScrollingFrame)
 
 	--// Executor Support Section \\--
 	local ExecSupportSection = MainSettings:CreateSection("Support Info")
