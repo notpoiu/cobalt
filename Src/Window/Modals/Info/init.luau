@@ -184,41 +184,5 @@ return function(props: {
 		ModalController:Open(Modal.Frame)
 	end
 
-	--// Plugin Hooks \\--
-	wax.shared.CreateRemoteInfoTab = function(Icon: string, Title: string, TabContents: Frame?)
-		return Modal.Tabs:CreateTab(Icon, Title, TabContents)
-	end
-
-	wax.shared.CreateTabContent = function()
-		return Modal.Tabs:CreateTabContent()
-	end
-
-	wax.shared.OpenModal = function(Frame: GuiObject)
-		return ModalController:Open(Frame)
-	end
-
-	wax.shared.CloseModal = function()
-		return ModalController:Close()
-	end
-
-	wax.shared.CreateModalTop = function(Title: string, Icon: string, Parent: GuiObject)
-		return ModalController:CreateTop(Title, Icon, Parent)
-	end
-
-	wax.shared.CreateInfoDropdownButton = function(Icon: string, Title: string, Options: {})
-		return Modal.Footer:CreateDropdownButton(Icon, Title, Options)
-	end
-
-	wax.shared.ModalBackground = Modal.Background
-	wax.shared.OpenRemoteInfo = function(CallInfo)
-		return Modal:Open(CallInfo)
-	end
-
-	if wax.shared.CobaltPluginManager then
-		wax.shared.CobaltPluginManager.UI.RemoteInfo.UpdateFooterButtons = function()
-			Modal.Footer:UpdateDropdownButtons()
-		end
-	end
-
 	return Modal
 end

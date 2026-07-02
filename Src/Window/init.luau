@@ -6,6 +6,7 @@ local DPI = require("@src/Window/Utils/DPI")
 local Resize = require("@src/Window/Utils/Input/Resize")
 
 local AssetManager = require("@src/Utils/UI/Assets/Manager")
+local PluginManager = require("@src/Utils/Plugins/Manager")
 
 --// Components \\--
 local ModalController = require("@src/Window/Components/Modal")
@@ -176,6 +177,15 @@ Window.Modals.Search = require(script.Modals.Search){
 	ModalController = Window.Modals.Controller,
 	Window = Window,
 }
+
+PluginManager.AttachWindow({
+	ModalController = Window.Modals.Controller,
+	InfoModal = Window.Modals.Info,
+	PluginsModal = Window.Modals.Plugins,
+	GetCurrentLog = Window.Functions.GetCurrentLog,
+	ClearLogs = Window.Functions.ClearLogs,
+	GetDPIScale = GetDPIScale,
+})
 
 --// Topbar \\--
 require(script.Components.Topbar){

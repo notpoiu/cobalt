@@ -329,8 +329,8 @@ return function(props: {
 
 		CallFrame.MouseButton1Click:Connect(function()
 			local Data = self.CallFrameData[CallFrame]
-			if Data and Data.CallInfo and wax.shared.OpenRemoteInfo then
-				wax.shared.OpenRemoteInfo(Data.CallInfo)
+			if Data and Data.CallInfo and Window.Modals.Info then
+				Window.Modals.Info:Open(Data.CallInfo)
 			end
 		end)
 
