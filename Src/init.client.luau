@@ -165,16 +165,7 @@ wax.shared.GetTableLength = function(Table)
 	end
 	return Length
 end
-wax.shared.JoinTable = function(Table, Prefix, Suffix)
-	local FinalString = ""
-	for _, Value in pairs(Table) do
-		FinalString ..= Prefix .. tostring(Value) .. Suffix
-	end
 
-	FinalString = string.sub(FinalString, 1, string.len(FinalString) - string.len(Suffix))
-
-	return FinalString
-end
 wax.shared.GetTextBounds = function(Text: string, Font: Font, Size: number, Width: number?): (number, number)
 	local Params = Instance.new("GetTextBoundsParams")
 	Params.Text = Text
