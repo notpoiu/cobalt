@@ -320,6 +320,12 @@ function Log:Call(RawInfo)
 	end
 end
 
+function Log:ClearCalls()
+	table.clear(self.Calls)
+	table.clear(self.GameCalls)
+	self.Index = 0
+end
+
 function Log:Ignore()
 	self.Ignored = not self.Ignored
 

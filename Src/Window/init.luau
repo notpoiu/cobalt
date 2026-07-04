@@ -14,21 +14,8 @@ local ContextMenuController = require("@src/Window/Components/ContextMenu")
 
 --// Variables \\--
 local Window = {
-	State = {
-		SelectedPageByLog = {},
-		CurrentLog = nil,
-	},
-
-	Functions = {},
 	Modals = {},
 }
-
-Window.Functions = require(script.Controllers.Logs){
-	Window = Window,
-}
-
-wax.shared.ClearLogs = Window.Functions.ClearLogs
-wax.shared.GetCurrentLog = Window.Functions.GetCurrentLog
 
 --// Assets \\--
 local CobaltLogo = AssetManager.GetImage("Logo")
@@ -119,9 +106,7 @@ do
 end
 
 --// Pagination \\--
-local PaginationFactory = require(script.Utils.Pagination){
-	Window = Window,
-}
+local PaginationFactory = require(script.Utils.Pagination)
 
 local PaginationManager = PaginationFactory.new({
 	TotalItems = 0,
@@ -142,67 +127,72 @@ local ContextMenus = ContextMenuController.new(ScreenGui, {
 	TweenInfo = Constants.DefaultTweenInfo,
 })
 
---// Modal Builders \\--
-local SettingsBuilder = require(script.Components.Modal.Builder.Settings){
-	ContextMenu = ContextMenus,
-}
-
---// Modals \\--
+--// Modal Controller \\--
 Window.Modals.Controller = ModalController.new(MainFrame, {
 	TweenInfo = Constants.DefaultTweenInfo,
 })
 
-Window.Modals.Settings = require(script.Modals.Settings){
+--// Views \\--
+local LogsPage = require(script.Views.Logs)({
+	MainFrame = MainFrame,
+	Window = Window,
+	ContextMenu = ContextMenus,
+	PaginationManager = PaginationManager,
+	GetDPIScale = GetDPIScale,
+})
+Window.Logs = LogsPage
+
+wax.shared.ClearLogs = LogsPage.ClearLogs
+wax.shared.GetCurrentLog = LogsPage.GetCurrentLog
+
+--// Modal Builders \\--
+local SettingsBuilder = require(script.Components.Modal.Builder.Settings)({
+	ContextMenu = ContextMenus,
+})
+
+--// Modals \\--
+Window.Modals.Settings = require(script.Modals.Settings)({
 	ModalController = Window.Modals.Controller,
 	SettingsBuilder = SettingsBuilder,
 	DPIHandler = DPIHandler,
 	PaginationManager = PaginationManager,
-	Window = Window,
-}
+	LogsPage = LogsPage,
+})
 
-Window.Modals.Plugins = require(script.Modals.Plugins){
+Window.Modals.Plugins = require(script.Modals.Plugins)({
 	ModalController = Window.Modals.Controller,
 	SettingsBuilder = SettingsBuilder,
 	GetDPIScale = GetDPIScale,
-}
+})
 
-Window.Modals.Info = require(script.Modals.Info){
+Window.Modals.Info = require(script.Modals.Info)({
 	ModalController = Window.Modals.Controller,
 	ContextMenu = ContextMenus,
 	GetDPIScale = GetDPIScale,
-	Window = Window,
-}
+	LogsPage = LogsPage,
+})
 
-Window.Modals.Search = require(script.Modals.Search){
+Window.Modals.Search = require(script.Modals.Search)({
 	ModalController = Window.Modals.Controller,
-	Window = Window,
-}
+	LogsPage = LogsPage,
+})
 
 PluginManager.AttachWindow({
 	ModalController = Window.Modals.Controller,
 	InfoModal = Window.Modals.Info,
 	PluginsModal = Window.Modals.Plugins,
-	GetCurrentLog = Window.Functions.GetCurrentLog,
-	ClearLogs = Window.Functions.ClearLogs,
+	GetCurrentLog = LogsPage.GetCurrentLog,
+	ClearLogs = LogsPage.ClearLogs,
 	GetDPIScale = GetDPIScale,
 })
 
 --// Topbar \\--
-require(script.Components.Topbar){
+require(script.Components.Topbar)({
 	MainFrame = MainFrame,
 	ShowButton = ShowButton,
 	CobaltLogo = CobaltLogo,
 	Modals = Window.Modals,
 	GetDPIScale = GetDPIScale,
-}
-
---// Views \\--
-require(script.Views.Logs){
-	MainFrame = MainFrame,
-	Window = Window,
-	ContextMenu = ContextMenus,
-	PaginationManager = PaginationManager,
-	GetDPIScale = GetDPIScale,
-}
+})
 
 return Window

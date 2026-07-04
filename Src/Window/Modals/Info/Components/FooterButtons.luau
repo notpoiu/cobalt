@@ -20,7 +20,7 @@ return function(props: {
 		[any]: any,
 	},
 	ModalController: ModalController.Modal,
-	Window: Types.Window,
+	LogsPage: Types.LogsPage,
 })
 	local FooterButtons = {}
 
@@ -29,7 +29,7 @@ return function(props: {
 	end
 
 	local function GetCurrentLog()
-		return props.Window.State.CurrentLog
+		return props.LogsPage.GetCurrentLog()
 	end
 
 	table.insert(FooterButtons, {
@@ -283,7 +283,7 @@ return function(props: {
 						return
 					end
 
-					props.Window.Functions.ClearLogs(CurrentLog.Instance, CurrentLog.Type)
+					props.LogsPage.ClearLogs(CurrentLog.Instance, CurrentLog.Type)
 					props.ModalController:Close()
 				end,
 			},

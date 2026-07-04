@@ -179,14 +179,14 @@ return function(props: {
 	SettingsBuilder: SettingsBuilder.Builder,
 	DPIHandler: DPI.DPI,
 	PaginationManager: Types.PaginationManager,
-	Window: Types.Window,
+	LogsPage: Types.LogsPage,
 })
 	--// Props \\--
 	local ModalController = props.ModalController
 	local SettingsBuilder = props.SettingsBuilder
 	local DPIHandler = props.DPIHandler
 	local PaginationManager = props.PaginationManager
-	local Window = props.Window
+	local LogsPage = props.LogsPage
 	local function GetDPIScale()
 		return DPIHandler:GetDPIScale()
 	end
@@ -276,7 +276,7 @@ return function(props: {
 			}),
 
 			PaginationKey = "ItemsPerPage",
-			Refresh = true,
+			Refresh = LogsPage.RefreshCurrentLog,
 		})
 
 		MainSection:CreateCheckbox("ExecuteOnTeleport", {
@@ -299,7 +299,7 @@ return function(props: {
 		end
 
 		MainSection:CreateButton("Clear All Logs", function()
-			Window.Functions.ClearLogs()
+			LogsPage.ClearLogs()
 		end)
 	end
 
@@ -332,7 +332,7 @@ return function(props: {
 		FilterSection:CreateCheckbox(SettingIds.ShowExecutorLogs, {
 			Text = `Show {wax.shared.ExecutorName} Remote Logs`,
 			Default = true,
-			Callback = PaginationManager:CreateRefreshCallback(),
+			Callback = LogsPage.RefreshCurrentLog,
 		})
 
 		FilterSection:CreateCheckbox(SettingIds.LogBlockedRemotes, {

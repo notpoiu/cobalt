@@ -9,10 +9,10 @@ local Ratelimiter = require("@src/Utils/Ratelimiter")
 --// UI \\--
 return function(props: {
 	MainFrame: GuiObject,
-	Window: Types.Window,
+	LogsPage: Types.LogsPage,
 	ContextMenu: any,
 })
-	local Window = props.Window
+	local LogsPage = props.LogsPage
 	local ContextMenu = props.ContextMenu
 
 	local List = {
@@ -97,9 +97,12 @@ return function(props: {
 	List.RemoteList = RemoteList
 
 	--// Functions \\--
+	local function EstimateCounterWidth(Text: string, TextSize: number): number
+		return math.ceil(#Text * TextSize * 0.42)
+	end
+
 	local function UpdateLogNameSize(Log)
-		local TextSizeX, _TextSizeY =
-			wax.shared.GetTextBounds("x" .. #Log.Calls, Log.Button.Calls.FontFace, Log.Button.Calls.TextSize)
+		local TextSizeX = EstimateCounterWidth(Log.Button.Calls.Text, Log.Button.Calls.TextSize)
 		Log.Button.Name.Size = UDim2.new(1, -(TextSizeX + 24), 1, 0)
 	end
 
@@ -150,11 +153,11 @@ return function(props: {
 		})
 
 		Button.MouseButton1Click:Connect(function()
-			if Window.State.CurrentLog == Log then
+			if LogsPage.GetCurrentLog() == Log then
 				return
 			end
 
-			Window.Functions.ShowLog(Log)
+			LogsPage.ShowLog(Log)
 		end)
 
 		local ContextMenuOptions = {
@@ -196,7 +199,7 @@ return function(props: {
 				Text = "Clear Logs",
 				Icon = "trash",
 				Callback = function()
-					Window.Functions.ClearLogs(Log.Instance, Log.Type)
+					LogsPage.ClearLogs(Log.Instance, Log.Type)
 				end,
 			},
 		}
@@ -228,6 +231,17 @@ return function(props: {
 		local Button, Name, Calls = self:CreateLogButton(Log)
 		Log:SetButton(Button, Name, Calls)
 		return Log.Button
+	end
+
+	function List:RemoveLogButton(Log)
+		self.PendingLogButtonUpdates[Log] = nil
+
+		if not Log.Button then
+			return
+		end
+
+		Log.Button.Instance:Destroy()
+		Log.Button = nil
 	end
 
 	function List:RefreshLogButton(Log)

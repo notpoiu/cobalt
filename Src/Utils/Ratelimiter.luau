@@ -6,6 +6,7 @@ type RatelimiterOptions = {
 
 	PeriodicInterval: number?,
 	MainCallback: (...any) -> ...any,
+	ShouldProcess: ((...any) -> boolean)?,
 	OnUnload: (() -> ())?,
 }
 
@@ -81,6 +82,10 @@ function Ratelimiter:SetupManagerThread()
 					self.Queue = {}
 					self.QueueHead = 1
 					self.QueueTail = 0
+				end
+
+				if TaskData and self.ShouldProcess and not self.ShouldProcess(table.unpack(TaskData, 1, TaskData.n)) then
+					continue
 				end
 
 				if TaskData then

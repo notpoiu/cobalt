@@ -15,7 +15,7 @@ type PaginationWrapperDataKeys = Types.PaginationDataKey
 
 export type PaginationManager = Types.PaginationManager
 
-function PaginationWrapper.new(data: PaginationWrapperData, Window)
+function PaginationWrapper.new(data: PaginationWrapperData)
 	local SanitizedData = {
 		TotalItems = data.TotalItems,
 		ItemsPerPage = data.ItemsPerPage or 20,
@@ -25,7 +25,6 @@ function PaginationWrapper.new(data: PaginationWrapperData, Window)
 
 	return setmetatable({
 		Helper = RawPagination.new(SanitizedData),
-		Window = Window,
 	}, PaginationWrapper)
 end
 
@@ -57,30 +56,15 @@ function PaginationWrapper:GetVisualInfo(Page: number?)
 	return self.Helper:GetVisualInfo(Page)
 end
 
-function PaginationWrapper:CreateRefreshCallback(): () -> ()
-	return function()
-		local Window = self.Window
-		local CurrentLog = Window.State.CurrentLog
-		if not CurrentLog then
-			return
-		end
-
-		self.Helper:SetPage(1)
-		Window.State.SelectedPageByLog[CurrentLog] = 1
-		Window.Functions.ShowLog(CurrentLog)
-	end
-end
-
 function PaginationWrapper:BindPagination(data: Types.PaginationBinding)
 	local Component = data.Component
 	local PaginationKey = data.PaginationKey
-	local RefreshCallback = self:CreateRefreshCallback()
 
 	local function RefreshValue()
 		self.Helper:SetOption(PaginationKey, Component.Value)
 
 		if data.Refresh then
-			RefreshCallback()
+			data.Refresh()
 		end
 	end
 
@@ -88,14 +72,8 @@ function PaginationWrapper:BindPagination(data: Types.PaginationBinding)
 	self.Helper:SetOption(PaginationKey, Component.Value)
 end
 
-return function(props: {
-	Window: Types.Window,
-})
-	local Window = props.Window
-
-	return {
-		new = function(data: PaginationWrapperData)
-			return PaginationWrapper.new(data, Window)
-		end,
-	}
-end
+return {
+	new = function(data: PaginationWrapperData)
+		return PaginationWrapper.new(data)
+	end,
+}

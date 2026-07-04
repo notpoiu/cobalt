@@ -168,11 +168,11 @@ end
 --// UI \\--
 return function(props: {
 	ModalController: ModalController.Modal,
-	Window: Types.Window,
+	LogsPage: Types.LogsPage,
 })
 	--// Props \\--
 	local ModalController = props.ModalController
-	local Window = props.Window
+	local LogsPage = props.LogsPage
 
 	--// State \\--
 	local Search = {
@@ -206,7 +206,8 @@ return function(props: {
 		end
 
 		local ScrollSize = SearchResults.AbsoluteSize.Y
-		local SelectedMin = Search.CurrentResults[Search.SelectedResult].AbsolutePosition.Y - SearchResults.AbsolutePosition.Y
+		local SelectedMin = Search.CurrentResults[Search.SelectedResult].AbsolutePosition.Y
+			- SearchResults.AbsolutePosition.Y
 		local SelectedMax = SelectedMin + Search.CurrentResults[Search.SelectedResult].AbsoluteSize.Y
 
 		if SelectedMin < 0 then
@@ -224,7 +225,7 @@ return function(props: {
 			return
 		end
 
-		Window.Functions.ShowLog(Info.Log)
+		LogsPage.ShowLog(Info.Log)
 		ModalController:Close()
 	end
 
@@ -304,7 +305,10 @@ return function(props: {
 			end
 
 			local LoweredName = string.lower(RemoteInstance.Name)
-			if Text ~= "" and not LoweredName:find(Text, 1, true) or table.find(Search.ExcludedClasses, RemoteInstance.ClassName) then
+			if
+				Text ~= "" and not LoweredName:find(Text, 1, true)
+				or table.find(Search.ExcludedClasses, RemoteInstance.ClassName)
+			then
 				SearchResult.Parent = nil
 				continue
 			end

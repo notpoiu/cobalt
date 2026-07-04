@@ -22,32 +22,29 @@ export type Log = {
 
 	Ignore: (any) -> (),
 	Block: (any) -> (),
+	ClearCalls: (any) -> (),
 	SetButton: (any, TextButton, TextLabel, TextLabel) -> (),
 	SetConnectionsEnabled: (any, boolean) -> (),
 }
 
-export type LogsView = {
-	CleanLogsList: (() -> ())?,
-	ShowLog: (Log?) -> (),
-}
-
-export type WindowState = {
+export type LogsState = {
 	SelectedPageByLog: { [Log]: number },
 	CurrentLog: Log?,
 }
 
-export type WindowFunctions = {
-	BindListView: (LogsView) -> (),
+export type LogsPage = {
+	State: LogsState,
+	LogList: any?,
+	LogCalls: any?,
 	CleanLogsList: () -> (),
 	ShowLog: (Log?) -> (),
 	ClearLogs: (Instance?, LogDirection?) -> (),
 	GetCurrentLog: () -> Log?,
-	[string]: any,
+	RefreshCurrentLog: () -> (),
 }
 
 export type Window = {
-	State: WindowState,
-	Functions: WindowFunctions,
+	Logs: LogsPage?,
 	Modals: { [string]: any },
 }
 
@@ -63,12 +60,11 @@ export type PaginationDataKey = keyof<PaginationData>
 export type PaginationBinding = {
 	Component: any,
 	PaginationKey: PaginationDataKey,
-	Refresh: boolean,
+	Refresh: (() -> ())?,
 }
 
 export type PaginationManager = {
 	Helper: any,
-	Window: Window,
 
 	GetInfo: (any) -> any,
 	SetOption: (any, PaginationDataKey, any) -> (),
@@ -77,7 +73,6 @@ export type PaginationManager = {
 	SetPage: (any, number) -> (),
 	Update: (any, number?, number?) -> (),
 	GetVisualInfo: (any, number?) -> { any },
-	CreateRefreshCallback: (any) -> () -> (),
 	BindPagination: (any, PaginationBinding) -> (),
 }
 

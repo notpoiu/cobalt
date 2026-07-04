@@ -8,15 +8,20 @@ local CodeGen = require("@src/Utils/CodeGen/Generator")
 local InstanceSerializer = require("@src/Utils/CodeGen/Serializer/Instance")
 local Ratelimiter = require("@src/Utils/Ratelimiter")
 
+local MaxArgumentPreviewLength = 500
+local PreviewCacheByCallInfo = setmetatable({}, { __mode = "k" })
+
 --// UI \\--
 return function(props: {
 	MainFrame: GuiObject,
 	Window: Types.Window,
+	LogsPage: Types.LogsPage,
 	ContextMenu: any,
 	PaginationManager: Types.PaginationManager,
 	GetCurrentTab: () -> Types.LogDirectionTab?,
 })
 	local Window = props.Window
+	local LogsPage = props.LogsPage
 	local ContextMenu = props.ContextMenu
 	local PaginationManager = props.PaginationManager
 
@@ -110,6 +115,16 @@ return function(props: {
 		end
 
 		return table.find(Log.GameCalls, CallIndex)
+	end
+
+	local function GetPreviewCache(CallInfo)
+		local Cache = PreviewCacheByCallInfo[CallInfo]
+		if not Cache then
+			Cache = {}
+			PreviewCacheByCallInfo[CallInfo] = Cache
+		end
+
+		return Cache
 	end
 
 	local function CopyToClipboard(Text: string, SuccessMessage: string, ErrorMessage: string)
@@ -250,7 +265,12 @@ return function(props: {
 
 	local function ClearCallFrameContent(CallFrame)
 		for _, Child in CallFrame:GetChildren() do
-			if Child:IsA("UIListLayout") or Child:IsA("UIPadding") or Child:IsA("UICorner") or Child:IsA("UIStroke") then
+			if
+				Child:IsA("UIListLayout")
+				or Child:IsA("UIPadding")
+				or Child:IsA("UICorner")
+				or Child:IsA("UIStroke")
+			then
 				continue
 			end
 
@@ -348,6 +368,11 @@ return function(props: {
 	end
 
 	function Calls:CreateCallFrame(CallInfo)
+		local RenderGeneration = CallInfo.RenderGeneration
+		if RenderGeneration and RenderGeneration ~= self.CurrentCallFrameRenderGeneration then
+			return
+		end
+
 		if not IsShowingExecutorLogs() and not CallInfo.Origin then
 			return
 		end
@@ -355,6 +380,7 @@ return function(props: {
 		local IsBlockedCall = CallInfo.Blocked == true
 		local CallFrame = self:AcquireCallFrame()
 		local Data = self.CallFrameData[CallFrame]
+
 		Data.CallInfo = CallInfo
 		Data.IsBlockedCall = IsBlockedCall
 
@@ -362,11 +388,21 @@ return function(props: {
 		CallFrame.LayoutOrder = CallInfo.Order
 		Data.HighlightStroke.Color = if IsBlockedCall then Color3.fromRGB(222, 82, 82) else Color3.fromRGB(75, 75, 75)
 		Data.HighlightStroke.Transparency = if IsBlockedCall then 0.5 else 1
-		CallFrame.Parent = LogsList
 
-		local InitialDataView = if CallInfo.Type == "Incoming" and CallInfo.InvokeResult then "InvokeResult" else "Arguments"
+		local InitialDataView = if CallInfo.Type == "Incoming" and CallInfo.InvokeResult
+			then "InvokeResult"
+			else "Arguments"
 		local CallInfoValues = CallInfo[InitialDataView] or {}
 		local CallInfoValueCount = wax.shared.GetTableLength(CallInfoValues)
+
+		local function ReleaseIfStale()
+			if RenderGeneration and RenderGeneration ~= self.CurrentCallFrameRenderGeneration then
+				self:ReleaseCallFrame(CallFrame)
+				return true
+			end
+
+			return false
+		end
 
 		local ArgumentsFrame = Interface.New("Frame", {
 			AutomaticSize = Enum.AutomaticSize.Y,
@@ -391,11 +427,23 @@ return function(props: {
 		})
 		do
 			for Index = 1, CallInfoValueCount do
-				if Index % 25 == 0 then
-					task.wait()
+				if ReleaseIfStale() then
+					return
 				end
 
-				ArgumentList.CreateHolder(Index, CallInfoValues[Index], ArgumentsFrame, IsBlockedCall)
+				if Index % 5 == 0 then
+					task.wait()
+					if ReleaseIfStale() then
+						return
+					end
+				end
+
+				ArgumentList.CreateHolder(Index, CallInfoValues[Index], ArgumentsFrame, {
+					IsBlockedCall = IsBlockedCall,
+					IsPreview = true,
+					MaxPreviewLength = MaxArgumentPreviewLength,
+					PreviewCache = CallInfo.PreviewCache,
+				})
 			end
 		end
 
@@ -443,16 +491,26 @@ return function(props: {
 			Parent = CallFrame,
 		})
 
+		if ReleaseIfStale() then
+			return
+		end
+
+		CallFrame.Parent = LogsList
 		return CallFrame
+	end
+
+	local function IsCallFrameJobCurrent(Data): boolean
+		return not Data.RenderGeneration or Data.RenderGeneration == Calls.CurrentCallFrameRenderGeneration
 	end
 
 	local CreateCallFrameLimiter = Ratelimiter.new({
 		Burst = {
 			Time = 0.1,
-			Max = 5,
+			Max = 2,
 		},
+		ShouldProcess = IsCallFrameJobCurrent,
 		MainCallback = function(Data)
-			if Data.RenderGeneration and Data.RenderGeneration ~= Calls.CurrentCallFrameRenderGeneration then
+			if not IsCallFrameJobCurrent(Data) then
 				return
 			end
 
@@ -485,6 +543,7 @@ return function(props: {
 				Type = Log.Type,
 				Order = VisibleIndex,
 				RenderGeneration = RenderGeneration,
+				PreviewCache = GetPreviewCache(Call),
 			}, {
 				__index = Call,
 			})
@@ -526,7 +585,7 @@ return function(props: {
 			end
 
 			local Page = tonumber(Ellipsis.Ellipsis.Text)
-			local CurrentLog = Window.State.CurrentLog
+			local CurrentLog = LogsPage.State.CurrentLog
 			if not (Page and CurrentLog and math.floor(Page) == Page and math.abs(Page) == Page and Page ~= 0) then
 				wax.shared.Sonner.error("Invalid page number provided!")
 				Ellipsis.Ellipsis.Text = ""
@@ -535,7 +594,7 @@ return function(props: {
 
 			local Success = pcall(function()
 				PaginationManager:SetPage(Page)
-				Window.State.SelectedPageByLog[CurrentLog] = Page
+				LogsPage.State.SelectedPageByLog[CurrentLog] = Page
 				self:ShowLog(CurrentLog)
 			end)
 
@@ -579,14 +638,14 @@ return function(props: {
 		end
 
 		ButtonData.Button.MouseButton1Click:Connect(function()
-			local CurrentLog = Window.State.CurrentLog
+			local CurrentLog = LogsPage.State.CurrentLog
 			local Page = tonumber(ButtonData.Button.Text)
 			if not (CurrentLog and Page) then
 				return
 			end
 
 			PaginationManager:SetPage(Page)
-			Window.State.SelectedPageByLog[CurrentLog] = Page
+			LogsPage.State.SelectedPageByLog[CurrentLog] = Page
 			self:ShowLog(CurrentLog)
 		end)
 
@@ -643,7 +702,7 @@ return function(props: {
 			if Button then
 				Button:SetVisible(true)
 				Button:SetText(tostring(Info))
-				Button:SetActive(Window.State.SelectedPageByLog[Log] == Info)
+				Button:SetActive(LogsPage.State.SelectedPageByLog[Log] == Info)
 			end
 		end
 	end
@@ -654,7 +713,7 @@ return function(props: {
 			return
 		end
 
-		local CurrentLog = Window.State.CurrentLog
+		local CurrentLog = LogsPage.State.CurrentLog
 		if CurrentLog ~= Log then
 			if CurrentLog and CurrentLog.Button then
 				wax.shared.TweenService
@@ -664,7 +723,7 @@ return function(props: {
 					:Play()
 			end
 
-			Window.State.CurrentLog = Log
+			LogsPage.State.CurrentLog = Log
 			if Log.Button then
 				wax.shared.TweenService
 					:Create(Log.Button.Instance, Constants.DefaultTweenInfo, {
@@ -675,8 +734,8 @@ return function(props: {
 		end
 
 		local VisibleCount = GetVisibleCallCount(Log)
-		local Page = Window.State.SelectedPageByLog[Log] or 1
-		Window.State.SelectedPageByLog[Log] = Page
+		local Page = LogsPage.State.SelectedPageByLog[Log] or 1
+		LogsPage.State.SelectedPageByLog[Log] = Page
 
 		PaginationManager:Update(VisibleCount)
 		local PageSet = pcall(function()
@@ -684,7 +743,7 @@ return function(props: {
 		end)
 		if not PageSet then
 			Page = 1
-			Window.State.SelectedPageByLog[Log] = Page
+			LogsPage.State.SelectedPageByLog[Log] = Page
 			PaginationManager:SetPage(Page)
 		end
 
@@ -694,7 +753,7 @@ return function(props: {
 	end
 
 	function Calls:HandleCallAdded(Log, CallIndex: number)
-		if Window.State.CurrentLog ~= Log then
+		if LogsPage.State.CurrentLog ~= Log then
 			return
 		end
 
@@ -703,8 +762,8 @@ return function(props: {
 			return
 		end
 
-		local Page = Window.State.SelectedPageByLog[Log] or 1
-		Window.State.SelectedPageByLog[Log] = Page
+		local Page = LogsPage.State.SelectedPageByLog[Log] or 1
+		LogsPage.State.SelectedPageByLog[Log] = Page
 		PaginationManager:Update(GetVisibleCallCount(Log))
 
 		local Start, End = PaginationManager:GetIndexRanges(Page)
@@ -722,6 +781,8 @@ return function(props: {
 			Instance = Log.Instance,
 			Type = Log.Type,
 			Order = VisibleIndex,
+			RenderGeneration = self.CurrentCallFrameRenderGeneration,
+			PreviewCache = GetPreviewCache(Call),
 		}, {
 			__index = Call,
 		})

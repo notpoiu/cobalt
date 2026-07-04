@@ -22,29 +22,29 @@ return function(props: {
 	ModalController: ModalController.Modal,
 	ContextMenu: ContextMenu.ContextMenu,
 	GetDPIScale: (() -> number)?,
-	Window: Types.Window,
+	LogsPage: Types.LogsPage,
 })
 	--// Props \\--
 	local ModalController = props.ModalController
 	local ContextMenu = props.ContextMenu
-	local Window = props.Window
+	local LogsPage = props.LogsPage
 
 	--// Setup \\--
-	local Modal = SetupModal{
+	local Modal = SetupModal({
 		ModalController = ModalController,
 		ContextMenu = ContextMenu,
 		GetDPIScale = props.GetDPIScale,
-	}
+	})
 
-	Modal.Footer.BuiltInButtons = CreateDefaultFooterButtons{
+	Modal.Footer.BuiltInButtons = CreateDefaultFooterButtons({
 		Modal = Modal,
 		ModalController = ModalController,
-		Window = Window,
-	}
+		LogsPage = LogsPage,
+	})
 
-    --// Tabs \\--
+	--// Tabs \\--
 
-    --// Arguments \\--
+	--// Arguments \\--
 	local ArgumentsInfoUI, ArgumentsScrollingFrame = Modal.Tabs:CreateTabContent()
 	local ArgumentsInfoFrame
 	do
@@ -66,7 +66,7 @@ return function(props: {
 		})
 	end
 
-    --// Original Args (Incoming RemoteFunction) \\--
+	--// Original Args (Incoming RemoteFunction) \\--
 	local OriginalArgsInfoUI, OriginalArgsScrollingFrame = Modal.Tabs:CreateTabContent()
 	local OriginalArgsInfoFrame
 	do
@@ -89,7 +89,7 @@ return function(props: {
 		})
 	end
 
-    --// Code \\--
+	--// Code \\--
 	local CodeInfoUI, CodeScrollingFrame = Modal.Tabs:CreateTabContent()
 	local CodeDisplay
 	do
@@ -100,7 +100,7 @@ return function(props: {
 		CodeDisplay = CodeView.new(CodeScrollingFrame)
 	end
 
-    --// Function Info \\--
+	--// Function Info \\--
 	local FunctionInfoUI, FunctionScrollingFrame = Modal.Tabs:CreateTabContent()
 	local FunctionInfoDisplay
 	do
@@ -109,9 +109,9 @@ return function(props: {
 		FunctionInfoDisplay = FunctionInfoView.new(FunctionScrollingFrame)
 	end
 
-    --// Functions \\--
+	--// Functions \\--
 	function Modal:Open(CallInfo)
-        --// Plugin Hooks \\--
+		--// Plugin Hooks \\--
 		if wax.shared.CobaltPluginManager and wax.shared.CobaltPluginManager.Initialized then
 			for _, Interceptor in wax.shared.CobaltPluginManager.Registry.UIHooks.RemoteInfo.Intercept do
 				local Success, Result = pcall(Interceptor, CallInfo)
@@ -124,25 +124,23 @@ return function(props: {
 
 		local Event = CallInfo.Instance
 
-        --// Set Title \\--
-        Modal.Title.Text = if CallInfo.Blocked then `{Event.Name} (Blocked)` else Event.Name
-        Modal.Icon.Image = Constants.InstanceClassImages[Event.ClassName]
+		--// Set Title \\--
+		Modal.Title.Text = if CallInfo.Blocked then `{Event.Name} (Blocked)` else Event.Name
+		Modal.Icon.Image = Constants.InstanceClassImages[Event.ClassName]
 
-        --// Set Current Info \\--
+		--// Set Current Info \\--
 		Modal.CurrentInfo = CallInfo
 
-        --// Set Code Text \\--
+		--// Set Code Text \\--
 		CodeDisplay:SetText(CodeGen:BuildCallCode(CallInfo))
 
-        --// Set Function Info Text \\--
+		--// Set Function Info Text \\--
 		FunctionInfoDisplay:SetCallInfo(CallInfo)
 
-        --// Populate Arguments & Return Data \\--
+		--// Populate Arguments & Return Data \\--
 		local InitialDataView = (
-            if CallInfo.Type == "Incoming" and CallInfo.InvokeResult
-			    then "InvokeResult"
-			    else "Arguments"
-        )
+			if CallInfo.Type == "Incoming" and CallInfo.InvokeResult then "InvokeResult" else "Arguments"
+		)
 
 		local FirstTab = Modal.Tabs[Modal.Tabs[1]]
 
@@ -150,31 +148,30 @@ return function(props: {
 			FirstTab.TextLabel.Text = if InitialDataView == "InvokeResult" then "Return Data" else "Arguments"
 		end
 
-        --// Cleanup \\--
+		--// Cleanup \\--
 		ArgumentList.Clear(ArgumentsInfoFrame)
 		ArgumentList.Clear(OriginalArgsInfoFrame)
 
-        --// Populate Arguments \\--
+		--// Populate Arguments \\--
 		ArgumentList.Populate(ArgumentsInfoFrame, CallInfo[InitialDataView])
 
 		local ShouldShowOriginalArgs = (
-            InitialDataView == "InvokeResult" and
-            wax.shared.GetTableLength(CallInfo.Arguments) > 0
-        )
+			InitialDataView == "InvokeResult" and wax.shared.GetTableLength(CallInfo.Arguments) > 0
+		)
 
 		Modal.Tabs:SetMounted("Args", ShouldShowOriginalArgs)
 		if ShouldShowOriginalArgs then
 			ArgumentList.Populate(OriginalArgsInfoFrame, CallInfo.Arguments)
 		end
 
-        --// Plugin Hooks \\--
+		--// Plugin Hooks \\--
 		if wax.shared.CobaltPluginManager and wax.shared.CobaltPluginManager.Initialized then
 			for _, Plugin in wax.shared.CobaltPluginManager.Registry.UIHooks.RemoteInfo.Open do
 				task.spawn(Plugin, CallInfo)
 			end
 		end
 
-        --// Select Arguments Tab \\--
+		--// Select Arguments Tab \\--
 		Modal.Tabs:Select("Arguments")
 
 		if ContextMenu.CurrentContext then
