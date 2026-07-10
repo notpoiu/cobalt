@@ -3295,6 +3295,24 @@ local TopBar = Interface.New("Frame", {
 })
 Interface.HideCorner(TopBar, UDim2.fromScale(1, 0.5), Vector2.yAxis)
 
+-- Executor support status dot
+local EssentialFailed = #wax.shared.ExecutorSupport.FailedChecks.Essential
+local NonEssentialFailed = #wax.shared.ExecutorSupport.FailedChecks.NonEssential
+local StatusColor = EssentialFailed > 0 and Color3.fromRGB(220, 50, 50) or NonEssentialFailed > 0 and Color3.fromRGB(230, 190, 30) or Color3.fromRGB(50, 200, 80)
+
+Interface.New("Frame", {
+	AnchorPoint = Vector2.new(0, 0.5),
+	BackgroundColor3 = StatusColor,
+	Position = UDim2.new(0, 34, 0.5, 0),
+	Size = UDim2.fromOffset(8, 8),
+	ZIndex = 3,
+	Parent = TopBar,
+
+	["UICorner"] = {
+		CornerRadius = UDim.new(1, 0),
+	},
+})
+
 -- Topbar Buttons
 local TopButtons = Interface.New("Frame", {
 	BackgroundTransparency = 1,
