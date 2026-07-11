@@ -1,6 +1,13 @@
 local FileHelper = {}
 FileHelper.__index = FileHelper
 
+local function IsFilesystemAvailable(): boolean
+    local ExecutorSupport = wax.shared.ExecutorSupport
+    return ExecutorSupport ~= nil
+        and ExecutorSupport.filesystem ~= nil
+        and ExecutorSupport.filesystem.IsWorking
+end
+
 --[[
     Creates a new FileHelper instance.
 
@@ -22,6 +29,8 @@ end
     @return: None.
 ]]
 function FileHelper:EnsureDirectory()
+    if not IsFilesystemAvailable() then return end
+
     local paths = {}
     local parts = self.BasePath:split("/")
 
@@ -97,6 +106,8 @@ end
     @return: None.
 ]]
 function FileHelper:EnsureFile(relativePath: string, default: string)
+    if not IsFilesystemAvailable() then return end
+
     relativePath = self.NormalizePath(relativePath or "")
     
     if not isfile(self:GetPath(relativePath)) then
@@ -110,6 +121,8 @@ end
     @return: True if the file or directory exists, false otherwise.
 ]]
 function FileHelper:DoesExist(relativePath: string)
+    if not IsFilesystemAvailable() then return false end
+
     relativePath = self.NormalizePath(relativePath or "")
     local path = self:GetPath(relativePath)
 
@@ -125,6 +138,8 @@ end
     @return: The contents of the file.
 ]]
 function FileHelper:ReadFile(relativePath: string)
+    if not IsFilesystemAvailable() then return nil end
+
     relativePath = self.NormalizePath(relativePath or "")
     return readfile(self:GetPath(relativePath))
 end
@@ -135,6 +150,8 @@ end
     @return: The contents of the file.
 ]]
 function FileHelper:ReadRawFile(path: string)
+    if not IsFilesystemAvailable() then return nil end
+
     return readfile(path)
 end
 
@@ -145,6 +162,8 @@ end
     @return: None.
 ]]
 function FileHelper:WriteFile(relativePath: string, data: string)
+    if not IsFilesystemAvailable() then return end
+
     relativePath = self.NormalizePath(relativePath or "")
     
     writefile(self:GetPath(relativePath), data)
@@ -157,6 +176,8 @@ end
     @return: None.
 ]]
 function FileHelper:AppendFile(relativePath: string, data: string)
+    if not IsFilesystemAvailable() then return end
+
     relativePath = self.NormalizePath(relativePath or "")
     
     appendfile(self:GetPath(relativePath), data)
@@ -168,6 +189,8 @@ end
     @return: None.
 ]]
 function FileHelper:DeleteFile(relativePath: string)
+    if not IsFilesystemAvailable() then return end
+
     relativePath = self.NormalizePath(relativePath or "")
     
     if isfile(self:GetPath(relativePath)) then
@@ -181,6 +204,8 @@ end
     @return: None.
 ]]
 function FileHelper:DeleteDirectory(relativePath: string)
+    if not IsFilesystemAvailable() then return end
+
     relativePath = self.NormalizePath(relativePath or "")
     
     if isfolder(self:GetPath(relativePath)) then
@@ -194,6 +219,8 @@ end
     @return: The files in the directory.
 ]]
 function FileHelper:ListFiles(relativePath: string?)
+    if not IsFilesystemAvailable() then return {} end
+
     relativePath = self.NormalizePath(relativePath or "")
     
     local files = {}

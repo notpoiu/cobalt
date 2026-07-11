@@ -19,14 +19,14 @@ for _, Service in pairs({
 end
 
 wax.shared.CobaltVerificationToken = wax.shared.HttpService:GenerateGUID()
-wax.shared.SaveManager = require(script.Utils.SaveManager)
-wax.shared.Settings = {}
-
 wax.shared.Hooks = {}
 
 -- Executor Support
 wax.shared.ExecutorName = identifyexecutor()
 wax.shared.ExecutorSupport = require(script.ExecutorSupport)
+
+wax.shared.SaveManager = require(script.Utils.SaveManager)
+wax.shared.Settings = {}
 
 -- Utils
 require(script.Utils.Connect)

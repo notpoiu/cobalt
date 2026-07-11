@@ -91,6 +91,53 @@ end
 
 local TEST_EXISTENCE_ONLY = { ExistenceOnly = true }
 
+-- Filesystem Library
+test("FileSystem", function()
+	for Name, Function in {
+		isfile = isfile,
+		isfolder = isfolder,
+		makefolder = makefolder,
+		writefile = writefile,
+		appendfile = appendfile,
+		readfile = readfile,
+		delfile = delfile,
+		delfolder = delfolder,
+		listfiles = listfiles,
+	} do
+		assert(typeof(Function) == "function", `{Name} is not a function`)
+	end
+
+	local TestDirectory = `Cobalt-Filesystem-Test-{wax.shared.HttpService:GenerateGUID(false)}`
+	local TestFile = `{TestDirectory}/test.txt`
+	local Success, Error = pcall(function()
+		makefolder(TestDirectory)
+		assert(isfolder(TestDirectory), "makefolder did not create a directory")
+
+		writefile(TestFile, "Cobalt")
+		assert(isfile(TestFile), "writefile did not create a file")
+		assert(readfile(TestFile) == "Cobalt", "readfile did not return the written contents")
+
+		appendfile(TestFile, " filesystem test")
+		assert(readfile(TestFile) == "Cobalt filesystem test", "appendfile did not append contents")
+		assert(#listfiles(TestDirectory) > 0, "listfiles did not return the test file")
+	end)
+
+	pcall(delfile, TestFile)
+	pcall(delfolder, TestDirectory)
+	assert(Success, Error)
+end, { Essential = false })
+
+local function SkipOptionalChecks(): boolean
+	if not ExecutorSupport.filesystem.IsWorking or not isfile("Cobalt/Settings.json") then
+		return false
+	end
+
+	local Success, Settings = pcall(function()
+		return wax.shared.HttpService:JSONDecode(readfile("Cobalt/Settings.json"))
+	end)
+	return Success and Settings.DisableNonEssentialChecks == true
+end
+
 -- FFlag Library
 test("getfflag", getfflag, TEST_EXISTENCE_ONLY)
 test("setfflag", setfflag, TEST_EXISTENCE_ONLY)
@@ -262,7 +309,7 @@ test("oth", function()
 	assert(Success, "oth.unhook failed: " .. tostring(Error))
 	VIM:Destroy()
 
-	if not wax.shared.SaveManager:GetState("DisableNonEssentialChecks", false) then
+	if not SkipOptionalChecks() then
 		assert(typeof(getrawmetatable) == "function", "getrawmetatable is required to validate oth __namecall returns")
 		assert(
 			typeof(getnamecallmethod) == "function",
@@ -344,7 +391,7 @@ test("raknet", function()
 			raknet.remove_send_hook(hook)
 		end)
 	
-		assert(Success, "raknet failed to hook: " .. tostring(Error))
+		assert(Success, "raknet failed to hook (not enabled?): " .. tostring(Error))
 	end
 end, { Essential = false })
 
