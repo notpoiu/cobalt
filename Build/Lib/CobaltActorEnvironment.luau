@@ -3,12 +3,13 @@ local luau = require("@lune/luau")
 
 local CobaltActorEnvironment = {}
 
-local TemplatePath = "Spy/Actors/Environment"
-local TemplateFilePath = "Src/Spy/Actors/Environment.txt"
+local TemplatePath = "Spy/Hooks/Luau/Actors/Environment"
+local TemplateFilePath = "Src/Spy/Hooks/Luau/Actors/Environment.txt"
 local ManagedIncludeAsPattern = '^([ \t]*)%-%-%s*#region%s+@include%s+"([^"]+)"%s+as%s+"([^"]+)"%s*$'
 local ManagedIncludePattern = '^([ \t]*)%-%-%s*#region%s+@include%s+"([^"]+)"%s*$'
 local ManagedRegionIncludePattern = "^([ \t]*)%-%-%s*#region%s+@include%s+region%s+([%w_%-%.]+)%s*$"
 local ManagedRegionEndPattern = "^%s*%-%-%s*#endregion%s*$"
+local ManagedRegionStartPattern = "^%s*%-%-%s*#region%s+"
 local IncludeAsPattern = '^([ \t]*)%-%-%s*@include%s+"([^"]+)"%s+as%s+"([^"]+)"%s*$'
 local IncludePattern = '^([ \t]*)%-%-%s*@include%s+"([^"]+)"%s*$'
 local RegionIncludePattern = "^([ \t]*)%-%-%s*@include%s+region%s+([%w_%-%.]+)%s*$"
@@ -188,19 +189,22 @@ local function RewriteReturnAs(Source: string, IncludePath: string, SourcePath: 
 	local Lines = SplitLines(Source)
 
 	local ReturnLineIndex = nil
+	local ReturnIndent = nil
+	local ReturnValue = nil
+
+	-- Find the last `return <value>` (supports multi-line returns like `return function() ... end`).
+	-- Bare `return` / inline `then return end` are skipped.
 	for Index = #Lines, 1, -1 do
-		if string.match(Lines[Index], "%S") then
+		local Indent, Value = string.match(Lines[Index], "^([ \t]*)return%s+(.+)%s*$")
+		if Value then
 			ReturnLineIndex = Index
+			ReturnIndent = Indent
+			ReturnValue = Value
 			break
 		end
 	end
 
 	if not ReturnLineIndex then
-		error(`Actor environment include "{IncludePath}" from "{SourcePath}" has no return to assign to "{Target}"`)
-	end
-
-	local ReturnIndent, ReturnValue = string.match(Lines[ReturnLineIndex], "^([ \t]*)return%s+(.+)%s*$")
-	if not ReturnValue then
 		error(`Actor environment include "{IncludePath}" from "{SourcePath}" does not end with a return for "{Target}"`)
 	end
 
@@ -258,9 +262,18 @@ local function ExpandRegionInclude(
 end
 
 local function FindManagedRegionEnd(Lines: { string }, StartIndex: number, SourcePath: string): number
+	-- Nested `#region` / `#endregion` pairs (e.g. inside a stale include snapshot)
+	-- must be skipped so we close the managed include that started at StartIndex.
+	local Depth = 1
 	for PossibleEndIndex = StartIndex + 1, #Lines do
-		if string.match(Lines[PossibleEndIndex], ManagedRegionEndPattern) then
-			return PossibleEndIndex
+		local Line = Lines[PossibleEndIndex]
+		if string.match(Line, ManagedRegionStartPattern) then
+			Depth += 1
+		elseif string.match(Line, ManagedRegionEndPattern) then
+			Depth -= 1
+			if Depth == 0 then
+				return PossibleEndIndex
+			end
 		end
 	end
 

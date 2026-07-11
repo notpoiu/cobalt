@@ -1,4 +1,5 @@
 local Metadata = {}
+local Validate = require("@src/Utils/Validation")
 
 Metadata.TemplatePluginData = {
 	Name = "Untitled Plugin",
@@ -8,17 +9,8 @@ Metadata.TemplatePluginData = {
 	Game = "*",
 }
 
-function Metadata.Validate(Data, Template)
-	local NewData = {}
-	for Key, Value in Template do
-		if Data[Key] == nil or typeof(Data[Key]) ~= typeof(Value) then
-			NewData[Key] = Value
-		else
-			NewData[Key] = Data[Key]
-		end
-	end
-
-	return NewData
+function Metadata.Validate(PluginData)
+	return Validate(PluginData, Metadata.TemplatePluginData)
 end
 
 function Metadata.IsSupportedInCurrentGame(PluginData): boolean

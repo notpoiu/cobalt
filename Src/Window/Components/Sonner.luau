@@ -21,13 +21,18 @@ local Icons = require("@src/Utils/UI/Assets/Icons")
 local Interface = require("@src/Utils/UI/Interface")
 local Animations = require("@src/Window/Utils/Animations")
 
+local function GetHiddenPosition(Notification: GuiObject): UDim2
+	return UDim2.new(0.5, 0, 1, math.max(50, Notification.AbsoluteSize.Y + 2))
+end
+
 local function InternalCreateNotificationObject(zindex, image, text)
 	local NotificationTemplate = Interface.New("CanvasGroup", {
 		BorderSizePixel = 0,
 		BackgroundColor3 = Color3.fromRGB(0, 0, 0),
 		AnchorPoint = Vector2.new(0.5, 1),
 		Size = UDim2.new(0, 250, 0, 50),
-		Position = UDim2.new(0.5, 0, 1, 50),
+		AutomaticSize = Enum.AutomaticSize.Y,
+		Position = UDim2.new(0.5, 0, 1, 500),
 		BorderColor3 = Color3.fromRGB(0, 0, 0),
 		ZIndex = zindex,
 
@@ -40,6 +45,13 @@ local function InternalCreateNotificationObject(zindex, image, text)
 		},
 
 		["UIScale"] = {},
+
+		["UIPadding"] = {
+			PaddingLeft = UDim.new(0, 0),
+			PaddingRight = UDim.new(0, 0),
+			PaddingTop = UDim.new(0, 10),
+			PaddingBottom = UDim.new(0, 10),
+		},
 	})
 
 	local ImageLabel = Interface.New("ImageLabel", {
@@ -72,13 +84,19 @@ local function InternalCreateNotificationObject(zindex, image, text)
 	local Frame = Interface.New("Frame", {
 		BorderSizePixel = 0,
 		BackgroundColor3 = Color3.fromRGB(255, 255, 255),
-		Size = UDim2.new(1, -50, 1, 0),
+		Size = UDim2.new(1, -50, 0, 0),
+		AutomaticSize = Enum.AutomaticSize.Y,
 		AnchorPoint = Vector2.new(1, 0),
 		Position = UDim2.new(1, -10, 0, 0),
 		BorderColor3 = Color3.fromRGB(0, 0, 0),
 		BackgroundTransparency = 1,
 		ZIndex = zindex + 1,
 		Parent = NotificationTemplate,
+
+		["UIListLayout"] = {
+			VerticalAlignment = Enum.VerticalAlignment.Center,
+			HorizontalAlignment = Enum.HorizontalAlignment.Left,
+		},
 	})
 
 	Interface.New("TextLabel", {
@@ -88,7 +106,8 @@ local function InternalCreateNotificationObject(zindex, image, text)
 		BackgroundColor3 = Color3.fromRGB(255, 255, 255),
 		TextColor3 = Color3.fromRGB(255, 255, 255),
 		BackgroundTransparency = 1,
-		Size = UDim2.new(0, 200, 0, 50),
+		Size = UDim2.new(0, 200, 0, 0),
+		AutomaticSize = Enum.AutomaticSize.Y,
 		BorderColor3 = Color3.fromRGB(0, 0, 0),
 		Text = text,
 		ZIndex = zindex + 1,
@@ -109,8 +128,9 @@ local function InternalToast(image, text, internalTime, removeCallback)
 
 	local Notif = InternalCreateNotificationObject(500, image, text)
 
-	Notif.Position = UDim2.new(0.5, 0, 1, 30)
 	Notif.Parent = Sonner.Wrapper
+	wax.shared.RunService.Heartbeat:Wait()
+	Notif.Position = GetHiddenPosition(Notif)
 
 	table.insert(Sonner.Queue, Notif)
 
@@ -169,7 +189,7 @@ local function InternalToast(image, text, internalTime, removeCallback)
 			Animations.FadeOut(Notif, 0.35)
 			wax.shared.TweenService
 				:Create(Notif, Sonner.TweenInfo, {
-					Position = UDim2.new(0.5, 0, 1, 50),
+					Position = GetHiddenPosition(Notif),
 				})
 				:Play()
 			task.wait(0.5)
@@ -306,7 +326,7 @@ function Sonner.promise(func, options)
 				Animations.FadeOut(notif, 0.35)
 				wax.shared.TweenService
 					:Create(notif, Sonner.TweenInfo, {
-						Position = UDim2.new(0.5, 0, 1, 50),
+						Position = GetHiddenPosition(notif),
 					})
 					:Play()
 

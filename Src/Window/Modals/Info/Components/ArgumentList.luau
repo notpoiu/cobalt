@@ -11,7 +11,9 @@ local DefaultPreviewMaxLength = 500
 
 type HolderOptions = {
 	IsBlockedCall: boolean?,
+	IsError: boolean?,
 	IsPreview: boolean?,
+	Label: string?,
 	MaxPreviewLength: number?,
 	PreviewCache: { [number]: string }?,
 }
@@ -50,12 +52,15 @@ function ArgumentList.CreateHolder(Index: number, Value: any, Parent: GuiObject,
 
 	--// Variables \\--
 	local IsBlockedCall = Options.IsBlockedCall
+	local IsError = Options.IsError == true
 	local PreviewCache = Options.PreviewCache
 	local IsPreview = Options.IsPreview == true
 
 	--// UI \\--
 	local Holder = Interface.New("Frame", {
-		BackgroundColor3 = if IsBlockedCall then Color3.fromRGB(58, 24, 24) else Color3.fromRGB(25, 25, 25),
+		BackgroundColor3 = if IsBlockedCall
+			then Color3.fromRGB(58, 24, 24)
+			else Color3.fromRGB(25, 25, 25),
 		LayoutOrder = Index,
 		Size = UDim2.new(1, 0, 0, 27),
 
@@ -73,10 +78,10 @@ function ArgumentList.CreateHolder(Index: number, Value: any, Parent: GuiObject,
 		Parent = Parent,
 	})
 
-	Interface.New("TextLabel", {
+	local IndexLabel = Interface.New("TextLabel", {
 		Size = UDim2.fromScale(1, 1),
-		Text = Index,
-		TextColor3 = if IsBlockedCall then Color3.fromRGB(255, 190, 190) else Color3.new(1, 1, 1),
+		Text = Options.Label or Index,
+		TextColor3 = if IsBlockedCall or IsError then Color3.fromRGB(255, 190, 190) else Color3.new(1, 1, 1),
 		TextSize = 15,
 		TextTransparency = 0.5,
 		TextXAlignment = Enum.TextXAlignment.Left,
@@ -84,11 +89,12 @@ function ArgumentList.CreateHolder(Index: number, Value: any, Parent: GuiObject,
 
 		Parent = Holder,
 	})
+	local IndexX = TextBounds.GetCachedWidth(IndexLabel.Text, IndexLabel.FontFace, IndexLabel.TextSize)
 
 	local TypeLabel = Interface.New("TextLabel", {
 		Size = UDim2.fromScale(1, 1),
 		Text = typeof(Value),
-		TextColor3 = if IsBlockedCall then Color3.fromRGB(255, 190, 190) else Color3.new(1, 1, 1),
+		TextColor3 = if IsBlockedCall or IsError then Color3.fromRGB(255, 190, 190) else Color3.new(1, 1, 1),
 		TextSize = 15,
 		TextTransparency = 0.5,
 		TextXAlignment = Enum.TextXAlignment.Right,
@@ -114,9 +120,9 @@ function ArgumentList.CreateHolder(Index: number, Value: any, Parent: GuiObject,
 	end
 
 	local TextLabel = Interface.New("TextLabel", {
-		Position = UDim2.fromOffset(18, 0),
-		Size = UDim2.new(1, -(TypeX + 22), 1, 0),
-		TextColor3 = if IsBlockedCall
+		Position = UDim2.fromOffset(IndexX + 6, 0),
+		Size = UDim2.new(1, -(IndexX + TypeX + 10), 1, 0),
+		TextColor3 = if IsBlockedCall or IsError
 			then Color3.fromRGB(255, 190, 190)
 			else Color3.fromHex(SyntaxHighlighter.GetArgumentColor(Value)),
 		Text = Text,

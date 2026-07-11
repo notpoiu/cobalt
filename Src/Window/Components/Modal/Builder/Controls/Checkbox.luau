@@ -10,6 +10,7 @@ return function(props: {
 	Options: {
 		Text: string,
 		Callback: ((boolean) -> ())?,
+		PreSetCallback: ((boolean) -> ())?,
 		Default: boolean?,
 	},
 })
@@ -22,11 +23,15 @@ return function(props: {
 		Idx = Idx,
 		Default = Options.Default or false,
 		Value = wax.shared.SaveManager:GetState(Idx, Options.Default or false),
+		Risky = Options.Risky or false,
 	}
+
+	local ToggleTextRiskyColor = Color3.fromRGB(255, 125, 0)
 
 	local CheckboxUI = Interface.New("TextButton", {
 		Text = Options.Text,
 		TextSize = 16,
+		TextColor3 = if Checkbox.Risky then ToggleTextRiskyColor else Color3.new(1, 1, 1),
 		BackgroundTransparency = 1,
 		Size = UDim2.new(1, 0, 0, 20),
 		TextXAlignment = Enum.TextXAlignment.Left,
@@ -96,6 +101,11 @@ return function(props: {
 	end
 
 	function Checkbox:SetValue(NewValue)
+		if Options.PreSetCallback then
+			local Result = Options.PreSetCallback(NewValue)
+			if Result == false then return end
+		end
+
 		SettingSync.Save(Idx, NewValue)
 
 		Checkbox.Value = NewValue

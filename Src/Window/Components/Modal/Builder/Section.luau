@@ -45,12 +45,20 @@ return function(props: {
 		return Interface.New("TextLabel", {
 			Text = Text,
 			TextSize = TextSize or 16,
-			Size = UDim2.fromScale(1, 0),
+			Size = UDim2.new(1, 0, 0, 20),
 			AutomaticSize = Enum.AutomaticSize.Y,
 			TextXAlignment = Enum.TextXAlignment.Left,
 			BackgroundTransparency = 1,
 			Parent = self.Parent,
 			TextWrapped = true,
+		})
+	end
+
+	function SectionBuilder:AddSpacer(Height: number?)
+		return Interface.New("Frame", {
+			BackgroundTransparency = 1,
+			Size = UDim2.new(1, 0, 0, Height or 0),
+			Parent = self.Parent,
 		})
 	end
 

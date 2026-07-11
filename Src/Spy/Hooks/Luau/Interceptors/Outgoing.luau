@@ -92,17 +92,16 @@ local function getcallingsource()
 end
 
 --[[
-	Gets the log for a specific instance and method.
+	Gets the log for a specific instance and direction.
 
 	@param Instance: The instance that was called.
 	@param Direction: The direction of the log (Outgoing, Incoming).
-	@param Method: The method that was called (e.g., "OnClientEvent").
-	@return Log: The log for the instance and method.
+	@return Log: The log for the instance and direction.
 ]]
-local function GetLog(Instance: Instance, Direction: "Outgoing" | "Incoming", Method: string)
+local function GetLog(Instance: Instance, Direction: "Outgoing" | "Incoming")
 	local Log = wax.shared.Logs[Direction][Instance]
 	if not Log then
-		Log = wax.shared.NewLog(Instance, Direction, Method, getcallingscript())
+		Log = wax.shared.NewLog(Instance, Direction, getcallingscript())
 	end
 
 	return Log
@@ -133,7 +132,7 @@ end
 	@param ... The arguments passed from the server to the client.
 ]]
 local function HandleLogging(TargetInstance: Instance, Method: string, OldFunction: (...any) -> ...any, ...)
-	local Log = GetLog(TargetInstance, "Outgoing", Method)
+	local Log = GetLog(TargetInstance, "Outgoing")
 	local Arguments = wax.shared.SafePack.Pack(select(2, ...))
 
 	local Info = {
@@ -168,7 +167,7 @@ local function HandleLogging(TargetInstance: Instance, Method: string, OldFuncti
 
 		if IsRemoteFunctionInvoke or IsBindableFunctionInvoke then
 			--// Handle Incoming Log \\--
-			Log = GetLog(TargetInstance, "Incoming", Method)
+			Log = GetLog(TargetInstance, "Incoming")
 
 			if Log.Blocked then
 				if wax.shared.SaveManager:GetState("LogBlockedRemotes", false) then

@@ -53,6 +53,7 @@ local function BuildTemplateScenario(CallInfo: Types.CallInfo, Data)
 		Class = CallInfo.Instance.ClassName,
 		Method = Method,
 		InvokeKind = CallInfo.InvokeKind,
+		Error = CallInfo.Error,
 		IsActor = CallInfo.IsActor,
 		Actor = CallInfo.Actor,
 	}

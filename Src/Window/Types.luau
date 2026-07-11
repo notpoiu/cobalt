@@ -11,7 +11,6 @@ export type LogButton = {
 export type Log = {
 	Instance: SupportedRemoteTypes,
 	Type: LogDirection,
-	Method: string?,
 	Index: number,
 	Calls: { any },
 	GameCalls: { number },
@@ -43,7 +42,60 @@ export type LogsPage = {
 	RefreshCurrentLog: () -> (),
 }
 
+export type DialogDismissBehavior = "Dismiss" | "Destroy"
+
+export type Dialog = {
+	DialogId: number,
+	DismissBehavior: DialogDismissBehavior,
+	IsOpen: boolean,
+	Destroyed: boolean,
+	Root: Frame,
+	Overlay: TextButton,
+	Container: CanvasGroup,
+	Scale: UIScale,
+	CloseButton: ImageButton,
+	Header: {
+		TitleLabel: TextLabel,
+		DescriptionLabel: TextLabel,
+		HeaderIcon: ImageLabel,
+	},
+	MainContent: Frame,
+	Footer: {
+		CreateButton: any,
+		UI: Frame,
+	},
+
+	Show: (Dialog) -> (),
+	Dismiss: (Dialog, DialogDismissBehavior?) -> Tween?,
+	Destroy: (Dialog) -> (),
+}
+
+export type DialogFooterAction = "Dismiss" | ((Dialog) -> ())
+
+export type DialogFooterButton = {
+	Type: ("Primary" | "Secondary")?,
+	Text: string?,
+	Icon: string?,
+	Action: DialogFooterAction?,
+}
+
+export type DialogProps = {
+	Title: string,
+	TitleColor: Color3?,
+	Description: string,
+	Icon: string?,
+	Footer: { DialogFooterButton },
+
+	AutoShow: boolean?,
+	DismissBehavior: DialogDismissBehavior?,
+}
+
+export type DialogClass = {
+	new: (DialogProps) -> Dialog,
+}
+
 export type Window = {
+	Dialog: DialogClass,
 	Logs: LogsPage?,
 	Modals: { [string]: any },
 }

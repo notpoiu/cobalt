@@ -105,6 +105,11 @@ do
 	wax.shared.Sonner.init(NotificationWrapper)
 end
 
+--// Dialogs \\--
+Window.Dialog = require(script.Components.Dialog){
+	MainFrame = MainFrame,
+}
+
 --// Pagination \\--
 local PaginationFactory = require(script.Utils.Pagination)
 
@@ -157,6 +162,7 @@ Window.Modals.Settings = require(script.Modals.Settings)({
 	DPIHandler = DPIHandler,
 	PaginationManager = PaginationManager,
 	LogsPage = LogsPage,
+	Window = Window,
 })
 
 Window.Modals.Plugins = require(script.Modals.Plugins)({

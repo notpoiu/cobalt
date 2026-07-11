@@ -394,6 +394,7 @@ return function(props: {
 			else "Arguments"
 		local CallInfoValues = CallInfo[InitialDataView] or {}
 		local CallInfoValueCount = wax.shared.GetTableLength(CallInfoValues)
+		local HasError = CallInfo.Error ~= nil
 
 		local function ReleaseIfStale()
 			if RenderGeneration and RenderGeneration ~= self.CurrentCallFrameRenderGeneration then
@@ -408,7 +409,7 @@ return function(props: {
 			AutomaticSize = Enum.AutomaticSize.Y,
 			BackgroundColor3 = if IsBlockedCall then Color3.fromRGB(24, 13, 13) else Color3.fromRGB(15, 15, 15),
 			Size = UDim2.fromScale(1, 0),
-			Visible = CallInfoValueCount > 0,
+			Visible = CallInfoValueCount > 0 or HasError,
 
 			["UIListLayout"] = {
 				Padding = UDim.new(0, 6),
@@ -426,6 +427,15 @@ return function(props: {
 			Parent = CallFrame,
 		})
 		do
+			if HasError then
+				ArgumentList.CreateHolder(0, CallInfo.Error, ArgumentsFrame, {
+					IsError = true,
+					IsPreview = true,
+					Label = "Error",
+					MaxPreviewLength = MaxArgumentPreviewLength,
+				})
+			end
+
 			for Index = 1, CallInfoValueCount do
 				if ReleaseIfStale() then
 					return
@@ -448,21 +458,44 @@ return function(props: {
 		end
 
 		local OriginText = CallInfo.IsExecutor and wax.shared.ExecutorName
+			or CallInfo.IsRakNet and "RakNet"
 			or CallInfo.Origin and CallInfo.Origin.Name
 			or "Unknown"
+		local OriginIcon
+		if IsBlockedCall then
+			OriginIcon = Interface.NewIcon("ban", {
+				AnchorPoint = Vector2.yAxis,
+				ImageColor3 = Color3.fromRGB(255, 151, 151),
+				ImageTransparency = 0.5,
+				Position = UDim2.new(0, 2, 1, 0),
+				Size = UDim2.fromOffset(22, 22),
+				SizeConstraint = Enum.SizeConstraint.RelativeYY,
+			})
+		elseif CallInfo.IsRakNet then
+			OriginIcon = Interface.NewIcon("network", {
+				AnchorPoint = Vector2.yAxis,
+				ImageColor3 = Color3.new(1, 1, 1),
+				ImageTransparency = 0.5,
+				Position = UDim2.new(0, 2, 1, 0),
+				Size = UDim2.fromOffset(22, 22),
+				SizeConstraint = Enum.SizeConstraint.RelativeYY,
+			})
+		else
+			OriginIcon = Interface.NewIcon(CallInfo.IsExecutor and "terminal" or "gamepad-2", {
+				AnchorPoint = Vector2.yAxis,
+				ImageColor3 = Color3.new(1, 1, 1),
+				ImageTransparency = 0.5,
+				Position = UDim2.new(0, 2, 1, 0),
+				Size = UDim2.fromOffset(22, 22),
+				SizeConstraint = Enum.SizeConstraint.RelativeYY,
+			})
+		end
 
 		Interface.New("Frame", {
 			BackgroundTransparency = 1,
 			Size = UDim2.new(1, 0, 0, 22),
 
-			Interface.NewIcon(IsBlockedCall and "ban" or CallInfo.IsExecutor and "terminal" or "gamepad-2", {
-				AnchorPoint = Vector2.yAxis,
-				ImageColor3 = if IsBlockedCall then Color3.fromRGB(255, 151, 151) else Color3.new(1, 1, 1),
-				ImageTransparency = 0.5,
-				Position = UDim2.new(0, 2, 1, 0),
-				Size = UDim2.fromOffset(22, 22),
-				SizeConstraint = Enum.SizeConstraint.RelativeYY,
-			}),
+			OriginIcon,
 
 			Interface.New("TextLabel", {
 				AnchorPoint = Vector2.yAxis,

@@ -13,6 +13,7 @@ for _, Service in pairs({
 	"UserInputService",
 	"TextService",
 	"StarterGui",
+	"RobloxReplicatedStorage"
 }) do
 	wax.shared[Service] = cloneref(game:GetService(Service))
 end
@@ -29,7 +30,7 @@ wax.shared.ExecutorSupport = require(script.ExecutorSupport)
 
 -- Utils
 require(script.Utils.Connect)
-wax.shared.Hooking = require(script.Utils.Hooking)
+wax.shared.Hooking = require(script.Utils.Hook.Luau)
 
 -- UI
 wax.shared.Sonner = require(script.Window.Components.Sonner)
@@ -149,6 +150,12 @@ wax.shared.IsPlayerModule = function(Origin: LocalScript | ModuleScript, Instanc
 	return false
 end
 wax.shared.ShouldIgnore = function(Instance, Origin)
+	if not wax.shared.Settings.LogRobloxInternalEvents.Value then
+		if Instance.IsDescendantOf(Instance, wax.shared.RobloxReplicatedStorage) then
+			return true
+		end
+	end
+
 	return wax.shared.Settings.IgnoredRemotesDropdown.Value[Instance.ClassName] == true
 		or (wax.shared.Settings.IgnorePlayerModule.Value and wax.shared.IsPlayerModule(Origin, Instance))
 end
@@ -181,6 +188,8 @@ wax.shared.GetTextBounds = function(Text: string, Font: Font, Size: number, Widt
 end
 
 wax.shared.Unloaded = false
+local CleanupSpy: (() -> ())?
+
 wax.shared.Unload = function()
 	local PluginManager = wax.shared.CobaltPluginManager
 	if PluginManager then
@@ -195,42 +204,14 @@ wax.shared.Unload = function()
 		end
 	end
 
+	if CleanupSpy then
+		local Cleanup = CleanupSpy
+		CleanupSpy = nil
+		pcall(Cleanup)
+	end
+
 	for _, Connection in pairs(wax.shared.Connections) do
 		wax.shared.Disconnect(Connection)
-	end
-
-	local gameMetatable = wax.shared.getrawmetatable(game)
-
-	if wax.shared.ExecutorSupport["oth"].IsWorking then
-		pcall(oth.unhook, gameMetatable.__namecall)
-		pcall(oth.unhook, gameMetatable.__newindex)
-	else
-		if
-			wax.shared.ExecutorSupport["restorefunction"].IsWorking
-			and wax.shared.ExecutorSupport["hookmetamethod"].IsWorking
-		then
-			pcall(restorefunction, gameMetatable.__namecall)
-			pcall(restorefunction, gameMetatable.__newindex)
-		else
-			wax.shared.Hooking.HookMetaMethod(game, "__namecall", wax.shared.NamecallHook)
-			wax.shared.Hooking.HookMetaMethod(game, "__newindex", wax.shared.NewIndexHook)
-		end
-	end
-
-	for Function, Original in pairs(wax.shared.Hooks) do
-		if wax.shared.ExecutorSupport["oth"].IsWorking then
-			task.spawn(pcall, oth.unhook, Function)
-		elseif wax.shared.ExecutorSupport["restorefunction"].IsWorking then
-			task.spawn(pcall, wax.shared.restorefunction, Function)
-		else
-			pcall(wax.shared.Hooking.HookFunction, Function, Original)
-		end
-	end
-
-	if wax.shared.ActorCommunicator then
-		pcall(function()
-			wax.shared.ActorCommunicator:Fire("Unload")
-		end)
 	end
 
 	getgenv().CobaltInitialized = false
@@ -346,15 +327,14 @@ wax.shared.Logs = {
 	Incoming = {},
 }
 
-wax.shared.NewLog = function(Instance, Type, Method, CallingScript)
-	local Log =
-		wax.shared.Log.new(Instance, Type, Method, wax.shared.GetTableLength(wax.shared.Logs[Type]) + 1, CallingScript)
+wax.shared.NewLog = function(Instance, Type, CallingScript)
+	local Log = wax.shared.Log.new(Instance, Type, wax.shared.GetTableLength(wax.shared.Logs[Type]) + 1, CallingScript)
 	wax.shared.Logs[Type][Instance] = Log
 	return Log
 end
 
 require(script.Window)
-require(script.Spy.Init)
+CleanupSpy = require(script.Spy)()
 
 local PluginManager = require(script.Utils.Plugins.Manager)
 PluginManager.SetupPlugins()

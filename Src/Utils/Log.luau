@@ -1,6 +1,52 @@
 local Log = {}
 Log.__index = Log
 
+wax.shared.LogNotificationQueue = {
+	Items = {},
+	Head = 1,
+	Tail = 0,
+}
+
+local function QueueNotification(LogObject, CallIndex: number)
+	local Queue = wax.shared.LogNotificationQueue
+	Queue.Tail += 1
+	Queue.Items[Queue.Tail] = {
+		Instance = LogObject.Instance,
+		Type = LogObject.Type,
+		LogIndex = LogObject.Index,
+		CallIndex = CallIndex,
+	}
+end
+
+if not IS_ACTOR then
+	wax.shared.Connect(wax.shared.RunService.Heartbeat:Connect(function()
+		local Queue = wax.shared.LogNotificationQueue
+		local Tail = Queue.Tail
+
+		while Queue.Head <= Tail do
+			local Notification = Queue.Items[Queue.Head]
+			Queue.Items[Queue.Head] = nil
+			Queue.Head += 1
+
+			local Communicator = wax.shared.Communicator
+			if Communicator and Notification then
+				Communicator:Fire(
+					Notification.Instance,
+					Notification.Type,
+					Notification.CallIndex,
+					Notification.LogIndex
+				)
+			end
+		end
+
+		if Queue.Head > Queue.Tail then
+			table.clear(Queue.Items)
+			Queue.Head = 1
+			Queue.Tail = 0
+		end
+	end))
+end
+
 --// Auto Ignore Constants \\--
 local SpamCallCountThreshold = 15
 local SpamTimeWindowSeconds = 1
@@ -170,11 +216,16 @@ function DeepClone(orig, copies)
 	return copy
 end
 
-function Log.new(Instance, Type, Method, Index, CallingScript)
+if IS_ACTOR then
+	wax.shared.SerializeActorInfo = function(Info)
+		return FixTable(DeepClone(Info))
+	end
+end
+
+function Log.new(Instance, Type, Index, CallingScript)
 	local NewLog = setmetatable({
 		Instance = Instance,
 		Type = Type,
-		Method = Method,
 		Index = Index,
 		Calls = {},
 		GameCalls = {},
@@ -315,15 +366,13 @@ function Log:Call(RawInfo)
 		table.insert(self.GameCalls, Index)
 	end
 
-	if wax.shared.Communicator then
-		wax.shared.Communicator.Fire(wax.shared.Communicator, self.Instance, self.Type, #self.Calls)
-	end
+	QueueNotification(self, Index)
+	return Index
 end
 
 function Log:ClearCalls()
 	table.clear(self.Calls)
 	table.clear(self.GameCalls)
-	self.Index = 0
 end
 
 function Log:Ignore()

@@ -23,8 +23,10 @@ export type CallInfo = {
 	Order: number,
 	Type: Direction,
 	InvokeResult: { [number]: any, n: number }?,
+	Error: string?,
 	InvokeKind: "Callback" | "Request"?,
 	IsExecutor: boolean?,
+	IsRakNet: boolean?,
 	IsActor: true?,
 	Path: string?,
 	Actor: Actor?,
@@ -38,6 +40,7 @@ export type Scenario = {
 	Method: string,
 	Arguments: { [number]: any, n: number },
 	Result: { [number]: any, n: number }?,
+	Error: string?,
 	InvokeKind: ("Callback" | "Request")?,
 	Shape: "Request" | "SSE" | "Signal",
 }

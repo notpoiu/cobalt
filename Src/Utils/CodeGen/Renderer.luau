@@ -284,9 +284,17 @@ function Renderer.DeriveVariables(
 		})
 
 		local ExpectedResult, ExpectedResultRequiresNilHandler = nil, false
+		local HasError = Data.Scenario.Error ~= nil and Data.CallInfo.Blocked ~= true
+		if HasError then
+			Variables.CapturePrefix = "local Success, ResultOrError = pcall(function()\n\treturn table.pack("
+			Variables.CaptureSuffix = ")\nend)"
+		else
+			Variables.CapturePrefix = "local Result = table.pack("
+			Variables.CaptureSuffix = ")"
+		end
 
 		--// Handle Invoke Result \\--
-		local HasInvokeResult = (Data.Scenario.Result ~= nil and Data.CallInfo.Blocked ~= true)
+		local HasInvokeResult = (Data.Scenario.Result ~= nil and Data.CallInfo.Blocked ~= true and not HasError)
 		if HasInvokeResult then
 			ExpectedResult, ExpectedResultRequiresNilHandler = wax.shared.LuaEncode(Data.Scenario.Result, {
 				Prettify = true,
@@ -296,7 +304,11 @@ function Renderer.DeriveVariables(
 
 			Variables.ExpectedResultCode = "\n\nlocal ExpectedResult = table.unpack(" .. ExpectedResult .. ")\n"
 		else
-			Variables.ExpectedResultCode = "\n"
+			Variables.ExpectedResultCode = if HasError
+				then `\n\nlocal ExpectedSuccess = false\nlocal ExpectedError = {Formatter.FormatLuaLiteral(
+					tostring(Data.Scenario.Error)
+				)}\n`
+				else "\n"
 		end
 
 		if ArgsRequiresNilHandler or ExpectedResultRequiresNilHandler then
@@ -305,6 +317,9 @@ function Renderer.DeriveVariables(
 
 		--// Add Variables \\--
 		Variables.Args = Formatter.CreateArgsString(SerializedArgs, Data.Scenario.Arguments)
+		if HasError then
+			Variables.Args = Variables.Args:gsub("\n", "\n\t")
+		end
 		Variables.ArgsWithLeadingComma = Formatter.CreateArgsString(SerializedArgs, Data.Scenario.Arguments, ", ")
 	end
 

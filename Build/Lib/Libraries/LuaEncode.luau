@@ -515,6 +515,25 @@ local function LuaEncode(inputTable, options)
             return "Font.new(" .. Args(value.Family, value.Weight, value.Style) .. ")"
         end
 
+        TypeCases["Content"] = function(value)
+            local source = value.SourceType
+            if source == Enum.ContentSourceType.None then
+                return "Content.none"
+            elseif source == Enum.ContentSourceType.Uri then
+                local uri = value.Uri or ""
+                local assetId = string.match(uri, "^rbxassetid://(%d+)$")
+                if assetId then
+                    return "Content.fromAssetId(" .. assetId .. ")"
+                end
+                return "Content.fromUri(" .. TypeCase("string", uri) .. ")"
+            elseif source == Enum.ContentSourceType.Object and value.Object then
+                return "Content.fromObject(" .. TypeCase("Instance", value.Object) .. ")"
+            end
+            return "Content.none"
+                .. BlankSeperator
+                .. CommentBlock("Content source=" .. tostring(source))
+        end
+
         -- Instance refs can be evaluated to their paths (optional), but if parented to
         -- nil or some DataModel not under `game`, it'll just return nil
         TypeCases["Instance"] = function(value)
@@ -563,7 +582,8 @@ local function LuaEncode(inputTable, options)
                     value.Friction,
                     value.Elasticity,
                     value.FrictionWeight,
-                    value.ElasticityWeight
+                    value.ElasticityWeight,
+                    value.AcousticAbsorption
                 ) ..
                 ")"
         end
@@ -574,6 +594,20 @@ local function LuaEncode(inputTable, options)
 
         TypeCases["Ray"] = function(value)
             return "Ray.new(" .. Args(value.Origin, value.Direction) .. ")"
+        end
+
+        TypeCases["SecurityCapabilities"] = function(value)
+            local caps = {}
+            for _, item in Enum.SecurityCapability:GetEnumItems() do
+                -- Skip aliases that share a bit (AssetRequire→LoadUnownedAsset, Avatar→AvatarAppearance)
+                if item.Name ~= "AssetRequire" and item.Name ~= "Avatar" and value:Contains(item) then
+                    table.insert(caps, item)
+                end
+            end
+            if #caps == 0 then
+                return "SecurityCapabilities.new()"
+            end
+            return "SecurityCapabilities.new(" .. Args(table.unpack(caps)) .. ")"
         end
 
         TypeCases["RaycastParams"] = function(value)

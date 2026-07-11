@@ -2,10 +2,10 @@ local CallTemplates = {}
 
 CallTemplates.IncomingCallbackInvoke = [[{{Prelude}}{{Path}}
 local Callback = getcallbackvalue(Event, "{{Method}}")
-local Result = table.pack(Callback({{Args}})){{ExpectedResultCode}}]]
+{{CapturePrefix}}Callback({{Args}}){{CaptureSuffix}}{{ExpectedResultCode}}]]
 
 CallTemplates.IncomingRequestInvoke = [[{{Prelude}}{{Path}}
-local Result = Event:{{Method}}({{Args}}){{ExpectedResultCode}}]]
+{{CapturePrefix}}Event:{{Method}}({{Args}}){{CaptureSuffix}}{{ExpectedResultCode}}]]
 
 CallTemplates.IncomingSignal = [[{{Prelude}}{{Path}}
 firesignal(Event.{{Method}}{{ArgsWithLeadingComma}})]]

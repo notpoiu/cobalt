@@ -9,12 +9,25 @@ local ExecutorSupport = {
 	FailedChecks = {
 		Essential = {},
 		NonEssential = {},
+		DetectionRisk = {},
 	},
 }
 
 local BrokenFeatures = {
 	["Volcano"] = { "oth", "run_on_actor" },
-	["Potassium"] = { "oth" } -- submit a pr to luau
+	["Potassium"] = { "oth" }, -- submit a pr to luau
+}
+
+type TestOptions = {
+	ExistenceOnly: boolean?,
+	Essential: boolean?,
+	DetectionRisk: boolean?,
+}
+
+local DEFAULT_OPTIONS: TestOptions = {
+	ExistenceOnly = false,
+	Essential = true,
+	DetectionRisk = false,
 }
 
 local function CheckFFlagValue(Name: string, Value: any)
@@ -34,15 +47,19 @@ local function CheckFFlagValue(Name: string, Value: any)
 	return false
 end
 
-local function test(name, Callback, CheckType, Essential)
-	local TestFunction = not CheckType and Callback or function()
-		assert(typeof(Callback) == "function", string.format("%s is not a function.", name))
-		return "Passed nil check."
-	end
+local function test(name: string, Callback: any, options: TestOptions?)
+	options = options or DEFAULT_OPTIONS
 
-	if Essential == nil then
-		Essential = true
-	end
+	local ExistenceOnly = if options.ExistenceOnly == nil then DEFAULT_OPTIONS.ExistenceOnly else options.ExistenceOnly
+	local Essential = if options.Essential == nil then DEFAULT_OPTIONS.Essential else options.Essential
+	local DetectionRisk = if options.DetectionRisk == nil then DEFAULT_OPTIONS.DetectionRisk else options.DetectionRisk
+
+	local TestFunction = if not ExistenceOnly
+		then Callback
+		else function()
+			assert(typeof(Callback) == "function", string.format("%s is not a function.", name))
+			return "Passed nil check."
+		end
 
 	local Success, Result
 	if BrokenFeatures[wax.shared.ExecutorName] and table.find(BrokenFeatures[wax.shared.ExecutorName], name) then
@@ -56,6 +73,7 @@ local function test(name, Callback, CheckType, Essential)
 		IsWorking = Success,
 		Details = Result,
 		Essential = Essential,
+		DetectionRisk = DetectionRisk,
 	}
 
 	if not Success then
@@ -64,17 +82,23 @@ local function test(name, Callback, CheckType, Essential)
 		else
 			table.insert(ExecutorSupport.FailedChecks.NonEssential, name)
 		end
+
+		if DetectionRisk then
+			table.insert(ExecutorSupport.FailedChecks.DetectionRisk, name)
+		end
 	end
 end
 
+local TEST_EXISTENCE_ONLY = { ExistenceOnly = true }
+
 -- FFlag Library
-test("getfflag", getfflag, true)
-test("setfflag", setfflag, true)
+test("getfflag", getfflag, TEST_EXISTENCE_ONLY)
+test("setfflag", setfflag, TEST_EXISTENCE_ONLY)
 
 -- Actor Library
-test("getactors", getactors, true)
-test("run_on_actor", run_on_actor, true)
-test("create_comm_channel", create_comm_channel, true)
+test("getactors", getactors, TEST_EXISTENCE_ONLY)
+test("run_on_actor", run_on_actor, TEST_EXISTENCE_ONLY)
+test("create_comm_channel", create_comm_channel, TEST_EXISTENCE_ONLY)
 
 -- Closure Library
 test("newcclosure", function()
@@ -87,10 +111,10 @@ test("newcclosure", function()
 	assert(CClosure() == true, "Failed to create a new closure")
 
 	assert(debug.info(CClosure, "s") == "[C]", "newcclosure did not create a C closure")
-end, true)
+end)
 
-test("checkcaller", checkcaller, true)
-test("getcallingscript", getcallingscript, true)
+test("checkcaller", checkcaller, TEST_EXISTENCE_ONLY)
+test("getcallingscript", getcallingscript, TEST_EXISTENCE_ONLY)
 
 test("hookfunction", function()
 	assert(typeof(hookfunction) == "function", "hookfunction is not a function")
@@ -188,7 +212,7 @@ test("setstackhidden", function()
 
 	IsHidden = CallerFunction()
 	assert(IsHidden == true, "setstackhidden did not hide the function from the stack (error with level traceback)")
-end, false, false)
+end, { Essential = false, DetectionRisk = true })
 
 -- Oth Library
 test("oth", function()
@@ -218,18 +242,20 @@ test("oth", function()
 
 		return Old(...)
 	end)
-	
+
 	AttributeChangedConnect(VIM.AttributeChanged, function(name)
 		if name ~= "cobalt" then
 			return
 		end
 
-		AttributeChangedCalled = true 
+		AttributeChangedCalled = true
 		coroutine.resume(Origin)
 	end)
 
 	VIM:SetAttribute("cobalt", true)
-	repeat task.wait() until Working ~= nil or AttributeChangedCalled
+	repeat
+		task.wait()
+	until Working ~= nil or AttributeChangedCalled
 	assert(Working, "oth.hook is not running on a seperate thread")
 
 	local Success, Error = pcall(oth.unhook, AttributeChangedConnect, Old)
@@ -238,8 +264,11 @@ test("oth", function()
 
 	if not wax.shared.SaveManager:GetState("DisableNonEssentialChecks", false) then
 		assert(typeof(getrawmetatable) == "function", "getrawmetatable is required to validate oth __namecall returns")
-		assert(typeof(getnamecallmethod) == "function", "getnamecallmethod is required to validate oth __namecall returns")
-	
+		assert(
+			typeof(getnamecallmethod) == "function",
+			"getnamecallmethod is required to validate oth __namecall returns"
+		)
+
 		local function CheckInvokeResult(Result, Context)
 			if Result.n ~= 4 then
 				return false, `{Context}: returned {Result.n} values instead of 4`
@@ -256,48 +285,68 @@ test("oth", function()
 			if Result[4] ~= "tail" then
 				return false, `{Context}: did not preserve the tail return value`
 			end
-	
+
 			return true
 		end
-	
-	
+
 		local Bindable = Instance.new("BindableFunction")
-		Bindable.OnInvoke = function() return "expected", 123, nil, "tail" end
-	
+		Bindable.OnInvoke = function()
+			return "expected", 123, nil, "tail"
+		end
+
 		local SuccededInsideHook, InsideError = false, nil
-	
+
 		local OldNamecall
 		OldNamecall = oth.hook(getrawmetatable(game).__namecall, function(...)
 			local self = ...
 			local Method = getnamecallmethod()
-	
+
 			if self == Bindable and Method == "Invoke" then
 				pcall(function() end)
-				
+
 				local Result = table.pack(OldNamecall(...))
-	
-				SuccededInsideHook, InsideError = CheckInvokeResult(
-					Result,
-					"Result corruption in __namecall oth hook"
-				)
-	
+
+				SuccededInsideHook, InsideError = CheckInvokeResult(Result, "Result corruption in __namecall oth hook")
+
 				return table.unpack(Result, 1, Result.n)
 			end
-	
+
 			return OldNamecall(...)
 		end)
-	
+
 		local Result = table.pack(Bindable:Invoke())
 		pcall(oth.unhook, getrawmetatable(game).__namecall)
 		Bindable:Destroy()
-	
+
 		assert(SuccededInsideHook, InsideError)
-		assert(CheckInvokeResult(
-			Result,
-			"Result corruption post oth hook and pcall"
-		))
+		assert(CheckInvokeResult(Result, "Result corruption post oth hook and pcall"))
 	end
-end, false, false)
+end, { Essential = false, DetectionRisk = true })
+
+-- RakNet Library
+test("raknet", function()
+	assert(raknet ~= nil, "raknet library not found")
+
+	assert(typeof(raknet.add_send_hook) == "function", "raknet.add_send_hook is not a function")
+	assert(typeof(raknet.remove_send_hook) == "function", "raknet.remove_send_hook is not a function")
+
+	assert(typeof(raknet.add_receive_hook) == "function", "raknet.add_receive_hook is not a function")
+	assert(typeof(raknet.remove_receive_hook) == "function", "raknet.remove_receive_hook is not a function")
+
+	assert(typeof(raknet.send) == "function", "raknet.send is not a function")
+	assert(typeof(raknet.receive) == "function", "raknet.receive is not a function")
+
+	if typeof(raknet.is_enabled) == "function" then
+		assert(raknet.is_enabled() == true, "raknet is not enabled")
+	else
+		local Success, Error = pcall(function()
+			local hook = raknet.add_send_hook(function() end)
+			raknet.remove_send_hook(hook)
+		end)
+	
+		assert(Success, "raknet failed to hook: " .. tostring(Error))
+	end
+end, { Essential = false })
 
 -- Metamethod
 test("hookmetamethod", function()

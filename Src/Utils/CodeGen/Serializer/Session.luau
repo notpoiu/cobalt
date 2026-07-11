@@ -82,6 +82,11 @@ function Session:EscapeHTML(Str)
 end
 
 function Session:SerializeLuauTableForHTML(Table)
+	if type(Table) ~= "table" then
+		-- Actor function metadata stores upvalue/constant/proto *counts* as numbers.
+		return self:EscapeHTML(tostring(Table))
+	end
+
 	local SerializedString = LuaEncode(Table, {
 		Prettify = true,
 		InsertCycles = true,
@@ -104,7 +109,10 @@ function Session:ProcessCalls(AllCalls, SessionData, UpdateProgress)
 			task.wait()
 		end
 
-		local ArgsString = self:SerializeLuauTableForHTML({ wax.shared.SafePack.Unpack(Call.Arguments, 1, Call.Arguments.n) })
+		local Args = Call.Arguments
+		local ArgsString = if type(Args) == "table"
+			then self:SerializeLuauTableForHTML({ wax.shared.SafePack.Unpack(Args, 1, Args.n) })
+			else self:EscapeHTML(tostring(Args))
 
 		local Method = "Unknown"
 		if wax.shared.FunctionForClasses[Call.Type] then
@@ -122,6 +130,7 @@ function Session:ProcessCalls(AllCalls, SessionData, UpdateProgress)
 
 				if not Call.Function.IsC then
 					FunctionHash = Call.Function.FunctionHash or "N/A"
+					-- Actor bridge only sends counts for these, not the full tables.
 					FunctionUpvalues = self:SerializeLuauTableForHTML(Call.Function.Upvalues)
 					FunctionProtos = self:SerializeLuauTableForHTML(Call.Function.Protos)
 					FunctionConstants = self:SerializeLuauTableForHTML(Call.Function.Constants)

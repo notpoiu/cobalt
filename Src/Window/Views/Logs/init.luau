@@ -143,13 +143,24 @@ return function(props: {
 	LogsPage.LogList = LogList
 	LogsPage.LogCalls = LogCalls
 
-	wax.shared.Connect(wax.shared.Communicator.Event:Connect(function(Instance, Type, CallIndex)
+	wax.shared.Connect(wax.shared.Communicator.Event:Connect(function(Instance, Type, CallIndex, LogIndex)
 		local CurrentTab = LogList.CurrentTab
 		if not (CurrentTab and CurrentTab.Name == Type) then
 			return
 		end
 
+		-- RakNet callbacks can expose an equivalent Instance through a different
+		-- userdata identity. BindableEvents also strip table metatables, so pass a
+		-- scalar index and resolve the original Log in this context instead.
 		local Log = wax.shared.Logs[Type][Instance]
+		if not Log and LogIndex ~= nil then
+			for _, Candidate in wax.shared.Logs[Type] do
+				if Candidate.Index == LogIndex then
+					Log = Candidate
+					break
+				end
+			end
+		end
 		if not Log or #Log.Calls == 0 then
 			return
 		end

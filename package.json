@@ -1,0 +1,7 @@
+{
+  "name": "cobalt",
+  "private": true,
+  "scripts": {
+    "watch": "node Build/watch.cjs"
+  }
+}

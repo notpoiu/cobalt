@@ -65,6 +65,16 @@ return function(props: {
 		Parent = RemoteListContainer,
 	})
 
+	Interface.New("TextLabel", {
+		Text = `<b>{Options.Text}</b>`,
+		TextSize = 14,
+		TextTransparency = 0.15,
+		Size = UDim2.new(1, 0, 0, 18),
+		TextXAlignment = Enum.TextXAlignment.Left,
+		LayoutOrder = -1,
+		Parent = RemoteListContainer,
+	})
+
 	local function CreateListElement(RemoteData)
 		local Remote = RemoteData.Instance
 		if not Remote then
