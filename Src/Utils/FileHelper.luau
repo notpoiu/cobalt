@@ -4,8 +4,8 @@ FileHelper.__index = FileHelper
 local function IsFilesystemAvailable(): boolean
     local ExecutorSupport = wax.shared.ExecutorSupport
     return ExecutorSupport ~= nil
-        and ExecutorSupport.filesystem ~= nil
-        and ExecutorSupport.filesystem.IsWorking
+        and ExecutorSupport.FileSystem ~= nil
+        and ExecutorSupport.FileSystem.IsWorking
 end
 
 --[[

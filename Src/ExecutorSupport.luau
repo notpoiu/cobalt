@@ -128,7 +128,7 @@ test("FileSystem", function()
 end, { Essential = false })
 
 local function SkipOptionalChecks(): boolean
-	if not ExecutorSupport.filesystem.IsWorking or not isfile("Cobalt/Settings.json") then
+	if not ExecutorSupport.FileSystem.IsWorking or not isfile("Cobalt/Settings.json") then
 		return false
 	end
 
