@@ -17,7 +17,7 @@ function DPI.new(data: {
 end
 
 function DPI:GetDPIScale()
-	local Scale = wax.shared.SaveManager:GetState(self.SaveKey, "100%")
+	local Scale = wax.shared.SaveManager:GetState(self.SaveKey)
 	return (tonumber(Scale:sub(1, #Scale - 1)) or 100) / 100
 end
 

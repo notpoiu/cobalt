@@ -70,7 +70,7 @@ do
 	local function ResolveEventReference(
 		CallInfo: Types.CallInfo
 	): { Hash: string, Index: number, ExcludeExecutor: boolean?, Path: { any }? }?
-		if wax.shared.SaveManager:GetState("EventReferenceStrategy", "GetNil") ~= "Upvalue Lookup" then
+		if wax.shared.SaveManager:GetState("EventReferenceStrategy") ~= "Upvalue Lookup" then
 			return nil
 		end
 

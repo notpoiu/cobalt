@@ -105,7 +105,7 @@ end
     @return The code gen header.
 ]]
 local function BuildCodeGenHeader(): string
-	if not wax.shared.SaveManager:GetState("ShowWatermark", true) then
+	if not wax.shared.SaveManager:GetState("ShowWatermark") then
 		return ""
 	end
 

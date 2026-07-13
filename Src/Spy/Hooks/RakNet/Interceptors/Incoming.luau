@@ -41,16 +41,10 @@ local function CreateHandler(Requests: Requests)
 					IsRakNet = true,
 					InvokeKind = "Request",
 				}
-
-				if Log.Blocked then
-					if wax.shared.SaveManager:GetState("LogBlockedRemotes", false) then
-						Info.Blocked = true
-						Log:Call(Info)
-					end
-
+				local ShouldBlock = Log:ShouldBlock(Info)
+				Log:Call(Info)
+				if ShouldBlock then
 					return true
-				elseif not Log.Ignored then
-					Log:Call(Info)
 				end
 
 				return false
@@ -70,20 +64,15 @@ local function CreateHandler(Requests: Requests)
 				IsRakNet = true,
 				InvokeKind = "Callback",
 			}
-
-			if Log.Blocked then
-				if wax.shared.SaveManager:GetState("LogBlockedRemotes", false) then
-					Info.Blocked = true
-					Log:Call(Info)
-				end
-
+			if Log:ShouldBlock(Info) then
+				Log:Call(Info)
 				return true
 			end
 
 			Requests.Incoming:Add(Instance, Response.InvokeId, {
 				Info = Info,
 				Instance = Instance,
-				ShouldLog = ShouldCapture and not Log.Ignored,
+				ShouldLog = ShouldCapture,
 			})
 			return false
 		end
@@ -95,20 +84,18 @@ local function CreateHandler(Requests: Requests)
 		end
 
 		local Log = InterceptorUtils.GetLog(Instance, "Incoming")
-		if Log and Log.Blocked then
-			if wax.shared.SaveManager:GetState("LogBlockedRemotes", false) then
-				Log:Call({
-					Arguments = InterceptorUtils.PackArguments(Payload.Arguments),
-					Origin = nil,
-					Function = nil,
-					Line = nil,
-					Source = nil,
-					IsExecutor = nil,
-					IsRakNet = true,
-					Blocked = true,
-				})
-			end
-
+		local Info = {
+			Arguments = InterceptorUtils.PackArguments(Payload.Arguments),
+			Origin = nil,
+			Function = nil,
+			Line = nil,
+			Source = nil,
+			IsExecutor = nil,
+			IsRakNet = true,
+		}
+		local ShouldBlock = Log:ShouldBlock(Info)
+		Log:Call(Info)
+		if ShouldBlock then
 			return true
 		end
 

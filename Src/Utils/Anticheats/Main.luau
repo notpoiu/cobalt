@@ -7,7 +7,7 @@ local AnticheatData = {
 	Name = "N/A",
 }
 
-local BypassEnabled = wax.shared.SaveManager:GetState("AnticheatBypass", false)
+local BypassEnabled = wax.shared.SaveManager:GetState("AnticheatBypass")
 if not BypassEnabled then
 	return AnticheatData
 end

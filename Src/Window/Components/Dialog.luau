@@ -7,6 +7,7 @@ local Types = require("@src/Window/Types")
 --// Types \\--
 type Dialog = Types.Dialog
 type DialogDismissBehavior = Types.DialogDismissBehavior
+type DialogButton = Types.DialogButton
 type FooterButton = Types.DialogFooterButton
 type DialogProps = Types.DialogProps
 
@@ -193,6 +194,7 @@ local function SetupDialog(
 		["UIListLayout"] = {
 			FillDirection = Enum.FillDirection.Horizontal,
 			HorizontalAlignment = Enum.HorizontalAlignment.Right,
+			SortOrder = Enum.SortOrder.LayoutOrder,
 			Padding = UDim.new(0, 10),
 		},
 
@@ -325,6 +327,7 @@ return function(ComponentProps: {
 		self.IsOpen = false
 		self.DismissTween = nil
 		self.Destroyed = false
+		self.Buttons = {}
 
 		--// Setup \\--
 		self:Setup(props, DialogId)
@@ -373,25 +376,120 @@ return function(ComponentProps: {
 			Button:Destroy()
 		end
 
-		for _, ButtonData in props.Footer do
+		local ButtonIndex = 0
+		for ButtonKey, ButtonData in props.Footer do
+			ButtonIndex += 1
 			local Button, Text, Icon = self.Footer.CreateButton(ButtonData)
+			Button.LayoutOrder = ButtonData.LayoutOrder or ButtonIndex
 
 			Button.Parent = self.Footer.UI
 			Text.Parent = Button
 			Icon.Parent = Button
+
+			local ButtonController = {
+				Instance = Button,
+				Label = Text,
+				Icon = Icon,
+				Disabled = false,
+			} :: DialogButton
+
+			local ButtonBaseColor = ButtonData.Type == "Primary" and Color3.fromRGB(255, 255, 255)
+				or Color3.fromRGB(21, 21, 21)
+			local HoldDuration = ButtonData.HoldDuration
+			local HoldGradient: UIGradient?
+			if HoldDuration and HoldDuration > 0 then
+				Button.AutoButtonColor = false
+				local HoldColor = ButtonData.Type == "Primary" and Color3.fromRGB(180, 180, 180)
+					or Color3.fromRGB(60, 60, 60)
+				Button.BackgroundColor3 = Color3.new(1, 1, 1)
+				HoldGradient = Interface.New("UIGradient", {
+					Color = ColorSequence.new({
+						ColorSequenceKeypoint.new(0, HoldColor),
+						ColorSequenceKeypoint.new(0.5, HoldColor),
+						ColorSequenceKeypoint.new(0.501, ButtonBaseColor),
+						ColorSequenceKeypoint.new(1, ButtonBaseColor),
+					}),
+					Offset = Vector2.new(-0.5, 0),
+					Parent = Button,
+				})
+			end
+
+			local HoldTween: Tween?
+			local Holding = false
+			local function CancelHold()
+				Holding = false
+				if HoldTween then
+					HoldTween:Cancel()
+					HoldTween = nil
+				end
+				if HoldGradient then
+					HoldGradient.Offset = Vector2.new(-0.5, 0)
+				end
+			end
+
+			function ButtonController:SetDisabled(Disabled: boolean)
+				self.Disabled = Disabled
+				Button.Interactable = not Disabled
+				Button.BackgroundTransparency = if Disabled then 0.45 else 0
+				Text.TextTransparency = if Disabled then 0.5 else 0
+				Icon.ImageTransparency = if Disabled then 0.5 else 0
+
+				if Disabled then
+					CancelHold()
+				end
+			end
+
+			if type(ButtonKey) == "string" then
+				self.Buttons[ButtonKey] = ButtonController
+			end
+
+			ButtonController:SetDisabled(ButtonData.Disabled == true)
 
 			--// Action \\--
 			if not ButtonData.Action then
 				continue
 			end
 
-			Button.MouseButton1Click:Connect(function()
+			local function RunAction()
+				if ButtonController.Disabled or self.Destroyed then
+					return
+				end
+
 				if ButtonData.Action == "Dismiss" then
 					self:Dismiss(self.DismissBehavior)
 				else
 					ButtonData.Action(self)
 				end
-			end)
+			end
+
+			if HoldDuration and HoldDuration > 0 then
+				Button.MouseButton1Down:Connect(function()
+					if ButtonController.Disabled or Holding then
+						return
+					end
+
+					Holding = true
+					HoldTween = wax.shared.TweenService:Create(HoldGradient, TweenInfo.new(HoldDuration), {
+						Offset = Vector2.new(0.5, 0),
+					})
+					local CurrentTween = HoldTween
+					CurrentTween.Completed:Once(function(PlaybackState)
+						if PlaybackState ~= Enum.PlaybackState.Completed or not Holding or HoldTween ~= CurrentTween then
+							return
+						end
+
+						Holding = false
+						HoldTween = nil
+						HoldGradient.Offset = Vector2.new(-0.5, 0)
+						RunAction()
+					end)
+					CurrentTween:Play()
+				end)
+				Button.MouseButton1Up:Connect(CancelHold)
+				Button.MouseLeave:Connect(CancelHold)
+			else
+				Button.MouseButton1Click:Connect(RunAction)
+			end
 		end
 
 		self.Overlay.MouseButton1Click:Connect(function()

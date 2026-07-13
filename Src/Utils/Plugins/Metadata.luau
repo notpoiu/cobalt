@@ -1,16 +1,21 @@
 local Metadata = {}
-local Validate = require("@src/Utils/Validation")
+local Validation = require("@src/Utils/Validation")
 
-Metadata.TemplatePluginData = {
-	Name = "Untitled Plugin",
-	Description = "No description provided.",
-	Author = "N/A",
-	Version = "0.0.0",
-	Game = "*",
-}
+local Schema = Validation.Schema
+
+local GameIdSchema = Schema.union({ Schema.string(), Schema.number() })
+local PluginDataSchema = Schema.object({
+	Name = Schema.string():default("Untitled Plugin"),
+	Description = Schema.string():default("No description provided."),
+	Author = Schema.string():default("N/A"),
+	Version = Schema.string():default("0.0.0"),
+	Game = Schema.union({ GameIdSchema, Schema.array(GameIdSchema) }):default("*"),
+})
 
 function Metadata.Validate(PluginData)
-	return Validate(PluginData, Metadata.TemplatePluginData)
+	local IsValid, Result, Errors = Validation.ValidateSchema(PluginData, PluginDataSchema)
+	assert(IsValid, Errors[1] or "Invalid plugin metadata")
+	return Result
 end
 
 function Metadata.IsSupportedInCurrentGame(PluginData): boolean

@@ -86,8 +86,8 @@ local function InternalCreateNotificationObject(zindex, image, text)
 		BackgroundColor3 = Color3.fromRGB(255, 255, 255),
 		Size = UDim2.new(1, -50, 0, 0),
 		AutomaticSize = Enum.AutomaticSize.Y,
-		AnchorPoint = Vector2.new(1, 0),
-		Position = UDim2.new(1, -10, 0, 0),
+		AnchorPoint = Vector2.new(1, 0.5),
+		Position = UDim2.new(1, -10, 0.5, 0),
 		BorderColor3 = Color3.fromRGB(0, 0, 0),
 		BackgroundTransparency = 1,
 		ZIndex = zindex + 1,
@@ -103,6 +103,7 @@ local function InternalCreateNotificationObject(zindex, image, text)
 		BorderSizePixel = 0,
 		TextSize = 14,
 		TextXAlignment = Enum.TextXAlignment.Left,
+		TextYAlignment = Enum.TextYAlignment.Center,
 		BackgroundColor3 = Color3.fromRGB(255, 255, 255),
 		TextColor3 = Color3.fromRGB(255, 255, 255),
 		BackgroundTransparency = 1,
@@ -200,6 +201,9 @@ end
 
 local function ProcessQueue()
 	if Sonner.Processing then
+		return
+	end
+	if not Sonner.Wrapper then
 		return
 	end
 	Sonner.Processing = true
@@ -347,6 +351,7 @@ end
 
 function Sonner.init(wrapper)
 	Sonner.Wrapper = wrapper
+	task.spawn(ProcessQueue)
 end
 
 return Sonner

@@ -9,7 +9,7 @@ return function(props: {
 	Idx: string,
 	CreateButton: (string, () -> ()) -> TextButton,
 	Options: {
-		Text: string,
+		Text: string?,
 		Callback: ((any) -> ())?,
 		NullMessage: string,
 	},
@@ -65,15 +65,17 @@ return function(props: {
 		Parent = RemoteListContainer,
 	})
 
-	Interface.New("TextLabel", {
-		Text = `<b>{Options.Text}</b>`,
-		TextSize = 14,
-		TextTransparency = 0.15,
-		Size = UDim2.new(1, 0, 0, 18),
-		TextXAlignment = Enum.TextXAlignment.Left,
-		LayoutOrder = -1,
-		Parent = RemoteListContainer,
-	})
+	if Options.Text then
+		Interface.New("TextLabel", {
+			Text = `<b>{Options.Text}</b>`,
+			TextSize = 14,
+			TextTransparency = 0.15,
+			Size = UDim2.new(1, 0, 0, 18),
+			TextXAlignment = Enum.TextXAlignment.Left,
+			LayoutOrder = -1,
+			Parent = RemoteListContainer,
+		})
+	end
 
 	local function CreateListElement(RemoteData)
 		local Remote = RemoteData.Instance

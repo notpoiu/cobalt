@@ -132,8 +132,8 @@ function InstanceSerializer.Serialize(
 		end
 	end
 
-	local ChildLookupMode = wax.shared.SaveManager:GetState("InstancePathLookupChain", "Index")
-	local NilEventReferenceStrategy = wax.shared.SaveManager:GetState("EventReferenceStrategy", "GetNil")
+	local ChildLookupMode = wax.shared.SaveManager:GetState("InstancePathLookupChain")
+	local NilEventReferenceStrategy = wax.shared.SaveManager:GetState("EventReferenceStrategy")
 
 	local function BuildDynamicAccessor(Expression: string): string
 		if ChildLookupMode == "WaitForChild" then
@@ -196,11 +196,14 @@ function InstanceSerializer.Serialize(
 			local Parent = CurrentObject.Parent
 			if Parent then
 				local DirectChildPtr = Parent:FindFirstChild(CurrentObject.Name)
+				local IsService = false
 
-				if
-					IsEqualToInstance(Parent, game)
-					and IsEqualToInstance(game:FindService(CurrentObject.ClassName), CurrentObject)
-				then
+				if IsEqualToInstance(Parent, game) then
+					local Success, Service = pcall(game.FindService, game, CurrentObject.ClassName)
+					IsService = Success and IsEqualToInstance(Service, CurrentObject)
+				end
+
+				if IsService then
 					IndexName = ':GetService("' .. CurrentObject.ClassName .. '")'
 				elseif DirectChildPtr then
 					local Children = Parent:GetChildren()

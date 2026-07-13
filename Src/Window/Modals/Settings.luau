@@ -1,6 +1,5 @@
 --// Imports \\--
 local Interface = require("@src/Utils/UI/Interface")
-local Constants = require("@src/Window/Constants")
 local Types = require("@src/Window/Types")
 
 local ModalController = require("@src/Window/Components/Modal")
@@ -12,20 +11,13 @@ local DPI = require("@src/Window/Utils/DPI")
 --// Data \\--
 local AnticheatData = require("@src/Utils/Anticheats/Main")
 local Session = require("@src/Utils/CodeGen/Serializer/Session")
+local Settings = require("@src/Utils/Settings")
 
-local SettingIds = {
-	IgnoredRemotesDropdown = "IgnoredRemotesDropdown",
-	AutoIgnoreSpammyEvents = "AutoIgnoreSpammyEvents",
-	IgnorePlayerModule = "IgnorePlayerModule",
-	ShowExecutorLogs = "ShowExecutorLogs",
-	LogBlockedRemotes = "LogBlockedRemotes",
-}
-
-local FilterResetSettingIds = {
-	SettingIds.IgnoredRemotesDropdown,
-	SettingIds.AutoIgnoreSpammyEvents,
-	SettingIds.IgnorePlayerModule,
-	SettingIds.ShowExecutorLogs,
+local FilterResetSettings = {
+	Settings.IgnoredRemotesDropdown,
+	Settings.AutoIgnoreSpammyEvents,
+	Settings.IgnorePlayerModule,
+	Settings.ShowExecutorLogs,
 }
 
 --// Setup \\--
@@ -146,30 +138,8 @@ local function CreateDetectionNotice(Parent: GuiObject, Window: Types.Window)
 		Parent = WarningDisplay,
 	})
 
-	local DetectionDetails = {}
-	for _, Name in DetectionRiskFailures do
-		local Check = wax.shared.ExecutorSupport[Name]
-		local Details = if Check then Check.Details else "No details available."
-		table.insert(
-			DetectionDetails,
-			`<b><font color="#ff9900">{Name}</font></b>\n<font transparency="0.35">{Details}</font>`
-		)
-	end
-
 	WarningDisplay.MouseButton1Click:Connect(function()
-		Window.Dialog.new({
-			Title = "Detection Risk",
-			TitleColor = Color3.fromRGB(245, 60, 54),
-			Description = "Cobalt may be detectable because your executor does not support the following functions or libraries:\n\n"
-				.. table.concat(DetectionDetails, "\n\n"),
-			Icon = "triangle-alert",
-			Footer = {
-				{
-					Text = "Close",
-					Action = "Dismiss",
-				},
-			},
-		})
+		Window.Dialogs.DetectionRisk.Open(Window, DetectionRiskFailures)
 	end)
 end
 
@@ -203,182 +173,104 @@ return function(props: {
 	--// General Section \\--
 	local GeneralSection = MainSettings:CreateSection("General")
 	do
-		if wax.shared.SaveManager.State.CallsPerPage == nil and wax.shared.SaveManager.State.MaxItemPerPages ~= nil then
-			wax.shared.SaveManager:SetState("CallsPerPage", wax.shared.SaveManager.State.MaxItemPerPages)
-		end
-
-		GeneralSection:CreateDropdown("WindowDPIScale", {
-			Text = "Interface Scale",
-			Values = {
-				"50%",
-				"75%",
-				"100%",
-				"125%",
-				"150%",
-			},
-			Default = "100%",
-
+		Settings.WindowDPIScale:SetupOption(GeneralSection, {
 			Callback = DPIHandler:CreateDPIScaleChangedCallback(),
 		})
 
 		PaginationManager:BindPagination({
-			Component = GeneralSection:CreateTextBox("CallsPerPage", {
-				Text = "Calls Per Page",
-				Default = 20,
-				NumericOnly = true,
-			}),
+			Component = Settings.CallsPerPage:SetupOption(GeneralSection),
 
 			PaginationKey = "ItemsPerPage",
 			Refresh = LogsPage.RefreshCurrentLog,
 		})
 
-		GeneralSection:CreateCheckbox("ExecuteOnTeleport", {
-			Text = "Relaunch After Teleport",
-			Default = false,
-		})
+		Settings.ExecuteOnTeleport:SetupOption(GeneralSection)
 
 		GeneralSection:AddSpacer()
 		GeneralSection:CreateButton("Clear Captured Calls", function()
-			Window.Dialog.new({
-				Title = "Clear Captured Calls?",
-				TitleColor = Color3.fromRGB(245, 60, 54),
-				Description = "This will permanently remove all captured incoming and outgoing calls. This action cannot be undone.",
-				Icon = "trash",
-				Footer = {
-					{
-						Text = "Cancel",
-						Action = "Dismiss",
-					},
-					{
-						Text = "Clear Calls",
-						Type = "Primary",
-						Action = function(Dialog: Types.Dialog)
-							LogsPage.ClearLogs()
-							Dialog:Dismiss()
-						end,
-					},
-				},
-			})
+			Window.Dialogs.ClearCapturedCalls.Open(Window, LogsPage.ClearLogs)
 		end)
 	end
 
 	--// Capture Section \\--
 	local CaptureSection = MainSettings:CreateSection("Capture")
 	do
-		CaptureSection:CreateCheckbox("RakNetHooks", {
-			Text = "Use RakNet Hooks on Relaunch (Experimental)",
-			Default = false,
-			Risky = true,
-
+		Settings.RakNetHooks:SetupOption(CaptureSection, {
 			PreSetCallback = function(value)
-				if not wax.shared.ExecutorSupport["raknet"].IsWorking then
-					if value then
-						wax.shared.Sonner.error("RakNet hooks are not supported by your executor:\n\n" .. wax.shared.ExecutorSupport["raknet"].Details)
-					end
-
-					return false
-				end
-
-				if value then
-					local Thread = coroutine.running()
-					task.spawn(Window.Dialog.new, {
-						Title = "Warning",
-						Description = "Are you sure you want to use RakNet hooks? This is risky and could theoretically lead to account bans. Cobalt is not responsible for any bans you may receive. This change takes effect the next time Cobalt launches.",
-						Icon = "triangle-alert",
-
-						AutoShow = true,
-
-						Footer = {
-							{
-								Text = "Nevermind",
-								Action = function(Dialog: Types.Dialog)
-									Dialog:Dismiss()
-									coroutine.resume(Thread, false)
-								end,
-							},
-							{
-								Text = "Continue",
-								Type = "Primary",
-								Action = function(Dialog: Types.Dialog)
-									Dialog:Dismiss()
-									coroutine.resume(Thread, true)
-								end,
-							},
-						},
-					})
-
-					return coroutine.yield()
-				end
-
-				return true
+				return not value or Window.Dialogs.RakNet.ConfirmEnable(Window)
 			end,
 		})
 
-		CaptureSection:CreateCheckbox("LogRobloxInternalEvents", {
-			Text = "Capture Roblox Internal Events",
-			Default = false,
-		})
-
-		CaptureSection:CreateCheckbox("LogActors", {
-			Text = "Capture Actor Calls",
-			Default = true,
-		})
-
-		CaptureSection:CreateCheckbox(SettingIds.LogBlockedRemotes, {
-			Text = "Record Blocked Calls",
-			Default = false,
-		})
+		Settings.LogRobloxInternalEvents:SetupOption(CaptureSection)
+		Settings.LogActors:SetupOption(CaptureSection)
+		Settings.LogBlockedRemotes:SetupOption(CaptureSection)
 	end
 
 	--// Filter Section \\--
 	local FilterSection = MainSettings:CreateSection("Filtering")
 	do
-		FilterSection:CreateDropdown(SettingIds.IgnoredRemotesDropdown, {
-			Text = "Ignored Remote Classes",
-			Values = Constants.InstanceClassImages,
-			Default = { "BindableEvent", "BindableFunction" },
-			AllowNull = true,
-			Multi = true,
-		})
+		Settings.IgnoredRemotesDropdown:SetupOption(FilterSection)
+		Settings.AutoIgnoreSpammyEvents:SetupOption(FilterSection)
+		Settings.IgnorePlayerModule:SetupOption(FilterSection)
 
-		FilterSection:CreateCheckbox(SettingIds.AutoIgnoreSpammyEvents, {
-			Text = "Auto-ignore High-frequency Calls",
-			Default = false,
-		})
-
-		FilterSection:CreateCheckbox(SettingIds.IgnorePlayerModule, {
-			Text = "Ignore PlayerModule Calls",
-			Default = true,
-		})
-
-		FilterSection:CreateCheckbox(SettingIds.ShowExecutorLogs, {
+		Settings.ShowExecutorLogs:SetupOption(FilterSection, {
 			Text = `Show {wax.shared.ExecutorName} Calls`,
-			Default = true,
 			Callback = LogsPage.RefreshCurrentLog,
 		})
 
-		FilterSection:CreateButton("Reset Filters", function()
-			for _, SettingName in FilterResetSettingIds do
-				wax.shared.Settings[SettingName]:Reset()
+		FilterSection:CreateButton("Reset Filtering Preferences", function()
+			for _, Setting in FilterResetSettings do
+				wax.shared.Settings[Setting.Key]:Reset()
 			end
 
 			wax.shared.Sonner.success("Successfully reset remote filtering to default")
 		end)
 	end
 
-	--// Managed Remotes Section \\--
-	local ManagedRemotesSection = MainSettings:CreateSection("Managed Remotes")
+	--// Call Filters Section \\--
+	local CallFiltersSection = MainSettings:CreateSection("Call Filters")
 	do
-		ManagedRemotesSection:CreateRemoteList("IgnoredRemotes", {
-			Text = "Ignored Remotes",
+		CallFiltersSection:CreateCallFilterList({
+			Manager = wax.shared.CallFilters,
+			OnEdit = function(Filter: Types.CallFilter)
+				Window.Dialogs.CallFilter.Open(Window, {
+					Filter = Filter,
+					OnSave = function(Value)
+						wax.shared.CallFilters:Update(Filter.Id, Value)
+						wax.shared.Sonner.success("Call filter updated")
+					end,
+				})
+			end,
+			OnDuplicate = function(Filter: Types.CallFilter)
+				wax.shared.CallFilters:Add({
+					Enabled = Filter.Enabled,
+					Target = Filter.Target,
+					Direction = Filter.Direction,
+					Conditions = Filter.Conditions,
+					Action = Filter.Action,
+				})
+				wax.shared.Sonner.success("Call filter duplicated")
+			end,
+			OnDelete = function(Filter: Types.CallFilter)
+				Window.Dialogs.DeleteCallFilter.Open(Window, Filter)
+			end,
+		})
+	end
+
+	--// Remotes Filtering Section \\--
+	local IgnoredRemotesSection = MainSettings:CreateSection("Ignored Remotes")
+	do
+		IgnoredRemotesSection:CreateRemoteList("IgnoredRemotes", {
 			NullMessage = "No remotes have been ignored yet.",
 			Callback = function(Log)
 				Log.Ignored = false
 			end,
 		})
+	end
 
-		ManagedRemotesSection:CreateRemoteList("BlockedRemotes", {
-			Text = "Blocked Remotes",
+	local BlockedRemotesSection = MainSettings:CreateSection("Blocked Remotes")
+	do
+		BlockedRemotesSection:CreateRemoteList("BlockedRemotes", {
 			NullMessage = "No remotes have been blocked yet.",
 			Callback = function(Log)
 				Log.Blocked = false
@@ -390,34 +282,10 @@ return function(props: {
 	--// Code Generation Section \\--
 	local CodeGenSection = MainSettings:CreateSection("Code Generation")
 	do
-		CodeGenSection:CreateDropdown("InstancePathLookupChain", {
-			Text = "Instance Path Style",
-			Values = {
-				["Index"] = "file",
-				["WaitForChild"] = "file-clock",
-				["FindFirstChild"] = "file-search",
-			},
-			Default = "Index",
-		})
-
-		CodeGenSection:CreateDropdown("EventReferenceStrategy", {
-			Text = "Nil Instance Strategy",
-			Values = {
-				["GetNil"] = "bug",
-				["Upvalue Lookup"] = "circle-fading-arrow-up",
-			},
-			Default = "GetNil",
-		})
-
-		CodeGenSection:CreateCheckbox("PreferBufferFromString", {
-			Text = "Use buffer.fromstring()",
-			Default = false,
-		})
-
-		CodeGenSection:CreateCheckbox("ShowWatermark", {
-			Text = "Include Cobalt Header",
-			Default = true,
-		})
+		Settings.InstancePathLookupChain:SetupOption(CodeGenSection)
+		Settings.EventReferenceStrategy:SetupOption(CodeGenSection)
+		Settings.PreferBufferFromString:SetupOption(CodeGenSection)
+		Settings.ShowWatermark:SetupOption(CodeGenSection)
 	end
 
 	--// File Logging Section \\--
@@ -425,9 +293,7 @@ return function(props: {
 	do
 		local SessionLogLabel
 
-		LoggingSection:CreateCheckbox("EnableLogging", {
-			Text = "Save Calls to File",
-			Default = false,
+		Settings.EnableLogging:SetupOption(LoggingSection, {
 			Callback = function(value)
 				if not value then
 					wax.shared.LogConnection:Disconnect()
@@ -547,15 +413,8 @@ return function(props: {
 			CompatibilitySection:AddLabel(table.concat(PartialSupportDetails, "\n"), 14)
 		end
 
-		CompatibilitySection:CreateCheckbox("DisableNonEssentialChecks", {
-			Text = "Skip Optional Executor Checks",
-			Default = false,
-		})
-
-		CompatibilitySection:CreateCheckbox("AnticheatBypass", {
-			Text = "Enable Anti-Cheat Bypass",
-			Default = false,
-		})
+		Settings.DisableNonEssentialChecks:SetupOption(CompatibilitySection)
+		Settings.AnticheatBypass:SetupOption(CompatibilitySection)
 		CompatibilitySection:AddLabel("These options take effect the next time Cobalt launches.", 13).TextTransparency =
 			0.5
 
@@ -569,22 +428,7 @@ return function(props: {
 	CreditsSection:AddLabel("Cobalt and the open-source projects that make it possible.", 14).TextTransparency = 0.35
 	CreditsSection:AddSpacer()
 	CreditsSection:CreateButton("View Credits", function()
-		Window.Dialog.new({
-			Title = "Credits",
-			Description = table.concat({
-				"<b>upio</b> · Cobalt Developer",
-				"<b>deivid</b> · Cobalt Developer",
-				'<b>shadcn</b> · UI design inspiration · <font color="#3798ff">ui.shadcn.com</font>',
-				'<b>The Lucide Team</b> · Icon library · <font color="#3798ff">lucide.dev</font>',
-				'<b>Emil Kowalski</b> · Sonner · <font color="#3798ff">sonner.emilkowal.ski</font>',
-			}, "\n\n"),
-			Footer = {
-				{
-					Text = "Close",
-					Action = "Dismiss",
-				},
-			},
-		})
+		Window.Dialogs.Credits.Open(Window)
 	end)
 
 	return {

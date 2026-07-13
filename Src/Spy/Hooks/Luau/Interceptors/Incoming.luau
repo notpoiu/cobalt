@@ -89,20 +89,9 @@ local function LogRemote(
 		return false, nil
 	end
 
-	if Log.Blocked then
-		if wax.shared.SaveManager:GetState("LogBlockedRemotes", false) then
-			Info.Blocked = true
-			local CallIndex = Log:Call(Info)
-			return true, Log, CallIndex
-		end
-
-		return true, Log
-	elseif not Log.Ignored then
-		local CallIndex = Log:Call(Info)
-		return false, Log, CallIndex
-	end
-
-	return false, Log
+	local ShouldBlock = Log:ShouldBlock(Info)
+	local CallIndex = Log:Call(Info)
+	return ShouldBlock, Log, CallIndex
 end
 
 --#region Incoming Connection Stuff
@@ -136,7 +125,7 @@ local function CreateConnectionFunction(Instance: InstancesToHook, Method: Metho
 	local ConnectionFunction = function(...)
 		local HasValidConnections = false
 		local HasForeignLuaConnections = false
-		
+
 		local Arguments = wax.shared.SafePack.Pack(...)
 
 		local TargetLog, TargetCallIndex
@@ -188,9 +177,8 @@ local function CreateConnectionFunction(Instance: InstancesToHook, Method: Metho
 				IsExecutor = Function and isexecutorclosure(Function) or false,
 			}))
 		end
-
 		
-		if not HasValidConnections and not IS_ACTOR then
+		if not HasValidConnections and not wax.shared.IS_ACTOR then
 			TargetLog, TargetCallIndex = select(2, LogRemote(Instance, nil, {
 				Arguments = Arguments,
 				Origin = nil,
@@ -201,7 +189,7 @@ local function CreateConnectionFunction(Instance: InstancesToHook, Method: Metho
 		end
 
 		if
-			not IS_ACTOR
+			not wax.shared.IS_ACTOR
 			and HasForeignLuaConnections
 			and TargetLog
 			and TargetCallIndex
@@ -236,31 +224,20 @@ end
 	Handles logging for a callback.
 
 	@param Log The log to use.
-	@param Arguments The arguments to use.
-	@param Origin The origin to use.
-	@param Callback The callback to use.
-	@param IsExecutor Whether the callback is an executor.
+	@param Info The pending callback call information.
 	@param InitialEnv The initial environment to use.
 	@param InitialIdentity The initial identity to use.
 	@param ... The result of the callback.
 
 	@return The result of the callback.
 ]]
-local function HandleCallbackLogging(Log, Arguments, Origin, Callback, IsExecutor, InitialEnv, InitialIdentity, ...)
+local function HandleCallbackLogging(Log, Info, InitialEnv, InitialIdentity, ...)
 	setfenv(0, InitialEnv)
 	setthreadidentity(InitialIdentity)
 
-	if Log and not Log.Ignored then
-		local Result = wax.shared.SafePack.Pack(...)
-		Log:Call({
-			Arguments = Arguments,
-			InvokeResult = Result,
-			Origin = Origin,
-			Function = Callback,
-			Line = nil,
-			IsExecutor = IsExecutor,
-			InvokeKind = "Callback",
-		})
+	if Log then
+		Info.InvokeResult = wax.shared.SafePack.Pack(...)
+		Log:Call(Info)
 	end
 
 	return ...
@@ -297,20 +274,16 @@ local function CreateCallbackDetour(Instance: InstancesToHook, Callback: (...any
 
 		local Arguments = wax.shared.SafePack.Pack(...)
 		local Log = GetLog(Instance, Callback)
-
-		if Log and Log.Blocked then
-			if wax.shared.SaveManager:GetState("LogBlockedRemotes", false) then
-				Log:Call({
-					Arguments = Arguments,
-					Origin = Origin,
-					Function = Callback,
-					Line = nil,
-					IsExecutor = IsExecutor,
-					InvokeKind = "Callback",
-					Blocked = true,
-				})
-			end
-
+		local Info = {
+			Arguments = Arguments,
+			Origin = Origin,
+			Function = Callback,
+			Line = nil,
+			IsExecutor = IsExecutor,
+			InvokeKind = "Callback",
+		}
+		if Log and Log:ShouldBlock(Info) then
+			Log:Call(Info)
 			return
 		end
 
@@ -320,10 +293,7 @@ local function CreateCallbackDetour(Instance: InstancesToHook, Callback: (...any
 		setfenv(0, getfenv(Callback))
 		return HandleCallbackLogging(
 			Log,
-			Arguments,
-			Origin,
-			Callback,
-			IsExecutor,
+			Info,
 			InitialEnv,
 			InitialIdentity,
 			Callback(...)

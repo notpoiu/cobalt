@@ -1,5 +1,5 @@
 --// Imports \\--
-local Validate = require("@src/Utils/Validation")
+local Validation = require("@src/Utils/Validation")
 local LuaEncode = require("@src/Utils/CodeGen/Serializer/LuaEncode")
 
 local Interceptors = script.Interceptors
@@ -23,7 +23,7 @@ local OptionsTemplate: Options = {
 
 return function(Options: Options?)
 	--// Validation \\--
-	Options = Validate(Options or {}, OptionsTemplate)
+	Options = Validation.FillTemplate(Options or {}, OptionsTemplate)
 
 	--// Options \\--
 	local IncomingConnections = Options.IncomingConnections ~= false
@@ -63,13 +63,10 @@ return function(Options: Options?)
 		local CommunicationChannelID, Channel = create_comm_channel()
 		wax.shared.ActorCommunicator = Channel
 
-		local IgnorePlayerModule = wax.shared.SaveManager:GetState("IgnorePlayerModule", true)
-		local LogBlockedRemotes = wax.shared.SaveManager:GetState("LogBlockedRemotes", false)
-		local IngoredRemotesDropdown = wax.shared.SaveManager:GetState("IgnoredRemotesDropdown", {
-			["BindableEvent"] = true,
-			["BindableFunction"] = true,
-		})
-		local LogRobloxInternalEvents = wax.shared.SaveManager:GetState("LogRobloxInternalEvents", false)
+		local IgnorePlayerModule = wax.shared.SaveManager:GetState("IgnorePlayerModule")
+		local LogBlockedRemotes = wax.shared.SaveManager:GetState("LogBlockedRemotes")
+		local IngoredRemotesDropdown = wax.shared.SaveManager:GetState("IgnoredRemotesDropdown")
+		local LogRobloxInternalEvents = wax.shared.SaveManager:GetState("LogRobloxInternalEvents")
 
 		local ActorData = LuaEncode({
 			Token = wax.shared.CobaltVerificationToken,
@@ -141,7 +138,7 @@ return function(Options: Options?)
 		end
 
 		wax.shared.Connect(Channel.Event:Connect(function(EventType, ...)
-			local ShouldLogActors = wax.shared.SaveManager:GetState("LogActors", true)
+			local ShouldLogActors = wax.shared.SaveManager:GetState("LogActors")
 
 			if not ShouldLogActors then
 				return
@@ -175,6 +172,8 @@ return function(Options: Options?)
 					IsActor = true,
 					Actor = Metadata.Actor,
 					Blocked = OriginalCall.Blocked,
+					Highlighted = OriginalCall.Highlighted,
+					CallFilterId = OriginalCall.CallFilterId,
 				})
 
 				--// Make Memory Usage More Efficient \\--
@@ -200,30 +199,14 @@ return function(Options: Options?)
 				Log = wax.shared.NewLog(Instance, Type, RawInfo.Origin)
 			end
 
-			if Log.Blocked then
-				if not wax.shared.SaveManager:GetState("LogBlockedRemotes", false) then
-					return
-				end
+			local ReconstructedInfo = ReconstructTable(RawInfo, CyclicRefs)
+			ReconstructedInfo.IsActor = true -- Incase the Actor Instance is nil for some reason
 
-				local ReconstructedInfo = ReconstructTable(RawInfo, CyclicRefs)
-				ReconstructedInfo.Blocked = true
-				ReconstructedInfo.IsActor = true -- Incase the Actor Instance is nil for some reason
+			--// Reconstruct Packed Arguments (BindableEvents omit ["n"] for unknown reason) \\--
+			ReconstructedInfo.Arguments = ReconstructPacked(ReconstructedInfo.Arguments)
+			ReconstructedInfo.InvokeResult = ReconstructPacked(ReconstructedInfo.InvokeResult)
 
-				--// Reconstruct Packed Arguments (BindableEvents omit ["n"] for unknown reason) \\--
-				ReconstructedInfo.Arguments = ReconstructPacked(ReconstructedInfo.Arguments)
-				ReconstructedInfo.InvokeResult = ReconstructPacked(ReconstructedInfo.InvokeResult)
-
-				Log:Call(ReconstructedInfo)
-			elseif not Log.Ignored then
-				local ReconstructedInfo = ReconstructTable(RawInfo, CyclicRefs)
-				ReconstructedInfo.IsActor = true -- Incase the Actor Instance is nil for some reason
-
-				--// Reconstruct Packed Arguments (BindableEvents omit ["n"] for unknown reason) \\--
-				ReconstructedInfo.Arguments = ReconstructPacked(ReconstructedInfo.Arguments)
-				ReconstructedInfo.InvokeResult = ReconstructPacked(ReconstructedInfo.InvokeResult)
-
-				Log:Call(ReconstructedInfo)
-			end
+			Log:Call(ReconstructedInfo)
 		end))
 		--#endregion
 
@@ -242,6 +225,12 @@ return function(Options: Options?)
 				Attempts += 1
 				task.wait(0.25)
 			until Hooked or Attempts > 10
+
+			if Hooked then
+				pcall(function()
+					Channel:Fire("MainCallFiltersSync", wax.shared.CallFilters:GetAll())
+				end)
+			end
 		end
 
 		for _, Category in { getactors(), getdeletedactors and getdeletedactors() or {} } do

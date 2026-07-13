@@ -219,6 +219,7 @@ return function(props: {
 
 		local LogContextMenu = ContextMenu:Create(Button, ContextMenuOptions, true)
 		Button.MouseButton2Click:Connect(LogContextMenu.Toggle)
+		LogContextMenu:BindLongPress(Button)
 
 		return Button, Name, Calls
 	end

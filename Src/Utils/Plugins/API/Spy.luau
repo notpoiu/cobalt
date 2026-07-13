@@ -87,11 +87,6 @@ function Spy.Apply(Cobalt, Manager)
 
 	function Cobalt.Spy:AppendLog(Instance: Instance, Type: "Incoming" | "Outgoing", Data: {})
 		local Log = wax.shared.Logs[Type][Instance] or wax.shared.NewLog(Instance, Type, nil)
-
-		if Log.Blocked or Log.Ignored then
-			return
-		end
-
 		Log:Call(Data)
 	end
 

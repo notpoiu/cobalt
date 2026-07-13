@@ -14,6 +14,7 @@ local ContextMenuController = require("@src/Window/Components/ContextMenu")
 
 --// Variables \\--
 local Window = {
+	Dialogs = {},
 	Modals = {},
 }
 
@@ -105,11 +106,6 @@ do
 	wax.shared.Sonner.init(NotificationWrapper)
 end
 
---// Dialogs \\--
-Window.Dialog = require(script.Components.Dialog){
-	MainFrame = MainFrame,
-}
-
 --// Pagination \\--
 local PaginationFactory = require(script.Utils.Pagination)
 
@@ -131,6 +127,19 @@ local ContextMenus = ContextMenuController.new(ScreenGui, {
 
 	TweenInfo = Constants.DefaultTweenInfo,
 })
+
+--// Dialogs \\--
+Window.Dialog = require(script.Components.Dialog)({
+	MainFrame = MainFrame,
+})
+
+local QueryBuilder = require(script.Components.QueryBuilder)
+do
+	QueryBuilder.ContextMenu = ContextMenus
+	Window.QueryBuilder = QueryBuilder
+end
+
+Window.Dialogs = require(script.Components.Dialogs)
 
 --// Modal Controller \\--
 Window.Modals.Controller = ModalController.new(MainFrame, {

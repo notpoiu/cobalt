@@ -11,8 +11,13 @@ function SettingSync.Broadcast(Idx: string, Value: any)
 end
 
 function SettingSync.Save(Idx: string, Value: any)
+	local Success, Error = wax.shared.SaveManager:SetState(Idx, Value)
+	if not Success then
+		return false, Error
+	end
+
 	SettingSync.Broadcast(Idx, Value)
-	wax.shared.SaveManager:SetState(Idx, Value)
+	return true
 end
 
 function SettingSync.Register(Idx: string, Setting: any, Value: any?)

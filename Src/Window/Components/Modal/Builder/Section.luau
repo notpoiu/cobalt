@@ -4,6 +4,7 @@ local Interface = require("@src/Utils/UI/Interface")
 local ContextMenuController = require("@src/Window/Components/ContextMenu")
 
 local CreateCheckbox = require(script.Parent.Controls.Checkbox)
+local CreateCallFilterList = require(script.Parent.Controls.CallFilterList)
 local CreateDropdown = require(script.Parent.Controls.Dropdown)
 local CreateRemoteList = require(script.Parent.Controls.RemoteList)
 local CreateTextBox = require(script.Parent.Controls.TextBox)
@@ -131,6 +132,17 @@ return function(props: {
 			CreateButton = function(Text, Callback)
 				return self:CreateButton(Text, Callback)
 			end,
+		})
+	end
+
+	function SectionBuilder:CreateCallFilterList(Options)
+		return CreateCallFilterList({
+			Parent = self.Parent,
+			ContextMenu = ContextMenu,
+			Manager = Options.Manager,
+			OnEdit = Options.OnEdit,
+			OnDuplicate = Options.OnDuplicate,
+			OnDelete = Options.OnDelete,
 		})
 	end
 

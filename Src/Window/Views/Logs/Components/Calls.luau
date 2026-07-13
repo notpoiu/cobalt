@@ -137,8 +137,24 @@ return function(props: {
 		end
 	end
 
-	local function GetActiveCallInfo()
-		return Calls.ActiveCallInfo
+	local function GetInitialFilterCondition(CallInfo): Types.QueryBuilderCondition
+		local Value = CallInfo.Arguments and CallInfo.Arguments[1]
+		local ValueType = typeof(Value)
+		if ValueType == "boolean" or ValueType == "number" or ValueType == "string" then
+			return {
+				Subject = { Type = "Argument", Index = 1 },
+				Operator = "Equals",
+				Value = Value,
+				Join = "And",
+			}
+		end
+
+		return {
+			Subject = { Type = "Argument", Index = 1 },
+			Operator = "TypeIs",
+			Value = ValueType,
+			Join = "And",
+		}
 	end
 
 	local function BuildCallContextMenuOptions()
@@ -147,7 +163,7 @@ return function(props: {
 				Text = "Copy Calling Code",
 				Icon = "forward",
 				Callback = function()
-					local CallInfo = GetActiveCallInfo()
+					local CallInfo = Calls.ActiveCallInfo
 					if not CallInfo then
 						return
 					end
@@ -163,7 +179,7 @@ return function(props: {
 				Text = "Copy Intercept Code",
 				Icon = "shield-alert",
 				Callback = function()
-					local CallInfo = GetActiveCallInfo()
+					local CallInfo = Calls.ActiveCallInfo
 					local CurrentTab = props.GetCurrentTab()
 					if not (CallInfo and CurrentTab) then
 						return
@@ -180,7 +196,7 @@ return function(props: {
 				Text = "Copy Remote Path",
 				Icon = "package-search",
 				Callback = function()
-					local CallInfo = GetActiveCallInfo()
+					local CallInfo = Calls.ActiveCallInfo
 					if not CallInfo then
 						return
 					end
@@ -199,11 +215,11 @@ return function(props: {
 				Text = "Copy Script Path",
 				Icon = "file-search",
 				Condition = function()
-					local CallInfo = GetActiveCallInfo()
+					local CallInfo = Calls.ActiveCallInfo
 					return CallInfo and typeof(CallInfo.Origin) == "Instance"
 				end,
 				Callback = function()
-					local CallInfo = GetActiveCallInfo()
+					local CallInfo = Calls.ActiveCallInfo
 					if not (CallInfo and typeof(CallInfo.Origin) == "Instance") then
 						return
 					end
@@ -216,10 +232,32 @@ return function(props: {
 				end,
 			},
 			{
+				Text = "Create Call Filter",
+				Icon = "list-filter",
+				Callback = function()
+					local CallInfo = Calls.ActiveCallInfo
+					if not CallInfo then
+						return
+					end
+
+					Window.Dialogs.CallFilter.Open(Window, {
+						Remote = CallInfo.Instance,
+						Direction = CallInfo.Type,
+						ArgumentCount = CallInfo.Arguments.n or #CallInfo.Arguments,
+						Conditions = { GetInitialFilterCondition(CallInfo) },
+						Action = "Ignore",
+						OnSave = function(Value)
+							wax.shared.CallFilters:Add(Value)
+							wax.shared.Sonner.success("Call filter created")
+						end,
+					})
+				end,
+			},
+			{
 				Text = "Replay",
 				Icon = "play",
 				Callback = function()
-					local CallInfo = GetActiveCallInfo()
+					local CallInfo = Calls.ActiveCallInfo
 					if not CallInfo then
 						return
 					end
@@ -243,7 +281,7 @@ return function(props: {
 					Text = Option.Text,
 					Icon = Option.Icon,
 					Callback = function()
-						local CallInfo = GetActiveCallInfo()
+						local CallInfo = Calls.ActiveCallInfo
 						if CallInfo then
 							task.spawn(Option.Callback, CallInfo)
 						end
@@ -311,7 +349,7 @@ return function(props: {
 
 		local HighlightStroke = Interface.New("UIStroke", {
 			ApplyStrokeMode = Enum.ApplyStrokeMode.Border,
-			Thickness = 2,
+			Thickness = 1,
 			Transparency = 1,
 
 			Parent = CallFrame,
@@ -342,7 +380,7 @@ return function(props: {
 
 			wax.shared.TweenService
 				:Create(Data.HighlightStroke, Constants.DefaultTweenInfo, {
-					Transparency = if Data.IsBlockedCall then 0.5 else 1,
+					Transparency = if Data.IsBlockedCall then 0.5 elseif Data.IsHighlightedCall then 0.35 else 1,
 				})
 				:Play()
 		end)
@@ -354,15 +392,25 @@ return function(props: {
 			end
 		end)
 
-		CallFrame.MouseButton2Click:Connect(function()
+		local function PrepareCallContext(): boolean
 			local Data = self.CallFrameData[CallFrame]
 			if not (Data and Data.CallInfo) then
-				return
+				return false
 			end
 
 			self.ActiveCallInfo = Data.CallInfo
-			GetSharedCallContextMenu().Open()
+			return true
+		end
+
+		local CallContextMenu = GetSharedCallContextMenu()
+		CallFrame.MouseButton2Click:Connect(function()
+			if not PrepareCallContext() then
+				return
+			end
+
+			CallContextMenu.Open()
 		end)
+		CallContextMenu:BindLongPress(CallFrame, PrepareCallContext)
 
 		return CallFrame
 	end
@@ -378,16 +426,21 @@ return function(props: {
 		end
 
 		local IsBlockedCall = CallInfo.Blocked == true
+		local IsHighlightedCall = not IsBlockedCall and CallInfo.Highlighted == true
 		local CallFrame = self:AcquireCallFrame()
 		local Data = self.CallFrameData[CallFrame]
 
 		Data.CallInfo = CallInfo
 		Data.IsBlockedCall = IsBlockedCall
+		Data.IsHighlightedCall = IsHighlightedCall
 
 		CallFrame.BackgroundColor3 = if IsBlockedCall then Color3.fromRGB(34, 18, 18) else Color3.fromRGB(25, 25, 25)
 		CallFrame.LayoutOrder = CallInfo.Order
-		Data.HighlightStroke.Color = if IsBlockedCall then Color3.fromRGB(222, 82, 82) else Color3.fromRGB(75, 75, 75)
-		Data.HighlightStroke.Transparency = if IsBlockedCall then 0.5 else 1
+		Data.HighlightStroke.Color = if IsBlockedCall
+			then Color3.fromRGB(222, 82, 82)
+			elseif IsHighlightedCall then Color3.fromRGB(230, 170, 65)
+			else Color3.fromRGB(75, 75, 75)
+		Data.HighlightStroke.Transparency = if IsBlockedCall then 0.5 elseif IsHighlightedCall then 0.35 else 1
 
 		local InitialDataView = if CallInfo.Type == "Incoming" and CallInfo.InvokeResult
 			then "InvokeResult"

@@ -29,9 +29,14 @@ function ContextMenu.new(
 		TweenInfo = Options and Options.TweenInfo or DefaultTweenInfo,
 	}, ContextMenu)
 
-	self.Frame = Interface.New("Frame", {
+	self.Frame = Interface.New("ScrollingFrame", {
+		AutomaticCanvasSize = Enum.AutomaticSize.Y,
 		AutomaticSize = Enum.AutomaticSize.XY,
 		BackgroundColor3 = Color3.fromRGB(10, 10, 10),
+		CanvasSize = UDim2.new(0, 0, 0, 0),
+		ScrollBarThickness = 2,
+		ScrollingDirection = Enum.ScrollingDirection.Y,
+		ScrollingEnabled = false,
 		Size = UDim2.fromScale(0, 0),
 		ZIndex = 10000,
 		Visible = false,
@@ -59,18 +64,31 @@ function ContextMenu.new(
 			Thickness = 1,
 		},
 
+		["UISizeConstraint"] = {
+			MaxSize = Vector2.new(100000, 100000),
+		},
+
 		Parent = Parent,
 	})
+	self.SizeConstraint = self.Frame.UISizeConstraint
 
 	return self
 end
 
-function ContextMenu:Create(Parent: GuiObject, Options: {}, MouseOnCursorPosition: boolean?)
+function ContextMenu:Create(
+	Parent: GuiObject,
+	Options: {},
+	MouseOnCursorPosition: boolean?,
+	DisplayOptions: {
+		MaxHeight: number?,
+	}?
+)
 	local ContextData = {
 		Parent = Parent,
 		Options = {},
 		Owner = self,
 		MouseOnCursorPosition = MouseOnCursorPosition,
+		DisplayOptions = DisplayOptions or {},
 	}
 
 	local function BuildContextMenu(MenuOptions: {})
@@ -203,7 +221,7 @@ function ContextMenu:Create(Parent: GuiObject, Options: {}, MouseOnCursorPositio
 		end
 	end
 
-	function ContextData.Open()
+	function ContextData.Open(InputPosition: Vector2?)
 		local Owner = ContextData.Owner
 		if Owner.CurrentContext == ContextData then
 			return
@@ -214,19 +232,33 @@ function ContextMenu:Create(Parent: GuiObject, Options: {}, MouseOnCursorPositio
 		end
 
 		Owner.CurrentContext = ContextData
+		Owner.Frame.CanvasPosition = Vector2.zero
+		local MaxHeight = ContextData.DisplayOptions.MaxHeight
+		Owner.Frame.AutomaticSize = if MaxHeight then Enum.AutomaticSize.X else Enum.AutomaticSize.XY
+		Owner.Frame.Size = UDim2.fromScale(0, 0)
+		Owner.SizeConstraint.MaxSize = Vector2.new(100000, 100000)
+		local ContentHeight = Owner.Frame.UIPadding.PaddingTop.Offset + Owner.Frame.UIPadding.PaddingBottom.Offset
 		for Object, Data in pairs(ContextData.Options) do
 			if Data.Condition and not Data.Condition() then
 				continue
 			end
 			Object.Parent = Owner.Frame
+			ContentHeight += Object.Size.Y.Offset
 			Data:Display()
+		end
+		if MaxHeight then
+			Owner.Frame.ScrollingEnabled = ContentHeight > MaxHeight
+			Owner.Frame.Size = UDim2.new(0, 0, 0, math.min(ContentHeight, MaxHeight))
+		else
+			Owner.Frame.ScrollingEnabled = false
 		end
 
 		local DPIScale = Owner.GetDPIScale()
 		if ContextData.MouseOnCursorPosition then
+			local CursorPosition = InputPosition or wax.shared.UserInputService:GetMouseLocation()
 			Owner.Frame.Position = UDim2.fromOffset(
-				wax.shared.UserInputService:GetMouseLocation().X,
-				wax.shared.UserInputService:GetMouseLocation().Y - (45 / DPIScale)
+				CursorPosition.X,
+				CursorPosition.Y - (45 / DPIScale)
 			)
 		else
 			Owner.Frame.Position = UDim2.fromOffset(
@@ -245,6 +277,39 @@ function ContextMenu:Create(Parent: GuiObject, Options: {}, MouseOnCursorPositio
 		end
 
 		ContextData.Open()
+	end
+
+	function ContextData:BindLongPress(Target: GuiObject?, BeforeOpen: (() -> boolean?)?)
+		local LongPressTarget = Target or Parent
+		local SuppressedClick = false
+		local PreviousInteractable = true
+		return LongPressTarget.TouchLongPress:Connect(function(TouchPositions: { Vector2 }, State: Enum.UserInputState)
+			if State == Enum.UserInputState.Begin then
+				if BeforeOpen and BeforeOpen() == false then
+					return
+				end
+
+				-- Prevent GuiButton.MouseButton1Click from firing when the held touch is released.
+				if LongPressTarget:IsA("GuiButton") then
+					PreviousInteractable = LongPressTarget.Interactable
+					SuppressedClick = true
+					LongPressTarget.Interactable = false
+				end
+				ContextData.Open(TouchPositions[1])
+			elseif
+				(State == Enum.UserInputState.End or State == Enum.UserInputState.Cancel)
+				and SuppressedClick
+				and LongPressTarget:IsA("GuiButton")
+			then
+				SuppressedClick = false
+				local RestoreInteractable = PreviousInteractable
+				task.defer(function()
+					if LongPressTarget.Parent then
+						LongPressTarget.Interactable = RestoreInteractable
+					end
+				end)
+			end
+		end)
 	end
 
 	function ContextData.Close()

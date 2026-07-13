@@ -1,4 +1,5 @@
 wax.shared.CobaltStartTime = tick()
+wax.shared.IS_ACTOR = false
 
 local FileLogger = require(script.Utils.FileLog)
 
@@ -13,7 +14,7 @@ for _, Service in pairs({
 	"UserInputService",
 	"TextService",
 	"StarterGui",
-	"RobloxReplicatedStorage"
+	"RobloxReplicatedStorage",
 }) do
 	wax.shared[Service] = cloneref(game:GetService(Service))
 end
@@ -25,15 +26,23 @@ wax.shared.Hooks = {}
 wax.shared.ExecutorName = identifyexecutor()
 wax.shared.ExecutorSupport = require(script.ExecutorSupport)
 
+wax.shared.Sonner = require(script.Window.Components.Sonner)
 wax.shared.SaveManager = require(script.Utils.SaveManager)
 wax.shared.Settings = {}
+wax.shared.CallFilters = require(script.Utils.CallFilter.Manager)
+wax.shared.CallFilters:Subscribe(function(Filters)
+	if not wax.shared.ActorCommunicator then
+		return
+	end
+
+	pcall(function()
+		wax.shared.ActorCommunicator:Fire("MainCallFiltersSync", Filters)
+	end)
+end)
 
 -- Utils
 require(script.Utils.Connect)
 wax.shared.Hooking = require(script.Utils.Hook.Luau)
-
--- UI
-wax.shared.Sonner = require(script.Window.Components.Sonner)
 
 -- Code Generation
 local LuaEncode = require(script.Utils.CodeGen.Serializer.LuaEncode)
@@ -211,8 +220,9 @@ wax.shared.Unload = function()
 	end
 
 	for _, Connection in pairs(wax.shared.Connections) do
-		wax.shared.Disconnect(Connection)
+		Connection:Disconnect()
 	end
+	table.clear(wax.shared.Connections)
 
 	getgenv().CobaltInitialized = false
 	getgenv().Cobalt = nil
@@ -316,7 +326,7 @@ wax.shared.SetupLoggingConnection = function()
 	end
 end
 
-if wax.shared.SaveManager:GetState("EnableLogging", false) then
+if wax.shared.SaveManager:GetState("EnableLogging") then
 	local LogConnection = wax.shared.SetupLoggingConnection()
 	wax.shared.LogConnection = wax.shared.Connect(wax.shared.Communicator.Event:Connect(LogConnection))
 end
@@ -342,7 +352,7 @@ PluginManager.SetupPlugins()
 wax.shared.CobaltPluginManager = PluginManager
 
 wax.shared.Connect(wax.shared.LocalPlayer.OnTeleport:Connect(function()
-	if not wax.shared.SaveManager:GetState("ExecuteOnTeleport", false) then
+	if not wax.shared.SaveManager:GetState("ExecuteOnTeleport") then
 		return
 	end
 

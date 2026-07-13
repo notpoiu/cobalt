@@ -116,10 +116,8 @@ end
 ]]
 local function HandleLoggingResult(Log, Info, ResultKey, ...)
 	local Result = wax.shared.SafePack.Pack(...)
-	if not Log.Ignored then
-		Info[ResultKey] = Result
-		Log:Call(Info)
-	end
+	Info[ResultKey] = Result
+	Log:Call(Info)
 
 	return ...
 end
@@ -143,60 +141,40 @@ local function HandleLogging(TargetInstance: Instance, Method: string, OldFuncti
 		Source = getcallingsource(),
 		IsExecutor = checkcaller(),
 	}
-
-	if Log.Blocked then
-		if wax.shared.SaveManager:GetState("LogBlockedRemotes", false) then
-			Info.Blocked = true
-			Log:Call(Info)
-		end
-
+	local ShouldBlock = Log:ShouldBlock(Info)
+	Log:Call(Info)
+	if ShouldBlock then
 		return
 	end
 
-	if not Log.Ignored then
-		--// Outgoing Log \\--
-		Log:Call(Info)
+	local IsRemoteFunctionInvoke = (
+		TargetInstance.ClassName == "RemoteFunction" and (Method == "InvokeServer" or Method == "invokeServer")
+	)
 
-		local IsRemoteFunctionInvoke = (
-			TargetInstance.ClassName == "RemoteFunction" and (Method == "InvokeServer" or Method == "invokeServer")
-		)
+	local IsBindableFunctionInvoke = (
+		TargetInstance.ClassName == "BindableFunction" and (Method == "Invoke" or Method == "invoke")
+	)
 
-		local IsBindableFunctionInvoke = (
-			TargetInstance.ClassName == "BindableFunction" and (Method == "Invoke" or Method == "invoke")
-		)
+	if IsRemoteFunctionInvoke or IsBindableFunctionInvoke then
+		--// Handle Incoming Log \\--
+		Log = GetLog(TargetInstance, "Incoming")
+		local RFResultInfo = {
+			Arguments = Arguments,
+			InvokeResult = nil,
+			Origin = getcallingscript(),
+			Function = getcallingfunction(),
+			Line = getcallingline(),
+			Source = getcallingsource(),
+			IsExecutor = checkcaller(),
+			InvokeKind = "Request",
+		}
 
-		if IsRemoteFunctionInvoke or IsBindableFunctionInvoke then
-			--// Handle Incoming Log \\--
-			Log = GetLog(TargetInstance, "Incoming")
-
-			if Log.Blocked then
-				if wax.shared.SaveManager:GetState("LogBlockedRemotes", false) then
-					Log:Call({
-						Arguments = Arguments,
-						Origin = getcallingscript(),
-						Function = getcallingfunction(),
-						Line = getcallingline(),
-						Source = getcallingsource(),
-						IsExecutor = checkcaller(),
-						InvokeKind = "Request",
-						Blocked = true,
-					})
-				end
-				return
-			end
-
-			local RFResultInfo = {
-				Arguments = Arguments,
-				InvokeResult = nil,
-				Origin = getcallingscript(),
-				Function = getcallingfunction(),
-				Line = getcallingline(),
-				Source = getcallingsource(),
-				IsExecutor = checkcaller(),
-				InvokeKind = "Request",
-			}
-			return HandleLoggingResult(Log, RFResultInfo, "InvokeResult", OldFunction(...))
+		if Log:ShouldBlock(RFResultInfo) then
+			Log:Call(RFResultInfo)
+			return
 		end
+
+		return HandleLoggingResult(Log, RFResultInfo, "InvokeResult", OldFunction(...))
 	end
 
 	return OldFunction(...)

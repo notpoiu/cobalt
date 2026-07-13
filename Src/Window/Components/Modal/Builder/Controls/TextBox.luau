@@ -149,7 +149,10 @@ return function(props: {
 			return
 		end
 
-		SettingSync.Save(Idx, PreparedValue)
+		if not SettingSync.Save(Idx, PreparedValue) then
+			SyncValue(TextSetting.Value, false)
+			return
+		end
 		SyncValue(PreparedValue)
 	end
 

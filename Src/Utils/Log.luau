@@ -1,6 +1,9 @@
 local Log = {}
 Log.__index = Log
 
+local PendingCallDecisions = setmetatable({}, { __mode = "k" })
+
+--// Log Call Queue \\--
 wax.shared.LogNotificationQueue = {
 	Items = {},
 	Head = 1,
@@ -18,7 +21,7 @@ local function QueueNotification(LogObject, CallIndex: number)
 	}
 end
 
-if not IS_ACTOR then
+if not wax.shared.IS_ACTOR then
 	wax.shared.Connect(wax.shared.RunService.Heartbeat:Connect(function()
 		local Queue = wax.shared.LogNotificationQueue
 		local Tail = Queue.Tail
@@ -54,7 +57,7 @@ local SpamTimeWindowSeconds = 1
 --// Actor Table Fixing \\--
 local FunctionToMetatadata, FixTable
 do
-	if IS_ACTOR then
+	if wax.shared.IS_ACTOR then
 		local FunctionMetadataCache = setmetatable({}, { __mode = "k" })
 
 		local function CreateTraversalState(Refs)
@@ -182,7 +185,7 @@ end
 
 --// Cloning \\--
 function DeepClone(orig, copies)
-	if IS_ACTOR then
+	if wax.shared.IS_ACTOR then
 		return orig
 	end
 
@@ -216,7 +219,7 @@ function DeepClone(orig, copies)
 	return copy
 end
 
-if IS_ACTOR then
+if wax.shared.IS_ACTOR then
 	wax.shared.SerializeActorInfo = function(Info)
 		return FixTable(DeepClone(Info))
 	end
@@ -276,15 +279,51 @@ local function RunInterceptors(Interceptors: { (...any) -> ...any }, Info: any, 
 	return false
 end
 
-function Log:Call(RawInfo)
+function Log:ShouldBlock(RawInfo): boolean
+	local Decision = PendingCallDecisions[RawInfo]
+	if Decision then
+		return Decision.ShouldBlock
+	end
+
+	local FilterAction
+	local CallFilters = wax.shared.CallFilters
+	if CallFilters then
+		FilterAction = CallFilters:Resolve(self.Instance, self.Type, RawInfo)
+	end
+
+	local ShouldBlock = RawInfo.Blocked == true or self.Blocked or FilterAction == "Block"
+	if ShouldBlock then
+		RawInfo.Blocked = true
+	end
+
+	PendingCallDecisions[RawInfo] = {
+		FilterAction = FilterAction,
+		ShouldBlock = ShouldBlock,
+	}
+	return ShouldBlock
+end
+
+function Log:Call(RawInfo): number?
+	local ShouldBlock = self:ShouldBlock(RawInfo)
+	local Decision = PendingCallDecisions[RawInfo]
+	PendingCallDecisions[RawInfo] = nil
+
+	local ShouldCapture = if ShouldBlock
+		then wax.shared.SaveManager:GetState("LogBlockedRemotes", false)
+		else not self.Ignored and Decision.FilterAction ~= "Ignore"
+
+	if not ShouldCapture then
+		return nil
+	end
+
 	--// Ratelimiting \\--
-	if not IS_ACTOR then
+	if not wax.shared.IS_ACTOR then
 		local Success, Data = pcall(function()
 			return self:IsOverSpamThreshold()
 		end)
 
 		if Success and Data then
-			return
+			return nil
 		end
 	end
 
@@ -293,9 +332,9 @@ function Log:Call(RawInfo)
 	Info.CreationTime = tick()
 
 	--// Actor Relaying \\--
-	if IS_ACTOR then
+	if wax.shared.IS_ACTOR then
 		if self.Instance == wax.shared.Communicator then
-			return
+			return nil
 		end
 
 		Info["Actor"] = CurrentActor
@@ -330,7 +369,7 @@ function Log:Call(RawInfo)
 			ContainsCyclicRef
 		)
 		setthreadidentity(identity)
-		return
+		return nil
 	end
 
 	--// Plugin Interceptors \\--
@@ -340,22 +379,22 @@ function Log:Call(RawInfo)
 		local InstanceIntercept = PluginManager.Registry.Interceptors.Instance[self.Instance]
 		if InstanceIntercept then
 			if InstanceIntercept[self.Type] and RunInterceptors(InstanceIntercept[self.Type], Info, self) then
-				return
+				return nil
 			end
 			if InstanceIntercept["All"] and RunInterceptors(InstanceIntercept["All"], Info, self) then
-				return
+				return nil
 			end
 		end
 
 		-- Run Global interceptors (both exact type and "All")
 		local GlobalByType = PluginManager.Registry.Interceptors.Global[self.Type]
 		if GlobalByType and RunInterceptors(GlobalByType, Info, self) then
-			return
+			return nil
 		end
 
 		local GlobalAll = PluginManager.Registry.Interceptors.Global["All"]
 		if GlobalAll and RunInterceptors(GlobalAll, Info, self) then
-			return
+			return nil
 		end
 	end
 
@@ -378,7 +417,7 @@ end
 function Log:Ignore()
 	self.Ignored = not self.Ignored
 
-	if not IS_ACTOR then
+	if not wax.shared.IS_ACTOR then
 		if wax.shared.ActorCommunicator then
 			pcall(function()
 				wax.shared.ActorCommunicator:Fire("MainIgnore", self.Instance, self.Type)
@@ -427,7 +466,7 @@ function Log:SetConnectionsEnabled(enabled: boolean)
 end
 
 function Log:Block()
-	if not IS_ACTOR and wax.shared.ActorCommunicator then
+	if not wax.shared.IS_ACTOR and wax.shared.ActorCommunicator then
 		pcall(function()
 			wax.shared.ActorCommunicator:Fire("MainBlock", self.Instance, self.Type)
 		end)

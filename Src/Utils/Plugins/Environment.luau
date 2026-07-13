@@ -52,7 +52,7 @@ function Environment.Create(
 	setmetatable(Cobalt, {
 		__newindex = function(_, Key, Value)
 			if Key:lower() == "plugindata" then
-				local PluginData = Metadata.Validate(Value, Metadata.TemplatePluginData)
+				local PluginData = Metadata.Validate(Value)
 
 				if not Metadata.IsSupportedInCurrentGame(PluginData) then
 					PluginErrored(FilePath, "Plugin is not supported in this game.")

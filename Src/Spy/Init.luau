@@ -2,7 +2,7 @@ return function()
 	local Hooks = script.Hooks
 
 	local ShouldUseRakNet = (
-		wax.shared.SaveManager:GetState("RakNetHooks", false) and wax.shared.ExecutorSupport["raknet"].IsWorking
+		wax.shared.SaveManager:GetState("RakNetHooks") and wax.shared.ExecutorSupport["raknet"].IsWorking
 	)
 	wax.shared.IsUsingRakNetHooks = ShouldUseRakNet
 

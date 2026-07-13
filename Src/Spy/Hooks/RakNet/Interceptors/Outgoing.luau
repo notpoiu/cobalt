@@ -55,15 +55,12 @@ local function CreateHandler(Requests: Requests)
 					ShouldLog = false,
 				})
 				return false
-			elseif Log.Blocked then
-				if wax.shared.SaveManager:GetState("LogBlockedRemotes", false) then
-					Info.Blocked = true
-					Log:Call(Info)
-				end
+			end
 
+			local ShouldBlock = Log:ShouldBlock(Info)
+			Log:Call(Info)
+			if ShouldBlock then
 				return true
-			elseif not Log.Ignored then
-				Log:Call(Info)
 			end
 
 			Requests.Outgoing:Add(Instance, Response.InvokeId, {
@@ -88,16 +85,10 @@ local function CreateHandler(Requests: Requests)
 			IsExecutor = nil,
 			IsRakNet = true,
 		}
-
-		if Log.Blocked then
-			if wax.shared.SaveManager:GetState("LogBlockedRemotes", false) then
-				Info.Blocked = true
-				Log:Call(Info)
-			end
-
+		local ShouldBlock = Log:ShouldBlock(Info)
+		Log:Call(Info)
+		if ShouldBlock then
 			return true
-		elseif not Log.Ignored then
-			Log:Call(Info)
 		end
 
 		return false

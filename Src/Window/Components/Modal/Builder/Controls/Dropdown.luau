@@ -10,8 +10,12 @@ local function CreateLookupTable(Values: { any } | any)
 	end
 
 	local LookupTable = {}
-	for _, Value in Values do
-		LookupTable[Value] = true
+	for Key, Value in Values do
+		if type(Key) == "number" then
+			LookupTable[Value] = true
+		else
+			LookupTable[Key] = Value
+		end
 	end
 
 	return LookupTable
