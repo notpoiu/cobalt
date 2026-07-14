@@ -43,7 +43,7 @@ function LazySerializer.QuickSerializeArgument(Argument)
 	elseif typeof(Argument) == "Instance" then
 		return InstanceSerializer.Serialize(Argument, { DisableNilParentHandler = true })
 	elseif typeof(Argument) == "userdata" then
-		return "newproxy(" .. getmetatable(Argument) and "true" or "false" .. ")"
+		return "newproxy(" .. (getmetatable(Argument) and "true" or "false") .. ")"
 	end
 
 	return tostring(Argument)
