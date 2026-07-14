@@ -1,37 +1,14 @@
 name: Release
 
 on:
-  workflow_dispatch:
-    inputs:
-      version:
-        description: "Version of this release (e.g. v1.0)"
-        required: true
-        default: "1.0"
-      summary:
-        description: "Summary of this release"
-        required: true
-        default: "Initial release"
-  push:
-    tags: ["v*"]
+  release:
+    types: [published]
 
 permissions:
   contents: write
 
 jobs:
-  create-release:
-    name: Create Release and install Rokit
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Create Release
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          gh release create v${{ github.event.inputs.version }} --title "${{ github.event.inputs.version }}" --notes "${{ github.event.inputs.summary }}" --latest
-
   build-script:
-    needs: ["create-release"]
     name: Bundle Script
     runs-on: ubuntu-latest
     steps:
@@ -59,8 +36,9 @@ jobs:
       - name: Upload Minified Script to Release
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          RELEASE_TAG: ${{ github.event.release.tag_name }}
         run: |
-          gh release upload v${{ github.event.inputs.version }} "Distribution/Cobalt.luau" --clobber
+          gh release upload "$RELEASE_TAG" "Distribution/Cobalt.luau" --clobber
 
       - name: Upload Minified Script to Artifacts
         uses: actions/upload-artifact@v4
