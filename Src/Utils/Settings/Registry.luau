@@ -20,6 +20,13 @@ local RemoteClassSelection = Schema.table():refine(function(Value)
 end, "must map remote class names to booleans")
 
 return {
+	--// Internal Stuff \\--
+	LimitedLoggingAcknowledged = Setting.new({
+		Key = "LimitedLoggingAcknowledged",
+		Default = false,
+		Schema = Schema.boolean(),
+	}),
+
 	--// General Section \\--
 	WindowDPIScale = Setting.new({
 		Key = "WindowDPIScale",

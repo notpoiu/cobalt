@@ -25,8 +25,10 @@ function Setting.new(Options)
 	assert(type(Options) == "table", "Setting options must be a table")
 	assert(type(Options.Key) == "string", "Setting key must be a string")
 	assert(Options.Schema ~= nil, `Setting {Options.Key} requires a schema`)
-	assert(type(Options.UI) == "table", `Setting {Options.Key} requires UI options`)
-	assert(ControlMethods[Options.UI.Type] ~= nil, `Setting {Options.Key} has an unsupported control type`)
+	if Options.UI ~= nil then
+		assert(type(Options.UI) == "table", `Setting {Options.Key} UI options must be a table`)
+		assert(ControlMethods[Options.UI.Type] ~= nil, `Setting {Options.Key} has an unsupported control type`)
+	end
 
 	local IsValid, Default, Errors = Validation.ValidateSchema(Options.Default, Options.Schema)
 	assert(IsValid, `Setting {Options.Key} has an invalid default: {Errors[1] or "validation failed"}`)
@@ -36,7 +38,7 @@ function Setting.new(Options)
 		Schema = Options.Schema,
 		Default = Default,
 		Aliases = table.clone(Options.Aliases or {}),
-		UI = CloneValue(Options.UI),
+		UI = if Options.UI then CloneValue(Options.UI) else nil,
 	}, Setting)
 end
 
@@ -45,6 +47,7 @@ function Setting:GetDefault()
 end
 
 function Setting:SetupOption(Section, Overrides)
+	assert(self.UI, `Setting {self.Key} does not define a UI control`)
 	local MethodName = ControlMethods[self.UI.Type]
 	local CreateControl = Section[MethodName]
 	assert(type(CreateControl) == "function", `Section does not support {self.UI.Type} settings`)

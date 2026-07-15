@@ -160,6 +160,18 @@ test("newcclosure", function()
 	assert(debug.info(CClosure, "s") == "[C]", "newcclosure did not create a C closure")
 end)
 
+test("iscclosure", function()
+	assert(typeof(iscclosure) == "function", "iscclosure is not a function")
+	assert(iscclosure(math.abs), "iscclosure did not identify a C closure")
+	assert(not iscclosure(function() end), "iscclosure identified a Luau closure as a C closure")
+end)
+
+test("islclosure", function()
+	assert(typeof(islclosure) == "function", "islclosure is not a function")
+	assert(islclosure(function() end), "islclosure did not identify a Luau closure")
+	assert(not islclosure(math.abs), "islclosure identified a C closure as a Luau closure")
+end)
+
 test("checkcaller", checkcaller, TEST_EXISTENCE_ONLY)
 test("getcallingscript", getcallingscript, TEST_EXISTENCE_ONLY)
 
@@ -602,6 +614,15 @@ if CheckFFlagValue("DebugRunParallelLuaOnMainThread", false) and not ExecutorSup
 			Button2 = "Dismiss",
 		})
 	end)
+end
+
+function ExecutorSupport.ValidateCustomAssets(AssetManager)
+	test("getcustomasset", function()
+		assert(typeof(getcustomasset) == "function", "getcustomasset is not a function")
+
+		local Success, Error = AssetManager.ValidateCustomFonts()
+		assert(Success, Error)
+	end, { Essential = false })
 end
 
 return ExecutorSupport

@@ -11,12 +11,6 @@ Constants.MainUICorner = Interface.New("UICorner", {
 
 Constants.DefaultTweenInfo = TweenInfo.new(0.2, Enum.EasingStyle.Exponential)
 
-Constants.InstanceClassImages = AssetManager.GetInstanceClassImages({
-	RemoteEvent = "rbxassetid://110803789420086",
-	UnreliableRemoteEvent = "rbxassetid://126244162339059",
-	RemoteFunction = "rbxassetid://108537517159060",
-	BindableEvent = "rbxassetid://116839398727495",
-	BindableFunction = "rbxassetid://112264959079193",
-})
+Constants.InstanceClassImages = AssetManager.GetInstanceClassImages()
 
 return Constants

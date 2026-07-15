@@ -26,9 +26,14 @@ wax.shared.Hooks = {}
 wax.shared.ExecutorName = identifyexecutor()
 wax.shared.ExecutorSupport = require(script.ExecutorSupport)
 
+local AssetManager = require(script.Utils.UI.Assets.Manager)
+AssetManager.PreloadAsync()
+wax.shared.ExecutorSupport.ValidateCustomAssets(AssetManager)
+
 wax.shared.Sonner = require(script.Window.Components.Sonner)
 wax.shared.SaveManager = require(script.Utils.SaveManager)
 wax.shared.Settings = {}
+
 wax.shared.CallFilters = require(script.Utils.CallFilter.Manager)
 wax.shared.CallFilters:Subscribe(function(Filters)
 	if not wax.shared.ActorCommunicator then
@@ -39,6 +44,29 @@ wax.shared.CallFilters:Subscribe(function(Filters)
 		wax.shared.ActorCommunicator:Fire("MainCallFiltersSync", Filters)
 	end)
 end)
+
+-- Session Data
+local DoesSupportOthHooks = (
+	wax.shared.ExecutorSupport["oth"].IsWorking
+	and wax.shared.ExecutorSupport["iscclosure"].IsWorking
+	and wax.shared.ExecutorSupport["getnamecallmethod"].IsWorking
+	and wax.shared.ExecutorSupport["getrawmetatable"].IsWorking
+)
+local DoesSupportStandardHooks = (
+	not wax.shared.ExecutorSupport["oth"].IsWorking
+	and wax.shared.ExecutorSupport["hookfunction"].IsWorking
+	and wax.shared.ExecutorSupport["hookmetamethod"].IsWorking
+	and wax.shared.ExecutorSupport["newcclosure"].IsWorking
+	and wax.shared.ExecutorSupport["islclosure"].IsWorking
+	and wax.shared.ExecutorSupport["getnamecallmethod"].IsWorking
+	and wax.shared.ExecutorSupport["getrawmetatable"].IsWorking
+)
+
+wax.shared.IsUsingRakNetHooks = (
+	wax.shared.SaveManager:GetState("RakNetHooks") and wax.shared.ExecutorSupport["raknet"].IsWorking
+)
+
+wax.shared.IsOutgoingLoggable = wax.shared.IsUsingRakNetHooks or DoesSupportOthHooks or DoesSupportStandardHooks
 
 -- Utils
 require(script.Utils.Connect)
@@ -343,7 +371,11 @@ wax.shared.NewLog = function(Instance, Type, CallingScript)
 	return Log
 end
 
-require(script.Window)
+local Window = require(script.Window)
+if not wax.shared.IsOutgoingLoggable and not wax.shared.SaveManager:GetState("LimitedLoggingAcknowledged") then
+	Window.Dialogs.LoggingDisabled.Open(Window)
+end
+
 CleanupSpy = require(script.Spy)()
 
 local PluginManager = require(script.Utils.Plugins.Manager)

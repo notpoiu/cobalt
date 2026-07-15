@@ -5,12 +5,7 @@ local AssetManager = require("@src/Utils/UI/Assets/Manager")
 local CodeGen = require("@src/Utils/CodeGen/Generator")
 
 --// Assets \\--
-local IBMPlexMono = AssetManager.GetCustomFont({
-	Name = "IBM Plex Mono",
-	Url = "https://raw.githubusercontent.com/notpoiu/cobalt/refs/heads/main/Assets/IBMPlexMono.ttf",
-
-	FallbackId = 16658246179,
-})
+local IBMPlexMono = AssetManager.GetCustomFont("IBMPlexMono")
 
 local FunctionInfoView = {}
 FunctionInfoView.__index = FunctionInfoView

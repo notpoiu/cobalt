@@ -9,6 +9,7 @@ end
 
 --// Variables \\--
 local setfenv = setfenv
+local getconnections = wax.shared.ExecutorSupport["getconnections"].IsWorking and getconnections or function() return {} end
 
 local ClassesToHook = {
 	RemoteEvent = "OnClientEvent",
