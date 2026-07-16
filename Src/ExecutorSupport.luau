@@ -280,7 +280,7 @@ test("FilterBase", function()
 	assert(ArgumentFilter ~= nil, "ArgumentFilter not found")
 	assert(InstanceTypeFilter ~= nil, "InstanceTypeFilter not found")
 	assert(NamecallFilter ~= nil, "NamecallFilter not found")
-end, { Essential = false, DetectionRisk = false })
+end, { Essential = true, DetectionRisk = false })
 
 -- Oth Library
 test("oth", function()
