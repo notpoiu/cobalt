@@ -210,20 +210,29 @@ local NamecallHookFilter = SupportsFilters and AllFilter.new((function()
 			not communicator
 			not actor communicator
 			AnyFilter:
+				RemoteEvent
+				...
+			AnyFilter:
 				FireServer
 				invokeServer
 				...
-	]]
+	--]]
 
-	local AnyValidClassToMethodFilters = {}
+	--// classnames \\--
+	local AnyClassNameFilters = {}
+	for ClassName in AllowedClassNames do
+		table.insert(AnyClassNameFilters, InstanceTypeFilter.new(1, ClassName))
+	end
 	
 	--// methods \\--
-	for Method in NamecallMethods do
-		table.insert(AnyValidClassToMethodFilters, NamecallFilter.new(Method))
-	end
+	local AnyNamecallMethoFilters = {}
+    for Method in NamecallMethods do
+        table.insert(AnyNamecallMethoFilters, NamecallFilter.new(Method))
+    end
 
-	table.insert(Filters, AnyFilter.new(AnyValidClassToMethodFilters))
-	return Filters
+	table.insert(Filters, AnyFilter.new(AnyClassNameFilters))
+	table.insert(Filters, AnyFilter.new(AnyNamecallMethoFilters))
+    return Filters
 end)())
 
 wax.shared.NamecallHook = wax.shared.Hooking.HookMetaMethod(game, "__namecall", function(...)
@@ -284,7 +293,8 @@ local FunctionHookFilter = SupportsFilters and AllFilter.new((function()
 				UnreliableRemoteEvent
 				BindableEvent
 				BindableFunction
-	]]
+	--]]
+
 	local ClassFilters = {}
 	for ClassName in AllowedClassNames do
 		table.insert(ClassFilters, InstanceTypeFilter.new(1, ClassName))
