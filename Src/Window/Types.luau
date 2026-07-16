@@ -12,9 +12,13 @@ export type Log = {
 	Instance: SupportedRemoteTypes,
 	Type: LogDirection,
 	Index: number,
+	
 	Calls: { any },
 	GameCalls: { number },
-	SpamHistory: { number },
+
+	SpamWindowStart: number,
+	SpamCallCount: number,
+
 	Ignored: boolean,
 	Blocked: boolean,
 	Button: LogButton?,

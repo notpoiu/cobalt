@@ -123,63 +123,93 @@ end
 	@return function Returns a function that logs all calls to the given instance and method.
 ]]
 local function CreateConnectionFunction(Instance: InstancesToHook, Method: MethodsToHook)
+	local CachedConnectionInfo = nil
+	local CachedConnectionCount = -1
+
 	local ConnectionFunction = function(...)
-		local HasValidConnections = false
-		local HasForeignLuaConnections = false
+		--// Skip if this remote is already ignored \\--
+		local ExistingLog = wax.shared.Logs.Incoming[Instance]
+		if ExistingLog and ExistingLog.Ignored then
+			return
+		end
+
+		local Signal = (Instance :: any)[Method]
+		local Connections = getconnections(Signal)
+		local ConnectionCount = #Connections
+
+		-- Only re-analyze connections when the count changes (connect/disconnect)
+		if ConnectionCount ~= CachedConnectionCount then
+			CachedConnectionCount = ConnectionCount
+
+			local Information = {
+				HasValidConnections = false,
+				HasForeignLuaConnections = false,
+				Entries = {},
+			}
+
+			for _, Connection in Connections do
+				--// Foreign State Connections \\--
+				if Connection.ForeignState then
+					--// It is a Lua Connection - Other Actor's Connections \\--
+					if Connection.LuaConnection then
+						Information.HasForeignLuaConnections = true
+					end
+
+					continue
+				end
+
+				--// Get Function \\--
+				local Function = typeof(Connection.Function) == "function" and (Connection.Function) or (nil)
+				if IsCobaltConnectionFunction(Function) then
+					continue
+				end
+
+				Information.HasValidConnections = true
+
+				--// Get Origin \\--
+				local Thread = Connection.Thread
+				local Origin = nil
+
+				if Thread and getscriptfromthread then
+					Origin = getscriptfromthread(Thread)
+				end
+
+				if not Origin and Function then
+					-- ts is unreliable because people could js set the script global to nil
+					-- if only debug.getinfo(Function).source or debug.info(Function, "s") returned an Instance...
+
+					local Script = rawget(getfenv(Function), "script")
+					if typeof(Script) == "Instance" then
+						Origin = Script
+					end
+				end
+
+				table.insert(Information.Entries, {
+					Function = Function,
+					Origin = Origin,
+					IsExecutor = Function and isexecutorclosure(Function) or false,
+				})
+			end
+
+			CachedConnectionInfo = Information
+		end
 
 		local Arguments = wax.shared.SafePack.Pack(...)
-
 		local TargetLog, TargetCallIndex
-		for _, Connection in getconnections((Instance :: any)[Method]) do
-			--// Foreign State Connections \\--
-			if Connection.ForeignState then
-				--// It is a Lua Connection - Other Actor's Connections \\--
-				if Connection.LuaConnection then
-					HasForeignLuaConnections = true
-				end
 
-				continue
+		--// Log Remote \\--
+		if CachedConnectionInfo.HasValidConnections then
+			for _, Entry in CachedConnectionInfo.Entries do
+				TargetLog, TargetCallIndex = select(2, LogRemote(Instance, Entry.Function, {
+					Arguments = Arguments,
+					Origin = Entry.Origin,
+					Function = Entry.Function,
+					Line = nil,
+					IsExecutor = Entry.IsExecutor,
+				}))
 			end
 
-			--// Get Function \\--
-			local Function = typeof(Connection.Function) == "function" and Connection.Function or nil
-			local IsCobaltConnection = IsCobaltConnectionFunction(Function)
-
-			if IsCobaltConnection then
-				continue
-			end
-
-			HasValidConnections = true
-
-			--// Get Origin \\--
-			local Thread = Connection.Thread
-			local Origin = nil
-
-			if Thread and getscriptfromthread then
-				Origin = getscriptfromthread(Thread)
-			end
-
-			if not Origin and Function then
-				-- ts is unreliable because people could js set the script global to nil
-				-- if only debug.getinfo(Function).source or debug.info(Function, "s") returned an Instance...
-
-				local Script = rawget(getfenv(Function), "script")
-				if typeof(Script) == "Instance" then
-					Origin = Script
-				end
-			end
-
-			--// Log Remote \\--
-			TargetLog, TargetCallIndex = select(2, LogRemote(Instance, Function, {
-				Arguments = Arguments,
-				Origin = Origin,
-				Function = Function,
-				Line = nil,
-				IsExecutor = Function and isexecutorclosure(Function) or false,
-			}))
-		end
-		
-		if not HasValidConnections and not wax.shared.IS_ACTOR then
+		elseif not wax.shared.IS_ACTOR then
 			TargetLog, TargetCallIndex = select(2, LogRemote(Instance, nil, {
 				Arguments = Arguments,
 				Origin = nil,
@@ -189,20 +219,22 @@ local function CreateConnectionFunction(Instance: InstancesToHook, Method: Metho
 			}))
 		end
 
-		if
-			not wax.shared.IS_ACTOR
-			and HasForeignLuaConnections
-			and TargetLog
-			and TargetCallIndex
-			and wax.shared.ActorCommunicator
-		then
-			wax.shared.ActorCommunicator:Fire(
-				"InspectIncomingConnections",
-				Instance,
-				Method,
-				TargetLog.Index,
-				TargetCallIndex
-			)
+		local Communicator = wax.shared.ActorCommunicator
+		if Communicator then
+			if
+				not wax.shared.IS_ACTOR
+				and CachedConnectionInfo.HasForeignLuaConnections
+				and TargetLog
+				and TargetCallIndex
+			then
+				Communicator:Fire(
+					"InspectIncomingConnections",
+					Instance,
+					Method,
+					TargetLog.Index,
+					TargetCallIndex
+				)
+			end
 		end
 	end
 

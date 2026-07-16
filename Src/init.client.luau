@@ -40,9 +40,7 @@ wax.shared.CallFilters:Subscribe(function(Filters)
 		return
 	end
 
-	pcall(function()
-		wax.shared.ActorCommunicator:Fire("MainCallFiltersSync", Filters)
-	end)
+	pcall(wax.shared.ActorCommunicator.Fire, wax.shared.ActorCommunicator, "MainCallFiltersSync", Filters)
 end)
 
 -- Session Data
@@ -271,85 +269,153 @@ wax.shared.SetupLoggingConnection = function()
 		wax.shared.LogConnection:Disconnect()
 	end
 
+	if wax.shared.LogThread then
+		pcall(task.cancel, wax.shared.LogThread)
+		wax.shared.LogThread = nil
+	end
+
 	wax.shared.LogFileName = `Cobalt/Logs/{DateTime.now():ToIsoDate():gsub(":", "_")}.log`
 	local FileLog = FileLogger.new(wax.shared.LogFileName, FileLogger.LOG_LEVELS.INFO, true)
 
-	return function(RemoteInstance, Type, CallOrderInLog)
-		local LogEntry = wax.shared.Logs[Type][RemoteInstance]
-		if not LogEntry then
+	local LogQueue = {}
+	local LogQueueHead = 1
+	local LogQueueTail = 0
+	wax.shared.LogThread = task.defer(function()
+		while not wax.shared.Unloaded do
+			while LogQueueHead <= LogQueueTail do
+				local Entry = LogQueue[LogQueueHead]
+				LogQueue[LogQueueHead] = nil
+				LogQueueHead += 1
+
+				if not Entry then
+					continue
+				end
+
+				local RemoteInstance = Entry.Instance
+				local Type = Entry.Type
+				local CallOrderInLog = Entry.CallIndex
+				local CallDataFromHook = Entry.CallData
+
+				local success, err = pcall(function()
+					local generatedCode = CodeGen:BuildCallCode(setmetatable({
+						Instance = RemoteInstance,
+						Type = Type,
+					}, {
+						__index = CallDataFromHook,
+					}) :: any)
+
+					local comprehensiveDataToSerialize = {
+						RemoteInstanceInfo = {
+							Name = RemoteInstance and RemoteInstance.Name,
+							ClassName = RemoteInstance and RemoteInstance.ClassName,
+							Path = RemoteInstance and InstanceSerializer.Serialize(RemoteInstance, {
+								DisableNilParentHandler = true,
+							}),
+						},
+						EventType = Type,
+						CallOrderInLog = CallOrderInLog,
+						DataFromHook = CallDataFromHook,
+					}
+
+					local serializedEventData = LuaEncode(
+						comprehensiveDataToSerialize,
+						{ Prettify = true, InsertCycles = true, UseInstancePaths = true }
+					)
+
+					local instanceName = RemoteInstance and RemoteInstance.Name or "UnknownInstance"
+					local instanceClassName = RemoteInstance and RemoteInstance.ClassName or "UnknownClass"
+					local instancePath = RemoteInstance
+							and InstanceSerializer.Serialize(RemoteInstance, {
+								DisableNilParentHandler = true,
+							})
+						or "UnknownPath"
+
+					local logParts = {
+						("Instance: %s (%s)"):format(instanceName, instanceClassName),
+						("Path: %s"):format(instancePath),
+						("Status: %s"):format(CallDataFromHook and CallDataFromHook.Blocked and "Blocked" or "Allowed"),
+						("Call Order In Log: %s"):format(CallOrderInLog or "N/A"),
+						"-------------------- Event Data --------------------",
+						serializedEventData,
+						"-------------------- Generated Code --------------------",
+						generatedCode,
+					}
+					local logMessage = table.concat(logParts, "\n\t")
+					local threadId = ("%s:%s"):format(Type or "S", instanceName)
+
+					FileLog:Info(threadId, logMessage)
+				end)
+
+				if not success then
+					local instanceNameForError = RemoteInstance and RemoteInstance.Name or "Unknown"
+					FileLog:Error(
+						"Logger",
+						("Failed to log remote communication for %s:%s - %s"):format(
+							Type or "UnknownType",
+							instanceNameForError,
+							tostring(err)
+						)
+					)
+
+					warn(
+						("Cobalt: Failed to log remote communication for %s:%s - %s"):format(
+							Type or "UnknownType",
+							instanceNameForError,
+							tostring(err)
+						)
+					)
+				end
+
+				task.wait()
+			end
+
+			if LogQueueHead > LogQueueTail then
+				table.clear(LogQueue)
+				LogQueueHead = 1
+				LogQueueTail = 0
+			end
+
+			task.wait()
+		end
+
+		-- Clear the queue and cancel the thread
+		table.clear(LogQueue)
+		LogQueueHead = 1
+		LogQueueTail = 0
+
+		if wax.shared.LogThread then
+			pcall(task.cancel, wax.shared.LogThread)
+			wax.shared.LogThread = nil
+		end
+	end)
+
+	return function(Batch)
+		if typeof(Batch) ~= "table" then
 			return
 		end
 
-		local CallDataFromHook = LogEntry.Calls[CallOrderInLog]
+		for _, Notification in Batch do
+			local RemoteInstance = Notification.Instance
+			local Type = Notification.Type
+			local CallOrderInLog = Notification.CallIndex
 
-		local success, err = pcall(function()
-			local generatedCode = CodeGen:BuildCallCode(setmetatable({
+			local LogEntry = wax.shared.Logs[Type][RemoteInstance]
+			if not LogEntry then
+				continue
+			end
+
+			local CallDataFromHook = LogEntry.Calls[CallOrderInLog]
+			if not CallDataFromHook then
+				continue
+			end
+
+			LogQueueTail += 1
+			LogQueue[LogQueueTail] = {
 				Instance = RemoteInstance,
 				Type = Type,
-			}, {
-				__index = CallDataFromHook,
-			}) :: any)
-
-			local comprehensiveDataToSerialize = {
-				RemoteInstanceInfo = {
-					Name = RemoteInstance and RemoteInstance.Name,
-					ClassName = RemoteInstance and RemoteInstance.ClassName,
-					Path = RemoteInstance and InstanceSerializer.Serialize(RemoteInstance, {
-						DisableNilParentHandler = true,
-					}),
-				},
-				EventType = Type,
-				CallOrderInLog = CallOrderInLog,
-				DataFromHook = CallDataFromHook,
+				CallIndex = CallOrderInLog,
+				CallData = CallDataFromHook,
 			}
-
-			local serializedEventData = LuaEncode(
-				comprehensiveDataToSerialize,
-				{ Prettify = true, InsertCycles = true, UseInstancePaths = true }
-			)
-
-			local instanceName = RemoteInstance and RemoteInstance.Name or "UnknownInstance"
-			local instanceClassName = RemoteInstance and RemoteInstance.ClassName or "UnknownClass"
-			local instancePath = RemoteInstance
-					and InstanceSerializer.Serialize(RemoteInstance, {
-						DisableNilParentHandler = true,
-					})
-				or "UnknownPath"
-
-			local logParts = {
-				("Instance: %s (%s)"):format(instanceName, instanceClassName),
-				("Path: %s"):format(instancePath),
-				("Status: %s"):format(CallDataFromHook and CallDataFromHook.Blocked and "Blocked" or "Allowed"),
-				("Call Order In Log: %s"):format(CallOrderInLog or "N/A"),
-				"-------------------- Event Data --------------------",
-				serializedEventData,
-				"-------------------- Generated Code --------------------",
-				generatedCode,
-			}
-			local logMessage = table.concat(logParts, "\n\t")
-			local threadId = ("%s:%s"):format(Type or "S", instanceName)
-
-			FileLog:Info(threadId, logMessage)
-		end)
-
-		if not success then
-			local instanceNameForError = RemoteInstance and RemoteInstance.Name or "Unknown"
-			FileLog:Error(
-				"Logger",
-				("Failed to log remote communication for %s:%s - %s"):format(
-					Type or "UnknownType",
-					instanceNameForError,
-					tostring(err)
-				)
-			)
-
-			warn(
-				("Cobalt: Failed to log remote communication for %s:%s - %s"):format(
-					Type or "UnknownType",
-					instanceNameForError,
-					tostring(err)
-				)
-			)
 		end
 	end
 end
