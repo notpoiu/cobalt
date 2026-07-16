@@ -260,7 +260,7 @@ return function(Options: Options?)
 	return function()
 		local gameMetatable = wax.shared.getrawmetatable(game)
 
-		if wax.shared.ExecutorSupport["oth"].IsWorking then
+		if wax.shared.IsUsingOthHooks then
 			if Outgoing then
 				pcall(oth.unhook, gameMetatable.__namecall)
 			end
@@ -292,8 +292,8 @@ return function(Options: Options?)
 			wax.shared.RestoreCallbackDetours()
 		end
 
-		for Function, Original in pairs(wax.shared.Hooks) do
-			if wax.shared.ExecutorSupport["oth"].IsWorking then
+		for Function, Original in wax.shared.Hooks do
+			if wax.shared.IsUsingOthHooks then
 				task.spawn(pcall, oth.unhook, Function)
 			elseif wax.shared.ExecutorSupport["restorefunction"].IsWorking then
 				task.spawn(pcall, wax.shared.restorefunction, Function)

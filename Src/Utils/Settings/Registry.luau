@@ -71,6 +71,16 @@ return {
 			Risky = true,
 		},
 	}),
+	OthHooks = Setting.new({
+		Key = "OthHooks",
+		Default = true,
+		Schema = Schema.boolean(),
+		UI = {
+			Type = "Checkbox",
+			Text = "Use Oth Hooks on Relaunch",
+			Risky = false,
+		},
+	}),
 	LogRobloxInternalEvents = Setting.new({
 		Key = "LogRobloxInternalEvents",
 		Default = false,

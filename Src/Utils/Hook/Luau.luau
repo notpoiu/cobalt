@@ -2,7 +2,7 @@ local Hooking = {}
 
 Hooking.HookFunction = function(Original, Replacement, Filter)
 	if
-		wax.shared.ExecutorSupport["oth"].IsWorking
+		wax.shared.IsUsingOthHooks
 		and iscclosure(Original)
 	then
 		return oth.hook(Original, Replacement, Filter)
@@ -25,7 +25,7 @@ Hooking.HookMetaMethod = function(object, method, hook, filter)
 
 	assert(typeof(originalMethod) == "function", `{method} is not a function in the metatable of {object}`)
 
-	if wax.shared.ExecutorSupport["oth"].IsWorking then
+	if wax.shared.IsUsingOthHooks then
 		return oth.hook(originalMethod, hook, filter)
 	end
 

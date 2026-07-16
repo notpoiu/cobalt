@@ -201,6 +201,18 @@ return function(props: {
 			end,
 		})
 
+		Settings.OthHooks:SetupOption(CaptureSection, {
+			PreSetCallback = function(value)
+				local Support = wax.shared.ExecutorSupport["oth"]
+				if not Support.IsWorking then
+					wax.shared.Sonner.error("Oth hooks are not supported by your executor:\n\n" .. Support.Details)
+					return false
+				end
+
+				return not value
+			end,
+		})
+
 		Settings.LogRobloxInternalEvents:SetupOption(CaptureSection)
 		Settings.LogActors:SetupOption(CaptureSection)
 		Settings.LogBlockedRemotes:SetupOption(CaptureSection)

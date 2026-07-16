@@ -51,8 +51,7 @@ local DoesSupportOthHooks = (
 	and wax.shared.ExecutorSupport["getrawmetatable"].IsWorking
 )
 local DoesSupportStandardHooks = (
-	not wax.shared.ExecutorSupport["oth"].IsWorking
-	and wax.shared.ExecutorSupport["hookfunction"].IsWorking
+	wax.shared.ExecutorSupport["hookfunction"].IsWorking
 	and wax.shared.ExecutorSupport["hookmetamethod"].IsWorking
 	and wax.shared.ExecutorSupport["newcclosure"].IsWorking
 	and wax.shared.ExecutorSupport["islclosure"].IsWorking
@@ -64,7 +63,11 @@ wax.shared.IsUsingRakNetHooks = (
 	wax.shared.SaveManager:GetState("RakNetHooks") and wax.shared.ExecutorSupport["raknet"].IsWorking
 )
 
-wax.shared.IsOutgoingLoggable = wax.shared.IsUsingRakNetHooks or DoesSupportOthHooks or DoesSupportStandardHooks
+wax.shared.IsUsingOthHooks = (
+	wax.shared.SaveManager:GetState("OthHooks") and DoesSupportOthHooks
+)
+
+wax.shared.IsOutgoingLoggable = wax.shared.IsUsingRakNetHooks or wax.shared.IsUsingOthHooks or DoesSupportStandardHooks
 
 -- Utils
 require(script.Utils.Connect)

@@ -28,7 +28,7 @@ local AllowedClassNames =
 	@return `function | nil` The calling function or nil if not found.
 ]]
 local function getcallingfunction()
-	local BaseLevel = if wax.shared.ExecutorSupport["oth"].IsWorking then 3 else 5
+	local BaseLevel = if wax.shared.IsUsingOthHooks then 3 else 5
 
 	for i = BaseLevel, 10 do
 		local Function, Source = debug.info(i, "fs")
@@ -52,7 +52,7 @@ end
 	@return number Returns the line number of the calling script.
 ]]
 local function getcallingline()
-	local BaseLevel = if wax.shared.ExecutorSupport["oth"].IsWorking then 3 else 5
+	local BaseLevel = if wax.shared.IsUsingOthHooks then 3 else 5
 
 	for i = BaseLevel, 10 do
 		local Source, Line = debug.info(i, "sl")
@@ -76,7 +76,7 @@ end
 	@return string Returns the source of the calling script.
 ]]
 local function getcallingsource()
-	local BaseLevel = if wax.shared.ExecutorSupport["oth"].IsWorking then 3 else 5
+	local BaseLevel = if wax.shared.IsUsingOthHooks then 3 else 5
 
 	for i = BaseLevel, 10 do
 		local Source = debug.info(i, "s")
