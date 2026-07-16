@@ -6,16 +6,19 @@ local function CreateLookupTable(table)
 	return LookupTable
 end
 
-local NamecallMethods = CreateLookupTable({
-	"FireServer",
-	"InvokeServer",
-	"Fire",
-	"Invoke",
-	"fireServer",
-	"invokeServer",
-	"fire",
-	"invoke",
-})
+local NamecallMethods = {
+	["FireServer"] = CreateLookupTable({"RemoteEvent", "UnreliableRemoteEvent"}),
+	["fireServer"] = CreateLookupTable({"RemoteEvent", "UnreliableRemoteEvent"}),
+	
+	["InvokeServer"] = CreateLookupTable({"RemoteFunction"}),
+	["invokeServer"] = CreateLookupTable({"RemoteFunction"}),
+
+	["Fire"] = CreateLookupTable({"BindableEvent"}),
+	["fire"] = CreateLookupTable({"BindableEvent"}),
+	
+	["Invoke"] = CreateLookupTable({"BindableFunction"}),
+	["invoke"] = CreateLookupTable({"BindableFunction"}),
+}
 local AllowedClassNames =
 	CreateLookupTable({ "RemoteEvent", "RemoteFunction", "UnreliableRemoteEvent", "BindableEvent", "BindableFunction" })
 
@@ -221,7 +224,7 @@ wax.shared.NamecallHook = wax.shared.Hooking.HookMetaMethod(game, "__namecall", 
 		and AllowedClassNames[self.ClassName]
 		and not rawequal(self, wax.shared.Communicator)
 		and not rawequal(self, wax.shared.ActorCommunicator)
-		and NamecallMethods[Method]
+		and (NamecallMethods[Method] and NamecallMethods[Method][self.ClassName])
 		and not wax.shared.ShouldIgnore(self, getcallingscript())
 	then
 		return HandleLogging(self, Method, wax.shared.NamecallHook, ...)
