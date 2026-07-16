@@ -68,24 +68,29 @@ return function(Options: Options?)
 		local IngoredRemotesDropdown = wax.shared.SaveManager:GetState("IgnoredRemotesDropdown")
 		local LogRobloxInternalEvents = wax.shared.SaveManager:GetState("LogRobloxInternalEvents")
 
-		local ActorData = LuaEncode({
-			Token = wax.shared.CobaltVerificationToken,
+		local ActorData = LuaEncode(
+			{
+				Token = wax.shared.CobaltVerificationToken,
 
-			--// Luau Hook Options \\--
-			IncomingConnections = IncomingConnections,
-			IncomingCallbacks = IncomingCallbacks,
-			HookIncomingConnections = HookIncomingConnections,
-			Outgoing = Outgoing,
+				--// Luau Hook Options \\--
+				IncomingConnections = IncomingConnections,
+				IncomingCallbacks = IncomingCallbacks,
+				HookIncomingConnections = HookIncomingConnections,
+				Outgoing = Outgoing,
 
-			--// Settings \\--
-			LogRobloxInternalEvents = LogRobloxInternalEvents,
-			IgnorePlayerModule = IgnorePlayerModule,
-			LogBlockedRemotes = LogBlockedRemotes,
-			IgnoredRemotesDropdown = IngoredRemotesDropdown,
+				--// Settings \\--
+				LogRobloxInternalEvents = LogRobloxInternalEvents,
+				IgnorePlayerModule = IgnorePlayerModule,
+				LogBlockedRemotes = LogBlockedRemotes,
+				IgnoredRemotesDropdown = IngoredRemotesDropdown,
 
-			--// Executor Support \\--
-			ExecutorSupport = wax.shared.ExecutorSupport,
-		})
+				--// Executor Support \\--
+				ExecutorSupport = wax.shared.ExecutorSupport,
+			},
+			{
+				Prettify = true
+			}
+		)
 
 		ActorEnvironmentCode = ActorEnvironmentCode:gsub("COBALT_ACTOR_DATA", ActorData)
 
