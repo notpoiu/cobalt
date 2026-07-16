@@ -95,6 +95,8 @@ local function LogRemote(
 	return ShouldBlock, Log, CallIndex
 end
 
+local SupportsFilters = (AllFilter and ArgumentFilter and InstanceTypeFilter and NotFilter and AnyFilter)
+
 --[[
 	Creates a base filter for the incoming hooks.
 
@@ -449,7 +451,7 @@ end
 	Creates a hook that intercepts .OnInvoke & .OnClientInvoke assignments and detours them to log the calls.
 ]]
 local function SetupCallbackAssignmentHook()
-	local NewIndexHookFilter = (AllFilter and InstanceTypeFilter) and AllFilter.new(CreateBaseFilter())
+	local NewIndexHookFilter = SupportsFilters and AnyFilter.new(CreateBaseFilter())
 	
 	wax.shared.NewIndexHook = wax.shared.Hooking.HookMetaMethod(game, "__newindex", function(...)
 		local self, key, value = ...
