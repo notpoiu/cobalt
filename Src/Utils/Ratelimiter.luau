@@ -10,6 +10,7 @@ type RatelimiterOptions = {
 	OnUnload: (() -> ())?,
 }
 
+local Ratelimits = {}
 local Ratelimiter = {}
 Ratelimiter.__index = Ratelimiter
 
@@ -26,7 +27,16 @@ function Ratelimiter.new(Options: RatelimiterOptions)
 
 	self:SetupManagerThread()
 
+	table.insert(Ratelimits, self)
 	return self
+end
+
+function Ratelimiter.StopAll()
+	for _, Ratelimit in Ratelimits do
+		Ratelimit:Destroy()
+	end
+
+	table.clear(Ratelimits)
 end
 
 function Ratelimiter:QueueOperation(...: any)
@@ -129,12 +139,12 @@ function Ratelimiter:Destroy()
 	self.IsDestroyed = true
 
 	if self.ManagerThread then
-		task.cancel(self.ManagerThread)
+		pcall(task.cancel, self.ManagerThread)
 		self.ManagerThread = nil
 	end
 
 	if self.PeriodicThread then
-		task.cancel(self.PeriodicThread)
+		pcall(task.cancel, self.PeriodicThread)
 		self.PeriodicThread = nil
 	end
 

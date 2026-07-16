@@ -35,13 +35,15 @@ wax.shared.SaveManager = require(script.Utils.SaveManager)
 wax.shared.Settings = {}
 
 wax.shared.CallFilters = require(script.Utils.CallFilter.Manager)
-wax.shared.CallFilters:Subscribe(function(Filters)
+local CallFiltersSubscription = wax.shared.CallFilters:Subscribe(function(Filters)
 	if not wax.shared.ActorCommunicator then
 		return
 	end
 
 	pcall(wax.shared.ActorCommunicator.Fire, wax.shared.ActorCommunicator, "MainCallFiltersSync", Filters)
 end)
+
+local Ratelimiter = require("@src/Utils/Ratelimiter")
 
 -- Session Data
 local DoesSupportOthHooks = (
@@ -229,6 +231,10 @@ wax.shared.Unloaded = false
 local CleanupSpy: (() -> ())?
 
 wax.shared.Unload = function()
+	if wax.shared.Unloaded then
+		return
+	end
+
 	local PluginManager = wax.shared.CobaltPluginManager
 	if PluginManager then
 		for _, Plugin in PluginManager.Registry.Plugins do
@@ -248,10 +254,33 @@ wax.shared.Unload = function()
 		pcall(Cleanup)
 	end
 
+	if CallFiltersSubscription then
+		pcall(CallFiltersSubscription.Disconnect, CallFiltersSubscription)
+		CallFiltersSubscription = nil
+	end
+
+	if wax.shared.LogThread then
+		pcall(task.cancel, wax.shared.LogThread)
+		wax.shared.LogThread = nil
+	end
+
+	if Ratelimiter then
+		pcall(Ratelimiter.StopAll)
+	end
+
 	for _, Connection in pairs(wax.shared.Connections) do
 		Connection:Disconnect()
 	end
 	table.clear(wax.shared.Connections)
+
+	for _, Category in wax.shared.Logs do
+		for _, Log in Category do
+			Log:ClearCalls()
+		end
+		table.clear(Category)
+	end
+	table.clear(wax.shared.Logs)
+	table.clear(wax.shared.IncomingLogConnectionFunctions)
 
 	getgenv().CobaltInitialized = false
 	getgenv().Cobalt = nil
