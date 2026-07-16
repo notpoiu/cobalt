@@ -379,7 +379,8 @@ function Log:Call(RawInfo): number?
 
 	--// Ratelimiting \\--
 	if not wax.shared.IS_ACTOR then
-		if self.IsOverSpamThreshold(self) then
+		local Success, SpamData = pcall(function() return self.IsOverSpamThreshold(self) end)
+		if Success and SpamData then
 			return nil
 		end
 	end
