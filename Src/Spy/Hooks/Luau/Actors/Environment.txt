@@ -450,12 +450,12 @@ wax.shared.newcclosure = wax.shared.ExecutorName == "AWP"
 do
 	local Hooking = {}
 
-	Hooking.HookFunction = function(Original, Replacement)
+	Hooking.HookFunction = function(Original, Replacement, Filter)
 		if
 			wax.shared.ExecutorSupport["oth"].IsWorking
 			and iscclosure(Original)
 		then
-			return oth.hook(Original, Replacement)
+			return oth.hook(Original, Replacement, Filter)
 		end
 
 		if islclosure(Replacement) then
@@ -466,17 +466,17 @@ do
 			return Original
 		end
 
-		return hookfunction(Original, Replacement)
+		return hookfunction(Original, Replacement, Filter)
 	end
 
-	Hooking.HookMetaMethod = function(object, method, hook)
+	Hooking.HookMetaMethod = function(object, method, hook, filter)
 		local Metatable = wax.shared.getrawmetatable(object)
 		local originalMethod = rawget(Metatable, method)
 
 		assert(typeof(originalMethod) == "function", `{method} is not a function in the metatable of {object}`)
 
 		if wax.shared.ExecutorSupport["oth"].IsWorking then
-			return oth.hook(originalMethod, hook)
+			return oth.hook(originalMethod, hook, filter)
 		end
 
 		if islclosure(hook) then
@@ -524,7 +524,7 @@ do
 			return nil
 		end
 
-		return hookmetamethod(object, method, hook)
+		return hookmetamethod(object, method, hook, true, filter)
 	end
 
 	wax.shared.Hooking = Hooking
@@ -2479,6 +2479,22 @@ do
 		return ShouldBlock, Log, CallIndex
 	end
 
+	--[[
+		Creates a base filter for the incoming hooks.
+
+		@return `table` The base filter.
+	]]
+	local function CreateBaseFilter()
+		local Filters = {}
+
+		--// allowed classnames \\--
+		for ClassName in ClassesToHook do
+			table.insert(Filters, InstanceTypeFilter.new(1, ClassName))
+		end
+
+		return Filters
+	end
+
 	--#region Incoming Connection Stuff
 	local function IsCobaltConnectionFunction(Function): boolean
 		if not Function then
@@ -2817,6 +2833,8 @@ do
 		Creates a hook that intercepts .OnInvoke & .OnClientInvoke assignments and detours them to log the calls.
 	]]
 	local function SetupCallbackAssignmentHook()
+		local NewIndexHookFilter = (AllFilter and InstanceTypeFilter) and AllFilter.new(CreateBaseFilter())
+		
 		wax.shared.NewIndexHook = wax.shared.Hooking.HookMetaMethod(game, "__newindex", function(...)
 			local self, key, value = ...
 
@@ -2843,7 +2861,7 @@ do
 			end
 
 			return wax.shared.NewIndexHook(...)
-		end)
+		end, NewIndexHookFilter)
 	end
 
 	--[[

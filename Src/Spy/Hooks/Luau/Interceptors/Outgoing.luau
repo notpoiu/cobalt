@@ -180,7 +180,38 @@ local function HandleLogging(TargetInstance: Instance, Method: string, OldFuncti
 	return OldFunction(...)
 end
 
+--[[
+	Creates a base filter for the outgoing hooks.
+
+	@return `table` The base filter.
+]]
+local function CreateBaseFilter()
+	local Filters = {}
+
+	--// allowed classnames \\--
+	for ClassName in AllowedClassNames do
+		table.insert(Filters, InstanceTypeFilter.new(1, ClassName))
+	end
+
+	--// ignore communicator \\--
+	table.insert(Filters, NotFilter.new(ArgumentFilter.new(1, wax.shared.Communicator)))
+	table.insert(Filters, NotFilter.new(ArgumentFilter.new(1, wax.shared.ActorCommunicator)))
+
+	return Filters
+end
+
 -- metamethod hooks
+local NamecallHookFilter = (AllFilter and NamecallFilter and InstanceTypeFilter and NotFilter and ArgumentFilter) and AllFilter.new((function()
+	local Filters = CreateBaseFilter()
+
+	--// namecall methods \\--
+	for Method in NamecallMethods do
+		table.insert(Filters, NamecallFilter.new(Method))
+	end
+
+	return Filters
+end)())
+
 wax.shared.NamecallHook = wax.shared.Hooking.HookMetaMethod(game, "__namecall", function(...)
 	local self = ...
 	local Method = getnamecallmethod()
@@ -197,7 +228,7 @@ wax.shared.NamecallHook = wax.shared.Hooking.HookMetaMethod(game, "__namecall", 
 	end
 
 	return wax.shared.NamecallHook(...)
-end)
+end, NamecallHookFilter)
 
 -- function hooks
 local FunctionsToHook
@@ -226,6 +257,8 @@ do
 	UnreliableRemoteEvent:Destroy()
 end
 
+local FunctionHookFilter = (AllFilter and ArgumentFilter) and AllFilter.new(CreateBaseFilter())
+
 for _, Function in next, FunctionsToHook do
 	local Method = debug.info(Function, "n")
 
@@ -242,5 +275,5 @@ for _, Function in next, FunctionsToHook do
 		end
 
 		return wax.shared.Hooks[Function](...)
-	end)
+	end, FunctionHookFilter)
 end

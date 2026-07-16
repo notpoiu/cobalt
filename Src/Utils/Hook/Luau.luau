@@ -1,11 +1,11 @@
 local Hooking = {}
 
-Hooking.HookFunction = function(Original, Replacement)
+Hooking.HookFunction = function(Original, Replacement, Filter)
 	if
 		wax.shared.ExecutorSupport["oth"].IsWorking
 		and iscclosure(Original)
 	then
-		return oth.hook(Original, Replacement)
+		return oth.hook(Original, Replacement, Filter)
 	end
 
 	if islclosure(Replacement) then
@@ -16,17 +16,17 @@ Hooking.HookFunction = function(Original, Replacement)
 		return Original
 	end
 
-	return hookfunction(Original, Replacement)
+	return hookfunction(Original, Replacement, Filter)
 end
 
-Hooking.HookMetaMethod = function(object, method, hook)
+Hooking.HookMetaMethod = function(object, method, hook, filter)
 	local Metatable = wax.shared.getrawmetatable(object)
 	local originalMethod = rawget(Metatable, method)
 
 	assert(typeof(originalMethod) == "function", `{method} is not a function in the metatable of {object}`)
 
 	if wax.shared.ExecutorSupport["oth"].IsWorking then
-		return oth.hook(originalMethod, hook)
+		return oth.hook(originalMethod, hook, filter)
 	end
 
 	if islclosure(hook) then
@@ -74,7 +74,7 @@ Hooking.HookMetaMethod = function(object, method, hook)
 		return nil
 	end
 
-	return hookmetamethod(object, method, hook)
+	return hookmetamethod(object, method, hook, true, filter)
 end
 
 return Hooking
