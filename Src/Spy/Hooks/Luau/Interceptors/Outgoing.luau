@@ -183,6 +183,9 @@ local function HandleLogging(TargetInstance: Instance, Method: string, OldFuncti
 	return OldFunction(...)
 end
 
+
+local SupportsFilters = (AllFilter and ArgumentFilter and InstanceTypeFilter and NotFilter and AnyFilter)
+
 --[[
 	Creates a base filter for the outgoing hooks.
 
@@ -190,11 +193,6 @@ end
 ]]
 local function CreateBaseFilter()
 	local Filters = {}
-
-	--// allowed classnames \\--
-	for ClassName in AllowedClassNames do
-		table.insert(Filters, InstanceTypeFilter.new(1, ClassName))
-	end
 
 	--// ignore communicator \\--
 	table.insert(Filters, NotFilter.new(ArgumentFilter.new(1, wax.shared.Communicator)))
@@ -204,14 +202,34 @@ local function CreateBaseFilter()
 end
 
 -- metamethod hooks
-local NamecallHookFilter = (AllFilter and NamecallFilter and InstanceTypeFilter and NotFilter and ArgumentFilter) and AllFilter.new((function()
+local NamecallHookFilter = SupportsFilters and AllFilter.new((function()
 	local Filters = CreateBaseFilter()
 
-	--// namecall methods \\--
-	for Method in NamecallMethods do
-		table.insert(Filters, NamecallFilter.new(Method))
+	--[[
+		AllFilter:
+			not communicator
+			not actor communicator
+			AnyFilter:
+				AllFilter:
+					RemoteEvent + FireServer
+				AllFilter:
+					RemoteFunction + InvokeServer
+				...
+	]]
+
+	local AnyValidClassToMethodFilters = {}
+	
+	--// methods \\--
+	for Method, Classes in NamecallMethods do
+		for ClassName in Classes do
+			table.insert(AnyValidClassToMethodFilters, AllFilter.new({
+				InstanceTypeFilter.new(1, ClassName),
+				NamecallFilter.new(Method),
+			}))
+		end
 	end
 
+	table.insert(Filters, AnyFilter.new(AnyValidClassToMethodFilters))
 	return Filters
 end)())
 
@@ -260,7 +278,28 @@ do
 	UnreliableRemoteEvent:Destroy()
 end
 
-local FunctionHookFilter = (AllFilter and ArgumentFilter) and AllFilter.new(CreateBaseFilter())
+local FunctionHookFilter = SupportsFilters and AllFilter.new((function()
+	local Filters = CreateBaseFilter()
+
+	--[[
+		AllFilter:
+			not communicator
+			not actor communicator
+			AnyFilter:
+				RemoteEvent
+				RemoteFunction
+				UnreliableRemoteEvent
+				BindableEvent
+				BindableFunction
+	]]
+	local ClassFilters = {}
+	for ClassName in AllowedClassNames do
+		table.insert(ClassFilters, InstanceTypeFilter.new(1, ClassName))
+	end
+
+	table.insert(Filters, AnyFilter.new(ClassFilters))
+	return Filters
+end)())
 
 for _, Function in next, FunctionsToHook do
 	local Method = debug.info(Function, "n")
