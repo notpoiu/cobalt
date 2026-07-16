@@ -357,7 +357,7 @@ local function LuaEncode(inputTable, options)
         end
 
         TypeCases["function"] = function(value)
-            -- We can't serialize functions so we just return a comment block with function information
+            -- We can't serialize functions, so emit a stub with a comment block of metadata
             local FunctionName, ArgumentCount, VarArg, Line = debug.info(value, "nal")
 
             local Arguments = {}
@@ -365,28 +365,26 @@ local function LuaEncode(inputTable, options)
                 Arguments[Index] = string_format("arg%d", Index)
             end
 
+            local BodyIndent = IndentString .. IndentStringBase
+            local Details = {
+                `Name: {FunctionName == "" and "Anonymous Function" or FunctionName} | Line: {Line}`,
+                if islclosure(value)
+                    then `Upvalues: {#debug.getupvalues(value)}`
+                    else "Upvalues: N/A (C Closure)",
+                if getfunctionhash
+                    then if islclosure(value)
+                        then `Function Hash: {getfunctionhash(value)}`
+                        else "Function Hash: N/A (C Closure)"
+                    else "Function Hash: N/A (getfunctionhash == nil)",
+            }
+            if OutputWarnings then
+                Details[#Details + 1] = "LuaEncode: Unable to serialize function"
+            end
+
             return string_format(
-                [[function(%s)%s%s%s%s%sreturn%send]],
+                [[function(%s)%sreturn%send]],
                 `{table_concat(Arguments, ", ")}{VarArg and `{Arguments[1] and ", " or ""}...` or ""}`,
-
-                `{CodegenNewline}{IndentString}{IndentStringBase}-- Name: {FunctionName == "" and "Anonymous Function" or FunctionName} | Line: {Line}`,
-
-                `{CodegenNewline}{IndentString}{IndentStringBase}-- {islclosure(value) and `Upvalues: {#debug.getupvalues(
-                    value
-                )}` or "Upvalues: N/A (C Closure)"}`,
-
-                `{CodegenNewline}{IndentString}{IndentStringBase}-- `
-                    .. (
-                        getfunctionhash
-                            and `{islclosure(value) and `Function Hash: {getfunctionhash(value)}` or "Function Hash: N/A (C Closure)"}`
-                        or "Function Hash: N/A (getfunctionhash == nil)"
-                    ),
-
-                OutputWarnings
-                        and `{CodegenNewline}{IndentString}{IndentStringBase}-- LuaEncode: Unable to serialize function`
-                    or "",
-
-                `{CodegenNewline}{IndentString}{IndentStringBase}`,
+                `{CodegenNewline}{BodyIndent}{CommentBlock(table_concat(Details, CodegenNewline .. BodyIndent))}{CodegenNewline}{BodyIndent}`,
                 `{CodegenNewline}{IndentString}`
             )
         end
