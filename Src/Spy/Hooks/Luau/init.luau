@@ -227,9 +227,7 @@ return function(Options: Options?)
 			until Hooked or Attempts > 10
 
 			if Hooked then
-				pcall(function()
-					Channel:Fire("MainCallFiltersSync", wax.shared.CallFilters:GetAll())
-				end)
+				pcall(Channel.Fire, Channel, "MainCallFiltersSync", wax.shared.CallFilters:GetAll())
 			end
 		end
 
@@ -305,9 +303,7 @@ return function(Options: Options?)
 		end
 
 		if wax.shared.ActorCommunicator then
-			pcall(function()
-				wax.shared.ActorCommunicator:Fire("Unload")
-			end)
+			pcall(wax.shared.ActorCommunicator.Fire, wax.shared.ActorCommunicator, "Unload")
 		end
 	end
 end

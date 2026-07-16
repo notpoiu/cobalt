@@ -143,31 +143,47 @@ return function(props: {
 	LogsPage.LogList = LogList
 	LogsPage.LogCalls = LogCalls
 
-	wax.shared.Connect(wax.shared.Communicator.Event:Connect(function(Instance, Type, CallIndex, LogIndex)
-		local CurrentTab = LogList.CurrentTab
-		if not (CurrentTab and CurrentTab.Name == Type) then
+	wax.shared.Connect(wax.shared.Communicator.Event:Connect(function(Batch)
+		if typeof(Batch) ~= "table" then
 			return
 		end
 
-		-- RakNet callbacks can expose an equivalent Instance through a different
-		-- userdata identity. BindableEvents also strip table metatables, so pass a
-		-- scalar index and resolve the original Log in this context instead.
-		local Log = wax.shared.Logs[Type][Instance]
-		if not Log and LogIndex ~= nil then
-			for _, Candidate in wax.shared.Logs[Type] do
-				if Candidate.Index == LogIndex then
-					Log = Candidate
-					break
+		local CurrentTab = LogList.CurrentTab
+		if not CurrentTab then
+			return
+		end
+
+		for _, Notification in Batch do
+			local Type = Notification.Type
+			if CurrentTab.Name ~= Type then
+				continue
+			end
+
+			local Instance = Notification.Instance
+			local CallIndex = Notification.CallIndex
+			local LogIndex = Notification.LogIndex
+
+			-- RakNet callbacks can expose an equivalent Instance through a different
+			-- userdata identity. BindableEvents also strip table metatables, so pass a
+			-- scalar index and resolve the original Log in this context instead.
+			local Log = wax.shared.Logs[Type][Instance]
+			if not Log and LogIndex ~= nil then
+				for _, Candidate in wax.shared.Logs[Type] do
+					if Candidate.Index == LogIndex then
+						Log = Candidate
+						break
+					end
 				end
 			end
-		end
-		if not Log or #Log.Calls == 0 then
-			return
-		end
 
-		LogList:EnsureLogButton(Log)
-		LogList:QueueLogButtonUpdate(Log)
-		LogCalls:HandleCallAdded(Log, CallIndex)
+			if not Log or #Log.Calls == 0 then
+				continue
+			end
+
+			LogList:EnsureLogButton(Log)
+			LogList:QueueLogButtonUpdate(Log)
+			LogCalls:HandleCallAdded(Log, CallIndex)
+		end
 	end))
 
 	wax.shared.Connect(wax.shared.UserInputService.InputBegan:Connect(function(InputObject: InputObject)

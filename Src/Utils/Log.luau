@@ -21,38 +21,48 @@ local function QueueNotification(LogObject, CallIndex: number)
 	}
 end
 
+--// Auto Ignore Constants \\--
+local SpamCallCountThreshold = 15
+local SpamTimeWindowSeconds = 1
+local AutoIgnoreSpammyEvents = false
+
 if not wax.shared.IS_ACTOR then
 	wax.shared.Connect(wax.shared.RunService.Heartbeat:Connect(function()
 		local Queue = wax.shared.LogNotificationQueue
 		local Tail = Queue.Tail
 
+		if Queue.Head > Tail then
+			return
+		end
+
+		local Batch = {}
+		local BatchSize = 0
 		while Queue.Head <= Tail do
 			local Notification = Queue.Items[Queue.Head]
 			Queue.Items[Queue.Head] = nil
 			Queue.Head += 1
 
-			local Communicator = wax.shared.Communicator
-			if Communicator and Notification then
-				Communicator:Fire(
-					Notification.Instance,
-					Notification.Type,
-					Notification.CallIndex,
-					Notification.LogIndex
-				)
+			if Notification then
+				BatchSize += 1
+				Batch[BatchSize] = Notification
 			end
 		end
 
-		if Queue.Head > Queue.Tail then
-			table.clear(Queue.Items)
-			Queue.Head = 1
-			Queue.Tail = 0
+		table.clear(Queue.Items)
+		Queue.Head = 1
+		Queue.Tail = 0
+
+		if BatchSize > 0 then
+			local Communicator = wax.shared.Communicator
+			if Communicator then
+				AutoIgnoreSpammyEvents = wax.shared.SaveManager:GetState("AutoIgnoreSpammyEvents", false)
+				Communicator:Fire(Batch)
+			end
+
+			table.clear(Batch)
 		end
 	end))
 end
-
---// Auto Ignore Constants \\--
-local SpamCallCountThreshold = 15
-local SpamTimeWindowSeconds = 1
 
 --// Actor Table Fixing \\--
 local FunctionToMetatadata, FixTable
@@ -184,39 +194,89 @@ do
 end
 
 --// Cloning \\--
-function DeepClone(orig, copies)
+function DeepClone(OriginalValue, ValueCopies)
 	if wax.shared.IS_ACTOR then
-		return orig
+		return OriginalValue
 	end
 
-	copies = copies or {}
+	local OriginalType = type(OriginalValue)
+	if OriginalType ~= "table" then
+		if OriginalType == "string" or OriginalType == "number" or OriginalType == "boolean" or OriginalValue == nil then
+			return OriginalValue
+		end
 
-	if typeof(orig) == "Instance" then
-		return cloneref(orig)
-	elseif typeof(orig) == "userdata" then
-		if getmetatable(orig) then
-			return newproxy(true)
+		local RobloxType = typeof(OriginalValue)
+		if RobloxType == "Instance" then
+			return cloneref(OriginalValue)
+	
+		elseif RobloxType == "userdata" then
+			if getmetatable(OriginalValue) then
+				return newproxy(true)
+			else
+				return newproxy()
+			end
+
+		elseif RobloxType == "function" then
+			if clonefunction then
+				return clonefunction(OriginalValue)
+			else
+				return OriginalValue
+			end
+		end
+
+		return OriginalValue
+	end
+
+	-- Cycle detection
+	if ValueCopies then
+		local CachedValue = ValueCopies[OriginalValue]
+		if CachedValue then
+			return CachedValue
+		end
+	else
+		ValueCopies = {}
+	end
+
+	-- Shallow copy first, then selectively recurse
+	local ShallowCopy = {}
+	ValueCopies[OriginalValue] = ShallowCopy
+
+	for Key, Value in next, OriginalValue do
+		local ValueType = type(Value)
+
+		if ValueType == "table" then
+			ShallowCopy[Key] = DeepClone(Value, ValueCopies)
+
+		elseif ValueType == "userdata" then
+			local ValueRobloxType = typeof(Value)
+
+			if ValueRobloxType == "Instance" then
+				ShallowCopy[Key] = cloneref(Value)
+
+			elseif ValueRobloxType == "userdata" then
+				if getmetatable(Value) then
+					ShallowCopy[Key] = newproxy(true)
+				else
+					ShallowCopy[Key] = newproxy()
+				end
+
+			else
+				ShallowCopy[Key] = Value
+			end
+
+		elseif ValueType == "function" then
+			if clonefunction then
+				ShallowCopy[Key] = clonefunction(Value)
+			else
+				ShallowCopy[Key] = Value
+			end
+	
 		else
-			return newproxy()
+			ShallowCopy[Key] = Value
 		end
-	elseif typeof(orig) == "function" then
-		if clonefunction then
-			return clonefunction(orig)
-		end
-
-		return orig
-	elseif type(orig) ~= "table" then
-		return orig
-	elseif copies[orig] then
-		return copies[orig]
 	end
 
-	local copy = {}
-	copies[orig] = copy
-	for k, v in next, orig do
-		copy[DeepClone(k, copies)] = DeepClone(v, copies)
-	end
-	return copy
+	return ShallowCopy
 end
 
 if wax.shared.IS_ACTOR then
@@ -232,7 +292,8 @@ function Log.new(Instance, Type, Index, CallingScript)
 		Index = Index,
 		Calls = {},
 		GameCalls = {},
-		SpamHistory = {},
+		SpamWindowStart = 0,
+		SpamCallCount = 0,
 		Ignored = false,
 		Blocked = false,
 		Button = nil,
@@ -242,22 +303,21 @@ function Log.new(Instance, Type, Index, CallingScript)
 end
 
 function Log:IsOverSpamThreshold()
-	if not wax.shared.SaveManager:GetState("AutoIgnoreSpammyEvents", false) then
+	if not AutoIgnoreSpammyEvents then
 		return false
 	end
 
 	local Now = tick()
-	table.insert(self.SpamHistory, Now)
-
-	for i = #self.SpamHistory, 1, -1 do
-		if Now - self.SpamHistory[i] > SpamTimeWindowSeconds then
-			table.remove(self.SpamHistory, i)
-		end
+	if Now - self.SpamWindowStart > SpamTimeWindowSeconds then
+		self.SpamWindowStart = Now
+		self.SpamCallCount = 0
 	end
 
-	if #self.SpamHistory > SpamCallCountThreshold then
+	self.SpamCallCount = self.SpamCallCount + 1
+
+	if self.SpamCallCount > SpamCallCountThreshold then
 		if not self.Ignored then
-			self:Ignore()
+			self.Ignore(self)
 			wax.shared.Sonner.info(`Ignored {self.Instance.Name} ({self.Type}) due to event spam.`)
 		end
 
@@ -276,6 +336,7 @@ local function RunInterceptors(Interceptors: { (...any) -> ...any }, Info: any, 
 			return true
 		end
 	end
+
 	return false
 end
 
@@ -318,11 +379,7 @@ function Log:Call(RawInfo): number?
 
 	--// Ratelimiting \\--
 	if not wax.shared.IS_ACTOR then
-		local Success, Data = pcall(function()
-			return self:IsOverSpamThreshold()
-		end)
-
-		if Success and Data then
+		if self.IsOverSpamThreshold(self) then
 			return nil
 		end
 	end
@@ -419,9 +476,7 @@ function Log:Ignore()
 
 	if not wax.shared.IS_ACTOR then
 		if wax.shared.ActorCommunicator then
-			pcall(function()
-				wax.shared.ActorCommunicator:Fire("MainIgnore", self.Instance, self.Type)
-			end)
+			pcall(wax.shared.ActorCommunicator.Fire, wax.shared.ActorCommunicator, "MainIgnore", self.Instance, self.Type)
 		end
 
 		local IgnoredRemoteList = wax.shared.Settings["IgnoredRemotes"]
@@ -467,9 +522,7 @@ end
 
 function Log:Block()
 	if not wax.shared.IS_ACTOR and wax.shared.ActorCommunicator then
-		pcall(function()
-			wax.shared.ActorCommunicator:Fire("MainBlock", self.Instance, self.Type)
-		end)
+		pcall(wax.shared.ActorCommunicator.Fire, wax.shared.ActorCommunicator, "MainBlock", self.Instance, self.Type)
 	end
 
 	self.Blocked = not self.Blocked

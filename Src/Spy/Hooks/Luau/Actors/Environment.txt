@@ -1859,38 +1859,48 @@ do
 		}
 	end
 
+	--// Auto Ignore Constants \\--
+	local SpamCallCountThreshold = 15
+	local SpamTimeWindowSeconds = 1
+	local AutoIgnoreSpammyEvents = false
+
 	if not wax.shared.IS_ACTOR then
 		wax.shared.Connect(wax.shared.RunService.Heartbeat:Connect(function()
 			local Queue = wax.shared.LogNotificationQueue
 			local Tail = Queue.Tail
 
+			if Queue.Head > Tail then
+				return
+			end
+
+			local Batch = {}
+			local BatchSize = 0
 			while Queue.Head <= Tail do
 				local Notification = Queue.Items[Queue.Head]
 				Queue.Items[Queue.Head] = nil
 				Queue.Head += 1
 
-				local Communicator = wax.shared.Communicator
-				if Communicator and Notification then
-					Communicator:Fire(
-						Notification.Instance,
-						Notification.Type,
-						Notification.CallIndex,
-						Notification.LogIndex
-					)
+				if Notification then
+					BatchSize += 1
+					Batch[BatchSize] = Notification
 				end
 			end
 
-			if Queue.Head > Queue.Tail then
-				table.clear(Queue.Items)
-				Queue.Head = 1
-				Queue.Tail = 0
+			table.clear(Queue.Items)
+			Queue.Head = 1
+			Queue.Tail = 0
+
+			if BatchSize > 0 then
+				local Communicator = wax.shared.Communicator
+				if Communicator then
+					AutoIgnoreSpammyEvents = wax.shared.SaveManager:GetState("AutoIgnoreSpammyEvents", false)
+					Communicator:Fire(Batch)
+				end
+
+				table.clear(Batch)
 			end
 		end))
 	end
-
-	--// Auto Ignore Constants \\--
-	local SpamCallCountThreshold = 15
-	local SpamTimeWindowSeconds = 1
 
 	--// Actor Table Fixing \\--
 	local FunctionToMetatadata, FixTable
@@ -2022,39 +2032,89 @@ do
 	end
 
 	--// Cloning \\--
-	function DeepClone(orig, copies)
+	function DeepClone(OriginalValue, ValueCopies)
 		if wax.shared.IS_ACTOR then
-			return orig
+			return OriginalValue
 		end
 
-		copies = copies or {}
+		local OriginalType = type(OriginalValue)
+		if OriginalType ~= "table" then
+			if OriginalType == "string" or OriginalType == "number" or OriginalType == "boolean" or OriginalValue == nil then
+				return OriginalValue
+			end
 
-		if typeof(orig) == "Instance" then
-			return cloneref(orig)
-		elseif typeof(orig) == "userdata" then
-			if getmetatable(orig) then
-				return newproxy(true)
+			local RobloxType = typeof(OriginalValue)
+			if RobloxType == "Instance" then
+				return cloneref(OriginalValue)
+		
+			elseif RobloxType == "userdata" then
+				if getmetatable(OriginalValue) then
+					return newproxy(true)
+				else
+					return newproxy()
+				end
+
+			elseif RobloxType == "function" then
+				if clonefunction then
+					return clonefunction(OriginalValue)
+				else
+					return OriginalValue
+				end
+			end
+
+			return OriginalValue
+		end
+
+		-- Cycle detection
+		if ValueCopies then
+			local CachedValue = ValueCopies[OriginalValue]
+			if CachedValue then
+				return CachedValue
+			end
+		else
+			ValueCopies = {}
+		end
+
+		-- Shallow copy first, then selectively recurse
+		local ShallowCopy = {}
+		ValueCopies[OriginalValue] = ShallowCopy
+
+		for Key, Value in next, OriginalValue do
+			local ValueType = type(Value)
+
+			if ValueType == "table" then
+				ShallowCopy[Key] = DeepClone(Value, ValueCopies)
+
+			elseif ValueType == "userdata" then
+				local ValueRobloxType = typeof(Value)
+
+				if ValueRobloxType == "Instance" then
+					ShallowCopy[Key] = cloneref(Value)
+
+				elseif ValueRobloxType == "userdata" then
+					if getmetatable(Value) then
+						ShallowCopy[Key] = newproxy(true)
+					else
+						ShallowCopy[Key] = newproxy()
+					end
+
+				else
+					ShallowCopy[Key] = Value
+				end
+
+			elseif ValueType == "function" then
+				if clonefunction then
+					ShallowCopy[Key] = clonefunction(Value)
+				else
+					ShallowCopy[Key] = Value
+				end
+		
 			else
-				return newproxy()
+				ShallowCopy[Key] = Value
 			end
-		elseif typeof(orig) == "function" then
-			if clonefunction then
-				return clonefunction(orig)
-			end
-
-			return orig
-		elseif type(orig) ~= "table" then
-			return orig
-		elseif copies[orig] then
-			return copies[orig]
 		end
 
-		local copy = {}
-		copies[orig] = copy
-		for k, v in next, orig do
-			copy[DeepClone(k, copies)] = DeepClone(v, copies)
-		end
-		return copy
+		return ShallowCopy
 	end
 
 	if wax.shared.IS_ACTOR then
@@ -2070,7 +2130,8 @@ do
 			Index = Index,
 			Calls = {},
 			GameCalls = {},
-			SpamHistory = {},
+			SpamWindowStart = 0,
+			SpamCallCount = 0,
 			Ignored = false,
 			Blocked = false,
 			Button = nil,
@@ -2080,22 +2141,21 @@ do
 	end
 
 	function Log:IsOverSpamThreshold()
-		if not wax.shared.SaveManager:GetState("AutoIgnoreSpammyEvents", false) then
+		if not AutoIgnoreSpammyEvents then
 			return false
 		end
 
 		local Now = tick()
-		table.insert(self.SpamHistory, Now)
-
-		for i = #self.SpamHistory, 1, -1 do
-			if Now - self.SpamHistory[i] > SpamTimeWindowSeconds then
-				table.remove(self.SpamHistory, i)
-			end
+		if Now - self.SpamWindowStart > SpamTimeWindowSeconds then
+			self.SpamWindowStart = Now
+			self.SpamCallCount = 0
 		end
 
-		if #self.SpamHistory > SpamCallCountThreshold then
+		self.SpamCallCount = self.SpamCallCount + 1
+
+		if self.SpamCallCount > SpamCallCountThreshold then
 			if not self.Ignored then
-				self:Ignore()
+				self.Ignore(self)
 				wax.shared.Sonner.info(`Ignored {self.Instance.Name} ({self.Type}) due to event spam.`)
 			end
 
@@ -2114,6 +2174,7 @@ do
 				return true
 			end
 		end
+
 		return false
 	end
 
@@ -2156,11 +2217,7 @@ do
 
 		--// Ratelimiting \\--
 		if not wax.shared.IS_ACTOR then
-			local Success, Data = pcall(function()
-				return self:IsOverSpamThreshold()
-			end)
-
-			if Success and Data then
+			if self.IsOverSpamThreshold(self) then
 				return nil
 			end
 		end
@@ -2257,9 +2314,7 @@ do
 
 		if not wax.shared.IS_ACTOR then
 			if wax.shared.ActorCommunicator then
-				pcall(function()
-					wax.shared.ActorCommunicator:Fire("MainIgnore", self.Instance, self.Type)
-				end)
+				pcall(wax.shared.ActorCommunicator.Fire, wax.shared.ActorCommunicator, "MainIgnore", self.Instance, self.Type)
 			end
 
 			local IgnoredRemoteList = wax.shared.Settings["IgnoredRemotes"]
@@ -2305,9 +2360,7 @@ do
 
 	function Log:Block()
 		if not wax.shared.IS_ACTOR and wax.shared.ActorCommunicator then
-			pcall(function()
-				wax.shared.ActorCommunicator:Fire("MainBlock", self.Instance, self.Type)
-			end)
+			pcall(wax.shared.ActorCommunicator.Fire, wax.shared.ActorCommunicator, "MainBlock", self.Instance, self.Type)
 		end
 
 		self.Blocked = not self.Blocked
@@ -2453,63 +2506,93 @@ do
 		@return function Returns a function that logs all calls to the given instance and method.
 	]]
 	local function CreateConnectionFunction(Instance: InstancesToHook, Method: MethodsToHook)
+		local CachedConnectionInfo = nil
+		local CachedConnectionCount = -1
+
 		local ConnectionFunction = function(...)
-			local HasValidConnections = false
-			local HasForeignLuaConnections = false
+			--// Skip if this remote is already ignored \\--
+			local ExistingLog = wax.shared.Logs.Incoming[Instance]
+			if ExistingLog and ExistingLog.Ignored then
+				return
+			end
+
+			local Signal = (Instance :: any)[Method]
+			local Connections = getconnections(Signal)
+			local ConnectionCount = #Connections
+
+			-- Only re-analyze connections when the count changes (connect/disconnect)
+			if ConnectionCount ~= CachedConnectionCount then
+				CachedConnectionCount = ConnectionCount
+
+				local Information = {
+					HasValidConnections = false,
+					HasForeignLuaConnections = false,
+					Entries = {},
+				}
+
+				for _, Connection in Connections do
+					--// Foreign State Connections \\--
+					if Connection.ForeignState then
+						--// It is a Lua Connection - Other Actor's Connections \\--
+						if Connection.LuaConnection then
+							Information.HasForeignLuaConnections = true
+						end
+
+						continue
+					end
+
+					--// Get Function \\--
+					local Function = typeof(Connection.Function) == "function" and (Connection.Function) or (nil)
+					if IsCobaltConnectionFunction(Function) then
+						continue
+					end
+
+					Information.HasValidConnections = true
+
+					--// Get Origin \\--
+					local Thread = Connection.Thread
+					local Origin = nil
+
+					if Thread and getscriptfromthread then
+						Origin = getscriptfromthread(Thread)
+					end
+
+					if not Origin and Function then
+						-- ts is unreliable because people could js set the script global to nil
+						-- if only debug.getinfo(Function).source or debug.info(Function, "s") returned an Instance...
+
+						local Script = rawget(getfenv(Function), "script")
+						if typeof(Script) == "Instance" then
+							Origin = Script
+						end
+					end
+
+					table.insert(Information.Entries, {
+						Function = Function,
+						Origin = Origin,
+						IsExecutor = Function and isexecutorclosure(Function) or false,
+					})
+				end
+
+				CachedConnectionInfo = Information
+			end
 
 			local Arguments = wax.shared.SafePack.Pack(...)
-
 			local TargetLog, TargetCallIndex
-			for _, Connection in getconnections((Instance :: any)[Method]) do
-				--// Foreign State Connections \\--
-				if Connection.ForeignState then
-					--// It is a Lua Connection - Other Actor's Connections \\--
-					if Connection.LuaConnection then
-						HasForeignLuaConnections = true
-					end
 
-					continue
+			--// Log Remote \\--
+			if CachedConnectionInfo.HasValidConnections then
+				for _, Entry in CachedConnectionInfo.Entries do
+					TargetLog, TargetCallIndex = select(2, LogRemote(Instance, Entry.Function, {
+						Arguments = Arguments,
+						Origin = Entry.Origin,
+						Function = Entry.Function,
+						Line = nil,
+						IsExecutor = Entry.IsExecutor,
+					}))
 				end
 
-				--// Get Function \\--
-				local Function = typeof(Connection.Function) == "function" and Connection.Function or nil
-				local IsCobaltConnection = IsCobaltConnectionFunction(Function)
-
-				if IsCobaltConnection then
-					continue
-				end
-
-				HasValidConnections = true
-
-				--// Get Origin \\--
-				local Thread = Connection.Thread
-				local Origin = nil
-
-				if Thread and getscriptfromthread then
-					Origin = getscriptfromthread(Thread)
-				end
-
-				if not Origin and Function then
-					-- ts is unreliable because people could js set the script global to nil
-					-- if only debug.getinfo(Function).source or debug.info(Function, "s") returned an Instance...
-
-					local Script = rawget(getfenv(Function), "script")
-					if typeof(Script) == "Instance" then
-						Origin = Script
-					end
-				end
-
-				--// Log Remote \\--
-				TargetLog, TargetCallIndex = select(2, LogRemote(Instance, Function, {
-					Arguments = Arguments,
-					Origin = Origin,
-					Function = Function,
-					Line = nil,
-					IsExecutor = Function and isexecutorclosure(Function) or false,
-				}))
-			end
-			
-			if not HasValidConnections and not wax.shared.IS_ACTOR then
+			elseif not wax.shared.IS_ACTOR then
 				TargetLog, TargetCallIndex = select(2, LogRemote(Instance, nil, {
 					Arguments = Arguments,
 					Origin = nil,
@@ -2519,20 +2602,22 @@ do
 				}))
 			end
 
-			if
-				not wax.shared.IS_ACTOR
-				and HasForeignLuaConnections
-				and TargetLog
-				and TargetCallIndex
-				and wax.shared.ActorCommunicator
-			then
-				wax.shared.ActorCommunicator:Fire(
-					"InspectIncomingConnections",
-					Instance,
-					Method,
-					TargetLog.Index,
-					TargetCallIndex
-				)
+			local Communicator = wax.shared.ActorCommunicator
+			if Communicator then
+				if
+					not wax.shared.IS_ACTOR
+					and CachedConnectionInfo.HasForeignLuaConnections
+					and TargetLog
+					and TargetCallIndex
+				then
+					Communicator:Fire(
+						"InspectIncomingConnections",
+						Instance,
+						Method,
+						TargetLog.Index,
+						TargetCallIndex
+					)
+				end
 			end
 		end
 
