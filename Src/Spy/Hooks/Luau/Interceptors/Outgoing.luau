@@ -210,23 +210,16 @@ local NamecallHookFilter = SupportsFilters and AllFilter.new((function()
 			not communicator
 			not actor communicator
 			AnyFilter:
-				AllFilter:
-					RemoteEvent + FireServer
-				AllFilter:
-					RemoteFunction + InvokeServer
+				FireServer
+				invokeServer
 				...
 	]]
 
 	local AnyValidClassToMethodFilters = {}
 	
 	--// methods \\--
-	for Method, Classes in NamecallMethods do
-		for ClassName in Classes do
-			table.insert(AnyValidClassToMethodFilters, AllFilter.new({
-				InstanceTypeFilter.new(1, ClassName),
-				NamecallFilter.new(Method),
-			}))
-		end
+	for Method in NamecallMethods do
+		table.insert(AnyValidClassToMethodFilters, NamecallFilter.new(Method))
 	end
 
 	table.insert(Filters, AnyFilter.new(AnyValidClassToMethodFilters))
