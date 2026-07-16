@@ -183,8 +183,8 @@ local function HandleLogging(TargetInstance: Instance, Method: string, OldFuncti
 	return OldFunction(...)
 end
 
-
-local SupportsFilters = (AllFilter and ArgumentFilter and InstanceTypeFilter and NotFilter and AnyFilter)
+--#region Hook Filters
+local SupportsFilters = wax.shared.ExecutorSupport["FilterBase"].IsWorking
 
 --[[
 	Creates a base filter for the outgoing hooks.
@@ -193,6 +193,9 @@ local SupportsFilters = (AllFilter and ArgumentFilter and InstanceTypeFilter and
 ]]
 local function CreateBaseFilter()
 	local Filters = {}
+	if not SupportsFilters then
+		return Filters
+	end
 
 	--// ignore communicator \\--
 	table.insert(Filters, NotFilter.new(ArgumentFilter.new(1, wax.shared.Communicator)))
@@ -201,7 +204,6 @@ local function CreateBaseFilter()
 	return Filters
 end
 
--- metamethod hooks
 local NamecallHookFilter = SupportsFilters and AllFilter.new((function()
 	local Filters = CreateBaseFilter()
 
@@ -234,7 +236,9 @@ local NamecallHookFilter = SupportsFilters and AllFilter.new((function()
 	table.insert(Filters, AnyFilter.new(AnyNamecallMethoFilters))
     return Filters
 end)())
+--#endregion
 
+-- namecall hook
 wax.shared.NamecallHook = wax.shared.Hooking.HookMetaMethod(game, "__namecall", function(...)
 	local self = ...
 	local Method = getnamecallmethod()

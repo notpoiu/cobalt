@@ -273,6 +273,15 @@ test("setstackhidden", function()
 	assert(IsHidden == true, "setstackhidden did not hide the function from the stack (error with level traceback)")
 end, { Essential = false, DetectionRisk = true })
 
+test("FilterBase", function()
+	assert(AllFilter ~= nil, "AllFilter not found")
+	assert(AnyFilter ~= nil, "AnyFilter not found")
+	assert(NotFilter ~= nil, "NotFilter not found")
+	assert(ArgumentFilter ~= nil, "ArgumentFilter not found")
+	assert(InstanceTypeFilter ~= nil, "InstanceTypeFilter not found")
+	assert(NamecallFilter ~= nil, "NamecallFilter not found")
+end, { Essential = false, DetectionRisk = false })
+
 -- Oth Library
 test("oth", function()
 	assert(oth ~= nil, "oth library not found")
