@@ -95,6 +95,22 @@ local function LogRemote(
 	return ShouldBlock, Log, CallIndex
 end
 
+--[[
+	Creates a base filter for the incoming hooks.
+
+	@return `table` The base filter.
+]]
+local function CreateBaseFilter()
+	local Filters = {}
+
+	--// allowed classnames \\--
+	for ClassName in ClassesToHook do
+		table.insert(Filters, InstanceTypeFilter.new(1, ClassName))
+	end
+
+	return Filters
+end
+
 --#region Incoming Connection Stuff
 local function IsCobaltConnectionFunction(Function): boolean
 	if not Function then
@@ -433,6 +449,8 @@ end
 	Creates a hook that intercepts .OnInvoke & .OnClientInvoke assignments and detours them to log the calls.
 ]]
 local function SetupCallbackAssignmentHook()
+	local NewIndexHookFilter = (AllFilter and InstanceTypeFilter) and AllFilter.new(CreateBaseFilter())
+	
 	wax.shared.NewIndexHook = wax.shared.Hooking.HookMetaMethod(game, "__newindex", function(...)
 		local self, key, value = ...
 
@@ -459,7 +477,7 @@ local function SetupCallbackAssignmentHook()
 		end
 
 		return wax.shared.NewIndexHook(...)
-	end)
+	end, NewIndexHookFilter)
 end
 
 --[[
