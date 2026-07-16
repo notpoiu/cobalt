@@ -95,7 +95,8 @@ local function LogRemote(
 	return ShouldBlock, Log, CallIndex
 end
 
-local SupportsFilters = (AllFilter and ArgumentFilter and InstanceTypeFilter and NotFilter and AnyFilter)
+--#region Hook Filters
+local SupportsFilters = wax.shared.ExecutorSupport["FilterBase"].IsWorking
 
 --[[
 	Creates a base filter for the incoming hooks.
@@ -104,6 +105,9 @@ local SupportsFilters = (AllFilter and ArgumentFilter and InstanceTypeFilter and
 ]]
 local function CreateBaseFilter()
 	local Filters = {}
+	if not SupportsFilters then
+		return Filters
+	end
 
 	--// allowed classnames \\--
 	for ClassName in ClassesToHook do
@@ -112,6 +116,7 @@ local function CreateBaseFilter()
 
 	return Filters
 end
+--#endregion
 
 --#region Incoming Connection Stuff
 local function IsCobaltConnectionFunction(Function): boolean
@@ -267,7 +272,6 @@ local function CreateConnectionFunction(Instance: InstancesToHook, Method: Metho
 	LogConnectionFunctions[ConnectionFunction] = true
 	return ConnectionFunction
 end
-
 --#endregion
 
 --#region Incoming Callback Stuff
