@@ -203,13 +203,7 @@ return function(props: {
 
 		Settings.OthHooks:SetupOption(CaptureSection, {
 			PreSetCallback = function(value)
-				local Support = wax.shared.ExecutorSupport["oth"]
-				if not Support.IsWorking then
-					wax.shared.Sonner.error("Oth hooks are not supported by your executor:\n\n" .. Support.Details)
-					return false
-				end
-
-				return not value
+				return Window.Dialogs.Oth.Confirm(Window, value)
 			end,
 		})
 
