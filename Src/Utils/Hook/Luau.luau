@@ -74,7 +74,11 @@ Hooking.HookMetaMethod = function(object, method, hook, filter)
 		return nil
 	end
 
-	return hookmetamethod(object, method, hook, true, filter)
+	if filter then
+		return hookmetamethod(object, method, hook, true, filter)
+	end
+	
+	return hookmetamethod(object, method, hook)
 end
 
 return Hooking
